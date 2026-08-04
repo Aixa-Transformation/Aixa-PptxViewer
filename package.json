@@ -1,12 +1,24 @@
 {
-  "name": "@naveen-aixa/pptx-viewer-workspace",
+  "name": "@aixa-transformation/pptx-viewer-workspace",
+  "version": "2.0.2",
+  "description": "Aixa Ltd PowerPoint viewer and editor monorepo.",
   "private": true,
+  "license": "Apache-2.0",
+  "author": "Aixa Ltd",
+  "homepage": "https://github.com/Aixa-Transformation/Aixa-PptxViewer#readme",
+  "bugs": {
+    "url": "https://github.com/Aixa-Transformation/Aixa-PptxViewer/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aixa-Transformation/Aixa-PptxViewer.git"
+  },
   "workspaces": [
     "packages/core",
     "packages/shared",
     "packages/react"
   ],
   "scripts": {
-    "build": "npm run build --workspace pptx-viewer-core && npm run build --workspace pptx-viewer-shared && npm run build --workspace @naveen-aixa/pptx-viewer"
+    "build": "npm run build --workspace pptx-viewer-core && npm run build --workspace pptx-viewer-shared && npm run build --workspace @aixa-transformation/pptx-viewer"
   }
 }

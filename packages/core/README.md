@@ -1,7 +1,7 @@
 # pptx-viewer-core
 
 [![npm version](https://img.shields.io/npm/v/pptx-viewer-core.svg)](https://www.npmjs.com/package/pptx-viewer-core)
-[![license](https://img.shields.io/npm/l/pptx-viewer-core.svg)](https://github.com/ChristopherVR/pptx-viewer/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/pptx-viewer-core.svg)](https://github.com/Aixa-Transformation/Aixa-PptxViewer/blob/main/LICENSE)
 [![types](https://img.shields.io/npm/types/pptx-viewer-core.svg)](https://www.npmjs.com/package/pptx-viewer-core)
 
 > A TypeScript library that **reads, creates, edits, and saves** PowerPoint (`.pptx`) files. It runs in the browser and in Node.js, with no native or system dependencies.
@@ -10,9 +10,9 @@ Hand it the bytes of a `.pptx` file and it gives you back a structured, fully ty
 
 There is no UI here: this is the engine on its own. Use it directly when you need to process `.pptx` files without a screen, for example on a server, in a script, or in a build step. The same engine powers the [React](https://www.npmjs.com/package/pptx-react-viewer), [Vue](https://www.npmjs.com/package/pptx-vue-viewer), [Angular](https://www.npmjs.com/package/pptx-angular-viewer), [Svelte](https://www.npmjs.com/package/pptx-svelte-viewer), and [Vanilla JavaScript](https://www.npmjs.com/package/pptx-vanilla-viewer) viewers.
 
-![The core engine loading a PPTX into a typed slide model, then saving or converting it](https://raw.githubusercontent.com/ChristopherVR/pptx-viewer/main/.github/assets/packages/core-engine.svg)
+![The core engine loading a PPTX into a typed slide model, then saving or converting it](https://raw.githubusercontent.com/Aixa-Transformation/Aixa-PptxViewer/main/.github/assets/packages/core-engine.svg)
 
-<samp>**[📦 npm](https://www.npmjs.com/package/pptx-viewer-core)** · **[📖 Full docs](https://christophervr.github.io/pptx-viewer/)** · **[▶️ Live demo](https://christophervr.github.io/pptx-viewer/demo/)** · **[Choose a viewer](https://christophervr.github.io/pptx-viewer/guide/installation)**</samp>
+<samp>**[📦 npm](https://www.npmjs.com/package/pptx-viewer-core)** · **[Source](https://github.com/Aixa-Transformation/Aixa-PptxViewer)**</samp>
 
 ---
 
@@ -104,7 +104,7 @@ The builder API comes in three levels, from highest to lowest:
 2. **Element builders**: one per element type, for fine-grained control: `TextBuilder`, `ShapeBuilder`, `ChartBuilder`, `TableBuilder`, `ImageBuilder`, `ConnectorBuilder`, `MediaBuilder`, `GroupBuilder`.
 3. **`PptxXmlBuilder`**: raw XML, for the rare cases the higher levels do not cover.
 
-It also ships unit helpers (`inches`, `cm`, `mm`, `pt`), common slide sizes (`SlideSizes`), and 8 ready-made themes (`ThemePresets`). The [full docs](https://christophervr.github.io/pptx-viewer/) cover every builder.
+It also ships unit helpers (`inches`, `cm`, `mm`, `pt`), common slide sizes (`SlideSizes`), and 8 ready-made themes (`ThemePresets`).
 
 ### Turn a deck into Markdown
 
@@ -149,7 +149,7 @@ To write files to disk, pass a `FileSystemAdapter` (an object with `writeFile`, 
 | `applyTheme`               | `(colors, fonts, name?) => Promise<void>`               | Apply a complete theme                                 |
 | `setPresentationTheme`     | `(path, applyToAll?) => Promise<void>`                  | Load a `.thmx` theme file                              |
 
-The `PptxData` you get from `load()` exposes `slides`, `canvasSize`, `theme`, `slideMasters`, `slideLayouts`, `sections`, `coreProperties`, `embeddedFonts`, and more. See the [full docs](https://christophervr.github.io/pptx-viewer/) for the complete `PptxHandler`, chart/SmartArt, and theme APIs.
+The `PptxData` you get from `load()` exposes `slides`, `canvasSize`, `theme`, `slideMasters`, `slideLayouts`, `sections`, `coreProperties`, `embeddedFonts`, and more.
 
 ## What's supported
 
@@ -176,7 +176,7 @@ A few things worth knowing as you use it:
 - **Shapes are drawn from a built-in catalogue** of 187+ PowerPoint shapes, so curves, arrows, and callouts come out with the right outlines.
 - **Colours follow PowerPoint's theme rules**, so a colour defined as "accent 1, but 20% lighter" resolves to the correct final value for the active theme.
 
-Under the hood the engine is split into many small, focused modules. If you want the full load and save pipeline, the complete type system, and a module-by-module map, see the [full documentation](https://christophervr.github.io/pptx-viewer/).
+Under the hood the engine is split into many small, focused modules.
 
 ## Limitations
 
@@ -185,7 +185,7 @@ Under the hood the engine is split into many small, focused modules. If you want
 - **Chart editing** covers data, categories, and chart type, plus legend, axes (scale, format, titles, gridlines, log/display units), data labels, trendlines, error bars, and per-series/per-point markers and fills. A handful of rarely-used chart properties remain read-only for display.
 - **Strict-format files** (ISO/IEC 29500 Strict) are converted to the more common Transitional form when opened and converted back when saved.
 
-See the [full docs](https://christophervr.github.io/pptx-viewer/) for the details behind each of these.
+See the repository documentation for details behind each of these.
 
 ## License
 

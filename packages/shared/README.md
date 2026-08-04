@@ -11,7 +11,7 @@ Framework-agnostic viewer logic shared by all five `pptx-viewer` UI bindings:
 Everything here is **pure TypeScript with no framework imports**. The goal is one
 canonical copy of cross-framework logic instead of five drifting duplicates.
 
-![One framework-neutral rendering layer feeding React, Vue, Angular, Svelte, and Vanilla JavaScript](https://raw.githubusercontent.com/ChristopherVR/pptx-viewer/main/.github/assets/packages/shared-rendering.svg)
+![One framework-neutral rendering layer feeding React, Vue, Angular, Svelte, and Vanilla JavaScript](https://raw.githubusercontent.com/Aixa-Transformation/Aixa-PptxViewer/main/.github/assets/packages/shared-rendering.svg)
 
 ## What lives here
 

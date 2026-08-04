@@ -11,15 +11,15 @@
 		"shared",
 		"viewer"
 	],
-	"homepage": "https://github.com/ChristopherVR/pptx-viewer",
+	"homepage": "https://github.com/Aixa-Transformation/Aixa-PptxViewer#readme",
 	"bugs": {
-		"url": "https://github.com/ChristopherVR/pptx-viewer/issues"
+		"url": "https://github.com/Aixa-Transformation/Aixa-PptxViewer/issues"
 	},
 	"license": "Apache-2.0",
-	"author": "ChristopherVR",
+	"author": "Aixa Ltd",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/ChristopherVR/pptx-viewer.git",
+		"url": "git+https://github.com/Aixa-Transformation/Aixa-PptxViewer.git",
 		"directory": "packages/shared"
 	},
 	"files": [
