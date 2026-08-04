@@ -1,0 +1,12 @@
+{
+  "name": "@naveen-aixa/pptx-viewer-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/core",
+    "packages/shared",
+    "packages/react"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace pptx-viewer-core && npm run build --workspace pptx-viewer-shared && npm run build --workspace @naveen-aixa/pptx-viewer"
+  }
+}
