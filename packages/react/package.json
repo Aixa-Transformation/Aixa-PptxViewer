@@ -1,6 +1,6 @@
 {
 	"name": "@aixa-transformation/pptx-viewer",
-	"version": "2.0.3",
+	"version": "2.0.9",
 	"publishConfig": {
 		"access": "public"
 	},
@@ -72,7 +72,8 @@
 		"./theme.css": "./src/styles/theme.css"
 	},
 	"scripts": {
-		"build": "tsup && node scripts/copy-public-types.mjs && npm run build:css",
+		"build": "npm run build --workspace pptx-viewer-core && tsup && node scripts/copy-public-types.mjs && npm run build:css",
+		"prepack": "npm run build",
 		"build:css": "npx @tailwindcss/cli -i src/styles/pptx-viewer.css -o dist/pptx-viewer.css --minify",
 		"dev": "tsup --watch",
 		"typecheck": "tsc --noEmit --pretty",

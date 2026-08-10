@@ -123,6 +123,7 @@ export interface ToolbarProps {
 	onSetOverflowMenuOpen: (open: boolean) => void;
 	layoutOptions: Array<{ path: string; name: string }>;
 	onInsertSlideFromLayout: (path: string, name?: string) => void;
+	onApplyLayout?: (path: string) => void;
 	customShows: PptxCustomShow[];
 	activeCustomShowId: string | null;
 	onSetActiveCustomShowId: (id: string | null) => void;

@@ -198,10 +198,17 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const masterMap = masterPath ? this.masterPlaceholderDefaultsCache.get(masterPath) : undefined;
 		const masterDefaults = masterMap?.get(phKey);
 		const normalizedType = this.buildPlaceholderDefaultsKey(phInfo).split('_')[0];
+		// ST_PlaceholderType defaults to `obj` when @type is omitted. Object,
+		// body and subtitle placeholders all inherit the master's bodyStyle.
+		// Treating an omitted type as `other` loses theme colours and paragraph
+		// defaults in strict-OOXML decks (PowerPoint commonly omits it).
+		const effectivePlaceholderType = phInfo.type ?? 'obj';
 		const masterTextStyleType =
-			phInfo.type === 'title' || phInfo.type === 'ctrtitle'
+			effectivePlaceholderType === 'title' || effectivePlaceholderType === 'ctrtitle'
 				? 'title'
-				: phInfo.type === 'body' || phInfo.type === 'obj' || phInfo.type === 'subtitle'
+				: effectivePlaceholderType === 'body' ||
+					  effectivePlaceholderType === 'obj' ||
+					  effectivePlaceholderType === 'subtitle'
 					? 'body'
 					: 'other';
 		const masterTextStyles = masterPath ? this.masterTxStylesCache.get(masterPath) : undefined;

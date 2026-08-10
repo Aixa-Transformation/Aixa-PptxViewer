@@ -129,6 +129,17 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		return type;
 	}
 
+	private placeholderRole(phInfo: PlaceholderInfo): 'title' | 'content' | string {
+		const type = phInfo.type || 'body';
+		if (type === 'title' || type === 'ctrtitle') {
+			return 'title';
+		}
+		if (type === 'body' || type === 'obj' || type === 'subtitle') {
+			return 'content';
+		}
+		return type;
+	}
+
 	// ── Core layout switching logic ─────────────────────────────────────
 
 	/**
@@ -188,6 +199,17 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			if (!resolvedLayoutPh && phInfo.type) {
 				for (const [, lp] of layoutPhMap.entries()) {
 					if (!lp.matched && lp.phInfo.type === phInfo.type) {
+						resolvedLayoutPh = lp;
+						break;
+					}
+				}
+			}
+			// PowerPoint treats centered-title/title and body/object/subtitle
+			// placeholders as compatible roles when switching layout families.
+			if (!resolvedLayoutPh) {
+				const sourceRole = this.placeholderRole(phInfo);
+				for (const [, lp] of layoutPhMap.entries()) {
+					if (!lp.matched && this.placeholderRole(lp.phInfo) === sourceRole) {
 						resolvedLayoutPh = lp;
 						break;
 					}

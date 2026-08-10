@@ -23,6 +23,7 @@ import type { ViewerSettings } from 'pptx-viewer-shared';
 import {
 	applyPreferenceToOptions,
 	buildUserFontFaceStyles,
+	createBackstagePresentation,
 	deleteAutosaveSnapshot,
 	listAutosaveSnapshots,
 	openPptxFile,
@@ -73,6 +74,7 @@ import { useDerivedSlideState } from './hooks/useDerivedSlideState';
 import { useEditorHistory } from './hooks/useEditorHistory';
 import { useEditorOperations } from './hooks/useEditorOperations';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useLayoutSwitching } from './hooks/useLayoutSwitching';
 import { usePresentationSetup } from './hooks/usePresentationSetup';
 import { useReducedMotion } from './hooks/useReducedMotion';
 import { useResizablePanels } from './hooks/useResizablePanels';
@@ -83,6 +85,7 @@ import { useViewerOptions } from './hooks/useViewerOptions';
 // Hooks
 import { useViewerState } from './hooks/useViewerState';
 import { useZoomViewport } from './hooks/useZoomViewport';
+import oasisTemplateDataUrl from '../templates/oasis.pptx';
 import type { PowerPointViewerProps, PowerPointViewerHandle } from './types';
 
 export type { PowerPointViewerProps, PowerPointViewerHandle } from './types';
@@ -645,6 +648,37 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			onSlideCountChange,
 		});
 
+		const layoutSwitching = useLayoutSwitching({
+			handler: handlerRef.current,
+			slides,
+			activeSlideIndex,
+			ops: editorOps.ops,
+			history,
+			setTemplateElementsBySlideId: state.setTemplateElementsBySlideId,
+		});
+
+		const handleCreatePresentation = useCallback(
+			async (templateId: string) => {
+				state.setActiveSlideIndex(0);
+				state.setSelectedElementId(null);
+				state.setSelectedElementIds([]);
+				state.setTemplateElementsBySlideId({});
+
+				if (templateId === 'oasis') {
+					const response = await fetch(oasisTemplateDataUrl);
+					if (!response.ok) {
+						throw new Error(`Unable to load the built-in Oasis template (${response.status})`);
+					}
+					setContent(new Uint8Array(await response.arrayBuffer()));
+					return;
+				}
+
+				state.setSlides(createBackstagePresentation(templateId));
+				state.setIsDirty(true);
+			},
+			[state, setContent],
+		);
+
 		// ── AI assistant bridge ─────────────────────────────────────
 		// Built unconditionally (cheap, type-only SDK deps) but only consumed
 		// when the host passes the `ai` prop. Its three write choke points route
@@ -734,6 +768,8 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 									dialogs={dialogs}
 									slideOps={editorOps.slideOps}
 									ops={editorOps.ops}
+									onApplyLayout={layoutSwitching.applyLayout}
+									onCreatePresentation={handleCreatePresentation}
 									onSetMode={handleSetMode}
 									onEnterPresenterView={handleEnterPresenterView}
 									onEnterRehearsalMode={handleEnterRehearsalMode}

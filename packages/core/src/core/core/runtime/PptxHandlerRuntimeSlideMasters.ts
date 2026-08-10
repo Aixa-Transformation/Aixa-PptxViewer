@@ -333,6 +333,33 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				this.layoutXmlMap.set(layoutPath, data);
 			}
 
+			// Load the relationship part for every layout discovered through its
+			// master, including layouts that no existing slide currently uses.
+			// Layout galleries need this association to keep all custom template
+			// layouts visible while scoping choices to the active slide's master.
+			if (!this.slideRelsMap.has(layoutPath)) {
+				const layoutRelsPath = `${layoutPath.replace(
+					'slideLayouts/',
+					'slideLayouts/_rels/',
+				)}.rels`;
+				const layoutRelsXml = await this.zip.file(layoutRelsPath)?.async('string');
+				if (layoutRelsXml) {
+					const layoutRelsData = this.parser.parse(layoutRelsXml) as XmlObject;
+					const relationships = this.ensureArray(
+						xmlChild(layoutRelsData, 'Relationships')?.['Relationship'],
+					) as XmlObject[];
+					const relationshipMap = new Map<string, string>();
+					for (const relationship of relationships) {
+						const id = String(relationship['@_Id'] || '').trim();
+						const target = String(relationship['@_Target'] || '').trim();
+						if (id && target) {
+							relationshipMap.set(id, target);
+						}
+					}
+					this.slideRelsMap.set(layoutPath, relationshipMap);
+				}
+			}
+
 			const layout: PptxSlideLayout = { path: layoutPath };
 
 			// Name from p:cSld/@name

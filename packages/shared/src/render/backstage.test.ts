@@ -29,6 +29,9 @@ describe('backstage model', () => {
 	it('ships a useful starter template gallery', () => {
 		expect(BACKSTAGE_TEMPLATES.length).toBeGreaterThanOrEqual(6);
 		expect(BACKSTAGE_TEMPLATES[0]?.id).toBe('blank');
+		expect(BACKSTAGE_TEMPLATES.find((template) => template.id === 'oasis')).toMatchObject({
+			name: 'Oasis',
+		});
 	});
 
 	it('creates a fresh themed presentation', () => {

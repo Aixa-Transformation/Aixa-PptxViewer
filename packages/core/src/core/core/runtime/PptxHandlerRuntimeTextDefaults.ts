@@ -1,6 +1,22 @@
 import { XmlObject, TextStyle, PlaceholderDefaults, PlaceholderTextLevelStyle } from '../../types';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeShapeImageFill';
 
+/**
+ * Parse an OOXML percentage from either the transitional integer form
+ * (`90000` = 90%) or the strict form (`90%`).
+ */
+function parseOoxmlPercentage(value: unknown): number | undefined {
+	const raw = String(value ?? '').trim();
+	if (!raw) {
+		return undefined;
+	}
+	const numeric = Number.parseFloat(raw.endsWith('%') ? raw.slice(0, -1) : raw);
+	if (!Number.isFinite(numeric)) {
+		return undefined;
+	}
+	return raw.endsWith('%') ? numeric / 100 : numeric / 100000;
+}
+
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	/**
 	 * Apply {@link PlaceholderDefaults} body-level properties to a
@@ -58,16 +74,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// Percentage spacing (`a:spcPct`) is relative to the line's font size
 		// (100000 = 100%). It needs a size basis to resolve to pixels; without one
 		// we can't produce a meaningful value, so fall through to undefined.
-		const spacingPercentRaw = Number.parseInt(
-			String((spacingNode['a:spcPct'] as XmlObject | undefined)?.['@_val'] || ''),
-			10,
+		const spacingPercent = parseOoxmlPercentage(
+			(spacingNode['a:spcPct'] as XmlObject | undefined)?.['@_val'],
 		);
 		if (
-			Number.isFinite(spacingPercentRaw) &&
+			spacingPercent !== undefined &&
 			typeof basisFontSizePx === 'number' &&
 			basisFontSizePx > 0
 		) {
-			return (spacingPercentRaw / 100000) * basisFontSizePx;
+			return spacingPercent * basisFontSizePx;
 		}
 		return undefined;
 	}
@@ -76,12 +91,11 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		if (!lineSpacingNode) {
 			return undefined;
 		}
-		const spacingPercentRaw = Number.parseInt(
-			String((lineSpacingNode['a:spcPct'] as XmlObject | undefined)?.['@_val'] || ''),
-			10,
+		const spacingPercent = parseOoxmlPercentage(
+			(lineSpacingNode['a:spcPct'] as XmlObject | undefined)?.['@_val'],
 		);
-		if (Number.isFinite(spacingPercentRaw)) {
-			return Math.max(0.1, Math.min(5, spacingPercentRaw / 100000));
+		if (spacingPercent !== undefined) {
+			return Math.max(0.1, Math.min(5, spacingPercent));
 		}
 		return undefined;
 	}

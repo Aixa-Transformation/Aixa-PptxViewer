@@ -10,6 +10,14 @@ function pointsToPixels(points: number): number {
 	return points * (96 / 72);
 }
 
+function parseOoxmlPercentage(value: unknown): number | undefined {
+	const raw = String(value ?? '').trim();
+	if (!raw) return undefined;
+	const numeric = Number.parseFloat(raw.endsWith('%') ? raw.slice(0, -1) : raw);
+	if (!Number.isFinite(numeric)) return undefined;
+	return raw.endsWith('%') ? numeric / 100 : numeric / 100000;
+}
+
 // --- Extracted from parseParagraphSpacingPx ---
 function parseParagraphSpacingPx(
 	spacingNode: Record<string, unknown> | undefined,
@@ -34,12 +42,11 @@ function parseLineSpacingMultiplier(
 	if (!lineSpacingNode) {
 		return undefined;
 	}
-	const spacingPercentRaw = Number.parseInt(
-		String((lineSpacingNode['a:spcPct'] as Record<string, unknown> | undefined)?.['@_val'] || ''),
-		10,
+	const spacingPercent = parseOoxmlPercentage(
+		(lineSpacingNode['a:spcPct'] as Record<string, unknown> | undefined)?.['@_val'],
 	);
-	if (Number.isFinite(spacingPercentRaw)) {
-		return Math.max(0.1, Math.min(5, spacingPercentRaw / 100000));
+	if (spacingPercent !== undefined) {
+		return Math.max(0.1, Math.min(5, spacingPercent));
 	}
 	return undefined;
 }
@@ -239,6 +246,13 @@ describe('parseLineSpacingMultiplier', () => {
 			'a:spcPct': { '@_val': '150000' },
 		});
 		expect(result).toBe(1.5);
+	});
+
+	it('should parse strict OOXML percentage syntax', () => {
+		const result = parseLineSpacingMultiplier({
+			'a:spcPct': { '@_val': '90%' },
+		});
+		expect(result).toBe(0.9);
 	});
 
 	it('should parse 200% line spacing', () => {
