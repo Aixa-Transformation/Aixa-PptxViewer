@@ -301,6 +301,7 @@ describe('drawing shape bounds', () => {
 		);
 
 		expect(html).toContain('<polygon');
+		expect(html).not.toContain('rotate(180');
 	});
 
 	it('computes correct bounding box for single shape', () => {

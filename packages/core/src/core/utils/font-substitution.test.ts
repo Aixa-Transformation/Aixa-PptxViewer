@@ -202,6 +202,15 @@ describe('getPanoseWeight', () => {
 // ---------------------------------------------------------------------------
 
 describe('getSubstituteFontFamily', () => {
+	it('returns Office-compatible fallback chains for Aptos families', () => {
+		expect(getSubstituteFontFamily('Aptos')).toBe(
+			'"Aptos", "Calibri", "Arial", sans-serif',
+		);
+		expect(getSubstituteFontFamily('Aptos Display')).toBe(
+			'"Aptos Display", "Calibri Light", "Calibri", "Arial", sans-serif',
+		);
+	});
+
 	it('returns direct substitution chain for Calibri', () => {
 		const result = getSubstituteFontFamily('Calibri');
 		expect(result).toBe('"Calibri", "Carlito", "Liberation Sans", "Arial", sans-serif');

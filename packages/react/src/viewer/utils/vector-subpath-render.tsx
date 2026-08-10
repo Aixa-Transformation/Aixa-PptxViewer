@@ -117,6 +117,44 @@ export function renderCustomGeometryVector(
 	animatesFill = false,
 ): React.ReactNode {
 	const ctx = strokeContext(shapeStyle, strokePaint, strokeWidth, dashArray);
+	const gradientStops = shapeStyle?.fillGradientStops;
+	const hasGradient = Boolean(gradientStops && gradientStops.length > 0);
+	let gradientId: string | undefined;
+	let gradientNode: React.ReactNode;
+	if (hasGradient && gradientStops) {
+		let hash = 2166136261;
+		for (let i = 0; i < pathData.length; i++) {
+			hash = Math.imul(hash ^ pathData.charCodeAt(i), 16777619);
+		}
+		gradientId = `pptx-custom-gradient-${(hash >>> 0).toString(36)}`;
+		const angle = shapeStyle?.fillGradientAngle ?? 0;
+		const radians = ((angle - 90) * Math.PI) / 180;
+		const dx = Math.cos(radians) * 50;
+		const dy = Math.sin(radians) * 50;
+		gradientNode = (
+			<defs>
+				<linearGradient
+					id={gradientId}
+					x1={`${50 - dx}%`}
+					y1={`${50 - dy}%`}
+					x2={`${50 + dx}%`}
+					y2={`${50 + dy}%`}
+				>
+					{[...gradientStops]
+						.sort((a, b) => a.position - b.position)
+						.map((stop, index) => (
+							<stop
+								key={`${stop.position}-${index}`}
+								offset={`${stop.position}%`}
+								stopColor={stop.color}
+								stopOpacity={stop.opacity ?? 1}
+							/>
+						))}
+				</linearGradient>
+			</defs>
+		);
+	}
+	const customFillPaint = gradientId ? `url(#${gradientId})` : undefined;
 	const subpaths =
 		structuredPaths && structuredPaths.length > 0
 			? customGeometryPathsToSvgSubpaths(structuredPaths, pathWidth, pathHeight)
@@ -142,7 +180,7 @@ export function renderCustomGeometryVector(
 					<path
 						key={`f${idx}`}
 						d={paint.d}
-						fill={animatesFill ? 'inherit' : paint.fill}
+						fill={animatesFill ? 'inherit' : (customFillPaint ?? paint.fill)}
 						stroke='none'
 						vectorEffect='non-scaling-stroke'
 					/>,
@@ -158,7 +196,11 @@ export function renderCustomGeometryVector(
 				<path
 					key='fill'
 					d={pathData}
-					fill={animatesFill ? 'inherit' : colorWithOpacity(fillColor, fillOpacity)}
+					fill={
+						animatesFill
+							? 'inherit'
+							: (customFillPaint ?? colorWithOpacity(fillColor, fillOpacity))
+					}
 					stroke='none'
 					vectorEffect='non-scaling-stroke'
 				/>,
@@ -175,6 +217,7 @@ export function renderCustomGeometryVector(
 			className='w-full h-full pointer-events-none'
 			preserveAspectRatio='none'
 		>
+			{gradientNode}
 			{nodes}
 		</svg>
 	);

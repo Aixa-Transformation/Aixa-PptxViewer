@@ -312,6 +312,19 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			}
 		}
 
+		// Bullet/number markers are created before the paragraph's concrete runs
+		// are parsed. Their typography must follow the first visible run, not the
+		// inherited list-level default (which can be much larger, e.g. 28pt marker
+		// beside 14pt Aptos text).
+		const markerSegment = segments.find((segment) => segment.bulletInfo);
+		const firstVisibleRun = segments.find(
+			(segment) => !segment.bulletInfo && segment.text !== '\n' && segment.text.length > 0,
+		);
+		if (markerSegment && firstVisibleRun) {
+			markerSegment.style = { ...firstVisibleRun.style };
+			seedStyle = { ...firstVisibleRun.style };
+		}
+
 		if (pIdx < paraCount - 1) {
 			parts.push('\n');
 			segments.push({ text: '\n', style: { ...mergedDefaultRunStyle } });

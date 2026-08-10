@@ -53,6 +53,8 @@ export function renderSingleSegment(
 	paragraphRtl?: boolean,
 	/** When true, hyperlinks require Ctrl+Click (editing mode). */
 	requireCtrlClick?: boolean,
+	/** Width reserved from the bullet/number marker to the authored text start. */
+	bulletMarkerWidth?: number,
 ): React.ReactNode {
 	// ── Equation segments: render inline MathML ──
 	if (segment.equationXml) {
@@ -216,6 +218,12 @@ export function renderSingleSegment(
 
 	// Apply bullet-specific styling overrides
 	if (bulletInfo) {
+		if (typeof bulletMarkerWidth === 'number' && bulletMarkerWidth > 0) {
+			spanStyle.display = 'inline-block';
+			spanStyle.width = bulletMarkerWidth;
+			spanStyle.textAlign = 'right';
+			spanStyle.textIndent = 0;
+		}
 		if (bulletInfo.fontFamily) {
 			spanStyle.fontFamily = bulletInfo.fontFamily;
 		}

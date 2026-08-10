@@ -79,8 +79,16 @@ describe('computeAutoFitTextStyle', () => {
 	});
 
 	it('reduces line-height for lnSpcReduction', () => {
-		const ts: TextStyle = { autoFit: true, lineSpacing: 1.2, autoFitLineSpacingReduction: 0.25 };
-		expect(computeAutoFitTextStyle({ ...base, textStyle: ts }).lineHeight).toBeCloseTo(0.9, 5);
+		const ts: TextStyle = { autoFit: true, autoFitLineSpacingReduction: 0.25 };
+		expect(computeAutoFitTextStyle({ ...base, textStyle: ts }).lineHeight).toBeCloseTo(
+			1.25 * 0.75,
+			5,
+		);
+	});
+
+	it('does not apply lnSpcReduction twice when resolved line spacing is explicit', () => {
+		const ts: TextStyle = { autoFit: true, lineSpacing: 0.9, autoFitLineSpacingReduction: 0.1 };
+		expect(computeAutoFitTextStyle({ ...base, textStyle: ts }).lineHeight).toBeUndefined();
 	});
 
 	it('shrinks via heuristic when spAutoFit text overflows', () => {

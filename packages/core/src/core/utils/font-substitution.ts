@@ -43,6 +43,11 @@
  */
 export const FONT_SUBSTITUTION_MAP: Record<string, readonly string[]> = {
 	// Microsoft Office default fonts
+	// Aptos replaced Calibri as Office's default and is intentionally close in
+	// metrics. Calibri/Calibri Light are better fidelity fallbacks than Segoe UI
+	// (which is wider and makes authored one-line titles wrap).
+	Aptos: ['Calibri', 'Arial', 'sans-serif'],
+	'Aptos Display': ['Calibri Light', 'Calibri', 'Arial', 'sans-serif'],
 	Calibri: ['Carlito', 'Liberation Sans', 'Arial', 'sans-serif'],
 	'Calibri Light': ['Carlito', 'Liberation Sans', 'Arial', 'sans-serif'],
 	Cambria: ['Caladea', 'Liberation Serif', 'Times New Roman', 'serif'],

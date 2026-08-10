@@ -208,7 +208,12 @@ export function computeAutoFitTextStyle(input: AutoFitInput): AutoFitResult {
 	}
 
 	// normAutofit with lnSpcReduction: reduce line height.
-	if (ts.autoFitLineSpacingReduction !== undefined && ts.autoFitLineSpacingReduction > 0) {
+	if (
+		ts.autoFitLineSpacingReduction !== undefined &&
+		ts.autoFitLineSpacingReduction > 0 &&
+		ts.lineSpacing === undefined &&
+		ts.lineSpacingExactPt === undefined
+	) {
 		const baseLineHeight =
 			typeof ts.lineSpacing === 'number' ? ts.lineSpacing : hasItalicRuns ? 1.35 : 1.25;
 		result.lineHeight = baseLineHeight * (1 - ts.autoFitLineSpacingReduction);

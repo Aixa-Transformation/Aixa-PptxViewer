@@ -81,6 +81,24 @@ describe('renderVectorShape p:animClr fill/stroke recolor (custom geometry)', ()
 		expect(html).not.toContain('stroke="inherit"');
 		expect(html.toLowerCase()).toContain('#0000ff');
 	});
+
+	it('paints custom geometry with the authored gradient stops', () => {
+		const element = customGeometryShape();
+		if ('shapeStyle' in element) {
+			element.shapeStyle = {
+				fillGradientAngle: 200,
+				fillGradientStops: [
+					{ color: '#ffffff', position: 0, opacity: 0.1 },
+					{ color: '#156082', position: 100, opacity: 0.1 },
+				],
+			};
+		}
+		const html = markup(element);
+
+		expect(html).toContain('<linearGradient');
+		expect(html).toContain('url(#pptx-custom-gradient-');
+		expect(html.toLowerCase()).toContain('#156082');
+	});
 });
 
 describe('renderVectorShape p:animClr fill/stroke recolor (cylinder preset)', () => {

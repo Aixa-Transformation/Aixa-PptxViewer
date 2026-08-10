@@ -96,8 +96,14 @@ function drawingShapeGradientDef(
 }
 
 /** PowerPoint's `upArrowCallout` cache is a banner with a centred arrow below it. */
-function upArrowCalloutPoints(x: number, y: number, width: number, height: number): string {
-	const bannerBottom = y + height * 0.66;
+function upArrowCalloutPoints(
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	bannerRatio: number,
+): string {
+	const bannerBottom = y + height * bannerRatio;
 	const stemLeft = x + width * 0.47;
 	const stemRight = x + width * 0.53;
 	const shoulderY = y + height * 0.78;
@@ -178,7 +184,32 @@ export function DrawingShapeRenderer({
 				const isEllipse = shape.shapeType === 'ellipse';
 				const isChevron = shape.shapeType === 'chevron' || shape.shapeType === 'homePlate';
 				const isUpArrowCallout = shape.shapeType === 'upArrowCallout';
-				const rotation = shape.rotation
+				// The cached drawing may use shape adjustments that are not repeated in
+				// the normalized shape type. Detail rectangles begin exactly at the
+				// banner's bottom, so recover the authored banner ratio from that geometry.
+				const overlappingDetailTop = isUpArrowCallout
+					? shapes
+							.filter(
+								(candidate) =>
+									candidate !== shape &&
+									candidate.shapeType === 'rect' &&
+									candidate.y > shape.y &&
+									candidate.y < shape.y + shape.height &&
+									candidate.x < shape.x + shape.width &&
+									candidate.x + candidate.width > shape.x,
+							)
+							.map((candidate) => candidate.y)
+							.sort((a, b) => a - b)[0]
+					: undefined;
+				const calloutBannerRatio =
+					overlappingDetailTop !== undefined
+						? Math.max(0.2, Math.min(0.8, (overlappingDetailTop - shape.y) / shape.height))
+						: 0.66;
+				// Cached `upArrowCallout` shapes are normalized below into a banner with
+				// a downward arrow (the visual result after PowerPoint's 180deg transform).
+				// Applying the source rotation again flips the arrow back above the banner
+				// and lets the following detail cells cover its heading text.
+				const rotation = shape.rotation && !isUpArrowCallout
 					? `rotate(${shape.rotation} ${relX + shape.width / 2} ${relY + shape.height / 2})`
 					: undefined;
 				const strokeCol = shape.strokeColor ?? (sw > 0 ? 'rgba(255,255,255,0.3)' : 'none');
@@ -243,7 +274,13 @@ export function DrawingShapeRenderer({
 							<polygon
 								points={
 									isUpArrowCallout
-										? upArrowCalloutPoints(relX, relY, shape.width, shape.height)
+										? upArrowCalloutPoints(
+												relX,
+												relY,
+												shape.width,
+												shape.height,
+												calloutBannerRatio,
+											)
 										: chevronPoints(relX, relY, shape.width, shape.height)
 								}
 								fill={fill}
@@ -267,7 +304,11 @@ export function DrawingShapeRenderer({
 						{shape.text ? (
 							<SmartArtNodeText
 								x={relX + shape.width / 2}
-								y={relY + shape.height / 2}
+								y={
+									isUpArrowCallout
+										? relY + shape.height * (calloutBannerRatio / 2)
+										: relY + shape.height / 2
+								}
 								text={shape.text}
 								fill={shape.fontColor ?? contrastingTextColor(contrastFill)}
 								fontSize={fontSize}

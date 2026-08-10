@@ -183,8 +183,16 @@ export function renderTextSegments(
 		// (a:spcBef / a:spcAft), sourced from this paragraph's own geometry with
 		// a body-level fallback for inherited/single-level text.
 		const paraProps = effectiveSegments[firstSeg?.globalIndex ?? -1]?.paragraphProperties;
+		// The first concrete run carries the fully resolved list-level paragraph
+		// spacing even when `paragraphProperties` only contains locally authored
+		// indent fields. Merge both so level-1/level-2 spacing is not replaced by
+		// the body-level spacing from level 0.
+		const effectiveParaProps = {
+			...firstSeg?.segment.style,
+			...paraProps,
+		};
 		const spacing = resolveParagraphSpacing({
-			paraProps,
+			paraProps: effectiveParaProps,
 			bodyStyle,
 			isFirst: paraIndex === 0,
 			isLast: paraIndex === paragraphs.length - 1,
@@ -263,6 +271,9 @@ export function renderTextSegments(
 					fieldContext,
 					paraRtl,
 					requireCtrlClick,
+					hasBullet && globalIndex === firstSeg.globalIndex
+						? Math.max(0, -(rawTextIndent ?? 0))
+						: undefined,
 				),
 			);
 
