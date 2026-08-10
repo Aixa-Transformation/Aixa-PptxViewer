@@ -205,6 +205,17 @@ describe('renderTextSegments: paragraph-level BiDi', () => {
 		expect(para.props.style.marginRight).toBeUndefined();
 	});
 
+	it('suppresses first-paragraph edge spacing when spcFirstLastPara is omitted', () => {
+		const el = makeTextElement(
+			{ paragraphSpacingBefore: 13.333, align: 'left' },
+			{ textSegments: [{ text: 'Subtitle', style: { align: 'left' } }] },
+		);
+		const rendered = renderTextSegments(el, '#000000') as React.ReactElement[];
+		const para = rendered[0];
+
+		expect(para.props.style.marginTop).toBeUndefined();
+	});
+
 	it('applies explicit center alignment to RTL paragraph', () => {
 		const el = makeTextElement(
 			{ rtl: true, align: 'center' },
@@ -507,6 +518,8 @@ describe('rTL paragraph alignment overrides', () => {
 		const para = result[0] as React.ReactElement;
 		expect(para.props.style.direction).toBe('rtl');
 		expect(para.props.style.textAlign).toBe('left');
+		expect(para.props['data-pptx-paragraph']).toBe(true);
+		expect(para.props.style['--pptx-paragraph-align']).toBe('left');
 	});
 
 	it('applies justify alignment to RTL paragraph', () => {

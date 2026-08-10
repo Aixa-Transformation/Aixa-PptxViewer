@@ -192,11 +192,25 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const phKey = this.buildPlaceholderDefaultsKey(phInfo);
 
 		const layoutMap = this.layoutPlaceholderDefaultsCache.get(layoutPath);
-		const layoutDefaults = layoutMap?.get(phKey);
+		const lookupDefaults = (
+			map: Map<string, PlaceholderDefaults> | undefined,
+		): PlaceholderDefaults | undefined => {
+			const exact = map?.get(phKey);
+			if (exact || phInfo.type !== undefined || phInfo.idx === undefined) {
+				return exact;
+			}
+			// OOXML permits @type to be omitted (default `obj`). Older cache
+			// population normalises that same placeholder to `body`, while the
+			// slide reference intentionally retains the omitted type (`_14`).
+			// Match by index across both normalisations so layout-level zero values
+			// (notably marL="0" / indent="0") are not lost to master defaults.
+			return map?.get(`obj_${phInfo.idx}`) ?? map?.get(`body_${phInfo.idx}`);
+		};
+		const layoutDefaults = lookupDefaults(layoutMap);
 
 		const masterPath = this.resolveMasterPathForLayout(layoutPath);
 		const masterMap = masterPath ? this.masterPlaceholderDefaultsCache.get(masterPath) : undefined;
-		const masterDefaults = masterMap?.get(phKey);
+		const masterDefaults = lookupDefaults(masterMap);
 		const normalizedType = this.buildPlaceholderDefaultsKey(phInfo).split('_')[0];
 		// ST_PlaceholderType defaults to `obj` when @type is omitted. Object,
 		// body and subtitle placeholders all inherit the master's bodyStyle.

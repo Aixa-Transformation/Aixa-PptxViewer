@@ -30,8 +30,8 @@ export interface ParagraphSpacingInput {
 	/**
 	 * `a:bodyPr/@spcFirstLastPara`. When explicitly `false`, the before-spacing
 	 * of the first paragraph and the after-spacing of the last paragraph are
-	 * suppressed (they would otherwise fight the body anchor). Defaults to
-	 * applying spacing (no suppression) when undefined, matching prior behaviour.
+	 * suppressed (they would otherwise fight the body anchor). DrawingML defaults
+	 * this attribute to false when it is omitted.
 	 */
 	spaceFirstLast: boolean;
 }

@@ -84,11 +84,13 @@ function StaticElementRendererImpl({
 		element.type === 'shape' && hasFill ? '#ffffff' : DEFAULT_TEXT_COLOR,
 	);
 	const isImage = element.type === 'picture' || element.type === 'image';
+	const allowsTextOverflow =
+		hasTextProperties(element) && element.textStyle?.vertOverflow !== 'clip';
 
 	return (
 		<div
 			data-static-element-type={element.type}
-			className={`${positioned ? 'absolute' : 'relative'} overflow-hidden pointer-events-none`}
+			className={`${positioned ? 'absolute' : 'relative'} ${allowsTextOverflow ? 'overflow-visible' : 'overflow-hidden'} pointer-events-none`}
 			style={{
 				left: positioned ? element.x : undefined,
 				top: positioned ? element.y : undefined,

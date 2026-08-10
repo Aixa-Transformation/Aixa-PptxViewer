@@ -234,30 +234,37 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			'a:br',
 		]);
 
+		const paragraphRuns = this.ensureArray(p['a:r']);
+		const paragraphBreaks = this.ensureArray(p['a:br']);
+		const hasCollapsedRunBreakOrder = paragraphRuns.length > 1 && paragraphBreaks.length > 0;
 		for (const key of Object.keys(p)) {
 			if (!contentTagSet.has(key)) {
 				continue;
 			}
 
 			const items = this.ensureArray(p[key]);
-			const rawBreaks = p['a:br'];
-			const breakCount = Array.isArray(rawBreaks)
-				? rawBreaks.length
-				: rawBreaks === undefined
-					? 0
-					: 1;
-			const insertCollapsedBreaks = key === 'a:r' && items.length > 1 && breakCount > 0;
+			const breakCount = paragraphBreaks.length;
+			const insertCollapsedBreaks = key === 'a:r' && hasCollapsedRunBreakOrder;
 			for (const [itemIndex, item] of items.entries()) {
 				switch (key) {
 					case 'a:r': {
 						processRun(item);
-						if (insertCollapsedBreaks && itemIndex < Math.min(items.length - 1, breakCount)) {
-							parts.push('\n');
-							segments.push({
-								text: '\n',
-								style: { ...mergedDefaultRunStyle },
-								isLineBreak: true,
-							});
+						if (insertCollapsedBreaks && itemIndex < items.length - 1) {
+							// The non-order-preserving XML view groups a:r and a:br into
+							// separate buckets. Distribute every authored break across the
+							// available run gaps instead of silently dropping extras.
+							const gapCount = items.length - 1;
+							const breaksHere =
+								Math.floor(breakCount / gapCount) +
+								(itemIndex < breakCount % gapCount ? 1 : 0);
+							for (let breakIndex = 0; breakIndex < breaksHere; breakIndex++) {
+								parts.push('\n');
+								segments.push({
+									text: '\n',
+									style: { ...mergedDefaultRunStyle },
+									isLineBreak: true,
+								});
+							}
 						}
 						break;
 					}
@@ -279,7 +286,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						processAlternateContent(item);
 						break;
 					case 'a:br': {
-						if (insertCollapsedBreaks) {
+						if (hasCollapsedRunBreakOrder) {
 							break;
 						}
 						const brNode = (item ?? {}) as XmlObject;

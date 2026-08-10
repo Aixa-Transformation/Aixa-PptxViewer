@@ -232,9 +232,14 @@ export function getTableCellBandStyle(
 	// ── Header row (first row) ──────────────────────────────────
 	if (td.firstRowHeader && rowIndex === 0) {
 		style.fontWeight = 700;
-		const headerBg = resolveFill(styleEntry?.firstRowFill, 'rgba(68, 114, 196, 0.85)');
-		style.backgroundColor = headerBg;
-		style.color = '#ffffff';
+		const authoredHeaderFill = styleEntry?.firstRowFill;
+		const headerBg = resolveFill(authoredHeaderFill, 'rgba(68, 114, 196, 0.85)');
+		// `a:noFill` is an authored transparent header, not a failed colour
+		// lookup. Do not replace it with the generic blue header fallback.
+		if (!authoredHeaderFill?.noFill) {
+			style.backgroundColor = headerBg;
+			style.color = '#ffffff';
+		}
 		applyTableStyleText(styleEntry?.firstRowText, colorScheme, style, fontScheme);
 		applied = true;
 	}

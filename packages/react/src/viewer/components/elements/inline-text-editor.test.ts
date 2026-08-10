@@ -736,6 +736,21 @@ describe('getTextStyleForElement', () => {
 		expect(style.textIndent).toBe(-12);
 	});
 
+	it('should not reapply inherited body indent when per-paragraph geometry exists', () => {
+		const el = makeTextElement({
+			textStyle: {
+				bodyInsetLeft: 10,
+				paragraphMarginLeft: 24,
+				paragraphIndent: -24,
+			},
+			paragraphIndents: [{ marginLeft: 0, indent: 0 }],
+		});
+		const style = getTextStyleForElement(el, DEFAULT_TEXT_COLOR);
+
+		expect(style.paddingLeft).toBe(10);
+		expect(style.textIndent).toBe(0);
+	});
+
 	it('should apply autofit font scaling', () => {
 		const el = makeTextElement({
 			textStyle: {

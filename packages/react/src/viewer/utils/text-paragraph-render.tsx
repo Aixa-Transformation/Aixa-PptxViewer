@@ -111,9 +111,9 @@ export function renderTextSegments(
 
 	const elementAlign = hasTextProperties(element) ? element.textStyle?.align : undefined;
 	const bodyStyle = hasTextProperties(element) ? element.textStyle : undefined;
-	// `spcFirstLastPara`: only suppress first/last edge spacing when explicitly
-	// disabled; default to applying it so single-level text keeps its spacing.
-	const spaceFirstLast = bodyStyle?.spaceFirstLastParagraph !== false;
+	// `spcFirstLastPara` is false by default in DrawingML. Edge paragraph
+	// spacing applies only when the body explicitly opts in.
+	const spaceFirstLast = bodyStyle?.spaceFirstLastParagraph === true;
 
 	return paragraphs.map((paraSegments, paraIndex) => {
 		const paraIndent = paragraphIndents?.[paraIndex];
@@ -195,7 +195,7 @@ export function renderTextSegments(
 			spacing.marginBottom !== undefined ||
 			spacing.lineHeight !== undefined;
 
-		const paraStyle: React.CSSProperties = {
+		const paraStyle: React.CSSProperties & { '--pptx-paragraph-align'?: string } = {
 			...paraKinsokuStyle,
 		};
 		if (spacing.marginTop !== undefined) {
@@ -226,6 +226,11 @@ export function renderTextSegments(
 		}
 		if (cssTextAlign !== undefined) {
 			paraStyle.textAlign = cssTextAlign;
+			// Also expose the authored alignment as a custom property. The package
+			// stylesheet consumes it with `!important` so host applications cannot
+			// accidentally replace PowerPoint paragraph alignment with a global
+			// `text-align` rule (common in presentation/player shells).
+			paraStyle['--pptx-paragraph-align'] = cssTextAlign;
 		}
 
 		const needsWrapper =
@@ -279,7 +284,7 @@ export function renderTextSegments(
 		}
 
 		return (
-			<div key={`${element.id}-para-${paraIndex}`} style={paraStyle}>
+			<div key={`${element.id}-para-${paraIndex}`} data-pptx-paragraph style={paraStyle}>
 				{wrappedContent}
 			</div>
 		);
