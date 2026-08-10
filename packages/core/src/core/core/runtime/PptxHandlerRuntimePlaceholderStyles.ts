@@ -154,9 +154,16 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				style.italic = defRPr['@_i'] === '1';
 			}
 
-			const color = this.parseColor(defRPr['a:solidFill'] as XmlObject | undefined);
+			const colorXml = defRPr['a:solidFill'] as XmlObject | undefined;
+			const color = this.parseColor(colorXml);
 			if (color) {
 				style.color = color;
+			}
+			if (colorXml) {
+				// Master text styles are cached before individual slides are parsed.
+				// Keep the OOXML colour choice so aliases such as tx1 can be resolved
+				// again through that slide's clrMapOvr (for example, white on a dark slide).
+				style.colorXml = colorXml;
 			}
 
 			const latin = defRPr['a:latin'] as XmlObject | undefined;

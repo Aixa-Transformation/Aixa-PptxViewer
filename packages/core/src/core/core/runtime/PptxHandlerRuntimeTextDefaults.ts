@@ -124,8 +124,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		if (textStyle.italic === undefined && levelStyle.italic !== undefined) {
 			textStyle.italic = levelStyle.italic;
 		}
-		if (textStyle.color === undefined && levelStyle.color !== undefined) {
-			textStyle.color = levelStyle.color;
+		if (textStyle.color === undefined) {
+			const currentSlideColor = levelStyle.colorXml
+				? this.parseColor(levelStyle.colorXml)
+				: undefined;
+			if (currentSlideColor !== undefined) {
+				textStyle.color = currentSlideColor;
+			} else if (levelStyle.color !== undefined) {
+				textStyle.color = levelStyle.color;
+			}
 		}
 		if (textStyle.paragraphMarginLeft === undefined && levelStyle.marginLeft !== undefined) {
 			textStyle.paragraphMarginLeft = levelStyle.marginLeft;

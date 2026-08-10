@@ -201,6 +201,12 @@ export function DrawingShapeRenderer({
 					: undefined;
 				const fontSize =
 					shape.fontSize ?? fitFontSize(shape.text ?? '', shape.width * 0.85, shape.height, 14);
+				const contrastFill =
+					underlayFill ??
+					shape.fillColor ??
+					shape.fillPatternForegroundColor ??
+					shape.fillGradientStops?.[Math.floor(shape.fillGradientStops.length / 2)]?.color ??
+					fill;
 
 				const nodeId = nodes ? resolveDrawingShapeNodeId(shape, i, shapes, nodes) : undefined;
 				const nodeLabel = nodeId ? nodeLabels?.get(nodeId) : undefined;
@@ -263,7 +269,7 @@ export function DrawingShapeRenderer({
 								x={relX + shape.width / 2}
 								y={relY + shape.height / 2}
 								text={shape.text}
-								fill={shape.fontColor ?? contrastingTextColor(underlayFill ?? fill)}
+								fill={shape.fontColor ?? contrastingTextColor(contrastFill)}
 								fontSize={fontSize}
 								maxWidth={shape.width * 0.82}
 								className='pointer-events-none'
