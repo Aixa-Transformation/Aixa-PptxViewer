@@ -45,7 +45,36 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				bulletText = `${paragraphBulletInfo.char} `;
 			} else if (paragraphBulletInfo.autoNumType) {
 				const startAt = paragraphBulletInfo.autoNumStartAt ?? 1;
-				bulletText = this.formatAutoNumber(paragraphBulletInfo.autoNumType, startAt + pIdx);
+				// Number only the contiguous auto-numbered list. The absolute paragraph
+				// index includes headings and prose before the list, which incorrectly
+				// turned the first authored item into 3., 4., etc.
+				const paragraphs = this.ensureArray(
+					(ctx.txBody as XmlObject | undefined)?.['a:p'],
+				) as XmlObject[];
+				let sequenceOffset = 0;
+				for (let priorIndex = pIdx - 1; priorIndex >= 0; priorIndex--) {
+					const priorBullet = this.resolveParagraphBulletInfo(
+						paragraphs[priorIndex],
+						priorIndex,
+						ctx.txBody as XmlObject,
+						ctx.inheritedTxBody,
+						isBodyPlaceholder,
+						ctx.slidePath,
+						ctx.effectiveLevelStyles,
+					);
+					if (
+						priorBullet?.none ||
+						priorBullet?.autoNumType !== paragraphBulletInfo.autoNumType
+					) {
+						break;
+					}
+					sequenceOffset++;
+				}
+				bulletText = this.formatAutoNumber(
+					paragraphBulletInfo.autoNumType,
+					startAt + sequenceOffset,
+				);
+				paragraphBulletInfo.paragraphIndex = sequenceOffset;
 			} else if (paragraphBulletInfo.imageRelId) {
 				bulletText = '\u{1F4CE} ';
 			} else {

@@ -1,7 +1,7 @@
 import type { PptxElement, PptxSmartArtDrawingShape, SmartArtStyle } from 'pptx-viewer-core';
 import React from 'react';
 
-import { colour, styleShadow, styleStroke, truncate } from './smartart-helpers';
+import { colour, contrastingTextColor, styleShadow, styleStroke } from './smartart-helpers';
 
 /**
  * Render pre-computed drawing shapes from `ppt/diagrams/drawing*.xml`.
@@ -44,7 +44,7 @@ export function renderDrawingShapes(
 			preserveAspectRatio='xMidYMid meet'
 		>
 			{shapes.map((shape, i) => {
-				const fill = shape.fillColor ?? colour(i, palette);
+				const fill = shape.fillNone ? 'none' : shape.fillColor ?? colour(i, palette);
 				const relX = shape.x - minX;
 				const relY = shape.y - minY;
 				const rx = shape.shapeType === 'roundRect' ? Math.min(shape.width, shape.height) * 0.1 : 0;
@@ -52,7 +52,16 @@ export function renderDrawingShapes(
 
 				return (
 					<g key={`${element.id}-dsp-${shape.id}-${i}`} style={{ filter: shadow }}>
-						{isEllipse ? (
+						{shape.fillImageUrl ? (
+							<image
+								x={relX}
+								y={relY}
+								width={shape.width}
+								height={shape.height}
+								href={shape.fillImageUrl}
+								preserveAspectRatio='xMidYMid meet'
+							/>
+						) : isEllipse ? (
 							<ellipse
 								cx={relX + shape.width / 2}
 								cy={relY + shape.height / 2}
@@ -90,11 +99,11 @@ export function renderDrawingShapes(
 								y={relY + shape.height / 2}
 								textAnchor='middle'
 								dominantBaseline='central'
-								fill={shape.fontColor ?? 'white'}
+								fill={shape.fontColor ?? contrastingTextColor(fill)}
 								fontSize={shape.fontSize ?? Math.max(8, Math.min(14, shape.height * 0.2))}
 								className='pointer-events-none'
 							>
-								{truncate(shape.text, 30)}
+								{shape.text}
 							</text>
 						) : null}
 					</g>

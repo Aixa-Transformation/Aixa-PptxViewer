@@ -23,6 +23,7 @@ export interface DrawingShapeGradientStop {
 /** Fill / effect fields resolved from a cached drawing shape's `spPr`. */
 export interface DrawingShapeFill {
 	fillColor?: string;
+	fillNone?: boolean;
 	fillGradientStops?: DrawingShapeGradientStop[];
 	fillGradientType?: 'linear' | 'radial';
 	fillGradientAngle?: number;
@@ -59,6 +60,15 @@ export function extractDrawingShapeFill(
 	deps: DrawingShapeStyleDeps,
 ): DrawingShapeFill {
 	const result: DrawingShapeFill = {};
+	// Empty OOXML elements may be parsed as an empty string rather than an
+	// object, so presence must be checked by key instead of truthiness.
+	if (
+		Object.keys(spPr).some(
+			(key) => !key.startsWith('@_') && (key.split(':').at(-1) ?? key) === 'noFill',
+		)
+	) {
+		result.fillNone = true;
+	}
 
 	const solidFill = deps.getChild(spPr, 'solidFill');
 	if (solidFill) {

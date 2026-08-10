@@ -212,6 +212,8 @@ export interface PptxSmartArtDrawingShape extends PptxCustomPathProperties {
 	skewY?: number;
 	/** Solid fill colour (hex). */
 	fillColor?: string;
+	/** The cached shape explicitly declares `a:noFill` and must stay transparent. */
+	fillNone?: boolean;
 	/**
 	 * Gradient fill stops when the cached shape uses `a:gradFill`. Positions are
 	 * 0..100 (percent). Renderers emit an SVG/CSS gradient instead of a flat box.

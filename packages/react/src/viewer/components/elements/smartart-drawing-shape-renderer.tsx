@@ -2,7 +2,12 @@ import type { PptxSmartArtDrawingShape, PptxSmartArtNode, SmartArtStyle } from '
 import { resolveDrawingShapeNodeId } from 'pptx-viewer-shared';
 import React from 'react';
 
-import { colour, styleShadow, styleStroke, truncate } from '../../utils/smartart-helpers';
+import {
+	colour,
+	contrastingTextColor,
+	styleShadow,
+	styleStroke,
+} from '../../utils/smartart-helpers';
 import {
 	fitFontSize,
 	chevronPoints,
@@ -90,6 +95,25 @@ function drawingShapeGradientDef(
 	};
 }
 
+/** PowerPoint's `upArrowCallout` cache is a banner with a centred arrow below it. */
+function upArrowCalloutPoints(x: number, y: number, width: number, height: number): string {
+	const bannerBottom = y + height * 0.66;
+	const stemLeft = x + width * 0.47;
+	const stemRight = x + width * 0.53;
+	const shoulderY = y + height * 0.78;
+	return [
+		`${x},${y}`,
+		`${x + width},${y}`,
+		`${x + width},${bannerBottom}`,
+		`${stemRight},${bannerBottom}`,
+		`${stemRight},${shoulderY}`,
+		`${x + width / 2},${y + height}`,
+		`${stemLeft},${shoulderY}`,
+		`${stemLeft},${bannerBottom}`,
+		`${x},${bannerBottom}`,
+	].join(' ');
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 /**
@@ -142,21 +166,39 @@ export function DrawingShapeRenderer({
 			{shapes.map((shape, i) => {
 				const gradient = drawingShapeGradientDef(`${elementId}-dspgrad-${shape.id}-${i}`, shape);
 				// Precedence: gradient -> pattern foreground -> solid/palette.
-				const fill =
-					gradient?.ref ??
-					shape.fillPatternForegroundColor ??
-					shape.fillColor ??
-					colour(i, palette);
+				const fill = shape.fillNone
+					? 'none'
+					: gradient?.ref ??
+						shape.fillPatternForegroundColor ??
+						shape.fillColor ??
+						colour(i, palette);
 				const relX = shape.x - minX;
 				const relY = shape.y - minY;
 				const rx = shape.shapeType === 'roundRect' ? Math.min(shape.width, shape.height) * 0.1 : 0;
 				const isEllipse = shape.shapeType === 'ellipse';
 				const isChevron = shape.shapeType === 'chevron' || shape.shapeType === 'homePlate';
+				const isUpArrowCallout = shape.shapeType === 'upArrowCallout';
 				const rotation = shape.rotation
 					? `rotate(${shape.rotation} ${relX + shape.width / 2} ${relY + shape.height / 2})`
 					: undefined;
 				const strokeCol = shape.strokeColor ?? (sw > 0 ? 'rgba(255,255,255,0.3)' : 'none');
 				const strokeW = shape.strokeWidth ?? sw;
+				const underlayFill = shape.fillNone
+					? shapes
+							.slice(0, i)
+							.reverse()
+							.find((candidate) => {
+								const centerX = shape.x + shape.width / 2;
+								const centerY = shape.y + shape.height / 2;
+								return (
+									!candidate.fillNone &&
+									centerX >= candidate.x &&
+									centerX <= candidate.x + candidate.width &&
+									centerY >= candidate.y &&
+									centerY <= candidate.y + candidate.height
+								);
+							})?.fillColor
+					: undefined;
 				const fontSize =
 					shape.fontSize ?? fitFontSize(shape.text ?? '', shape.width * 0.85, shape.height, 14);
 
@@ -170,7 +212,17 @@ export function DrawingShapeRenderer({
 					<g key={`${elementId}-dsp-${shape.id}-${i}`} {...groupProps}>
 						{nodeLabel ? <title>{nodeLabel}</title> : null}
 						{gradient ? <defs>{gradient.def}</defs> : null}
-						{isEllipse ? (
+						{shape.fillImageUrl ? (
+							<image
+								x={relX}
+								y={relY}
+								width={shape.width}
+								height={shape.height}
+								href={shape.fillImageUrl}
+								preserveAspectRatio='xMidYMid meet'
+								transform={rotation}
+							/>
+						) : isEllipse ? (
 							<ellipse
 								cx={relX + shape.width / 2}
 								cy={relY + shape.height / 2}
@@ -181,9 +233,13 @@ export function DrawingShapeRenderer({
 								strokeWidth={strokeW}
 								transform={rotation}
 							/>
-						) : isChevron ? (
+						) : isChevron || isUpArrowCallout ? (
 							<polygon
-								points={chevronPoints(relX, relY, shape.width, shape.height)}
+								points={
+									isUpArrowCallout
+										? upArrowCalloutPoints(relX, relY, shape.width, shape.height)
+										: chevronPoints(relX, relY, shape.width, shape.height)
+								}
 								fill={fill}
 								stroke={strokeCol}
 								strokeWidth={strokeW}
@@ -206,9 +262,10 @@ export function DrawingShapeRenderer({
 							<SmartArtNodeText
 								x={relX + shape.width / 2}
 								y={relY + shape.height / 2}
-								text={truncate(shape.text, 40)}
-								fill={shape.fontColor ?? 'white'}
+								text={shape.text}
+								fill={shape.fontColor ?? contrastingTextColor(underlayFill ?? fill)}
 								fontSize={fontSize}
+								maxWidth={shape.width * 0.82}
 								className='pointer-events-none'
 							/>
 						) : null}
