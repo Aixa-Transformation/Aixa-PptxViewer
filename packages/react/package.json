@@ -82,7 +82,7 @@
 	},
 	"dependencies": {
 		"clsx": "^2.1.1",
-		"dompurify": "^3.4.12",
+		"dompurify": "^3.4.13",
 		"fast-xml-parser": "^5.10.1",
 		"framer-motion": "^12.42.2",
 		"html2canvas-pro": "^2.2.4",
