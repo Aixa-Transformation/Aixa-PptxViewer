@@ -169,6 +169,8 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onApplyLayout={p.onApplyLayout}
 							selectedElement={p.selectedElement}
 							onUpdateTextStyle={p.onUpdateTextStyle}
+							themeFonts={p.themeFonts}
+							embeddedFontFamilies={p.embeddedFontFamilies}
 						/>
 					)}
 

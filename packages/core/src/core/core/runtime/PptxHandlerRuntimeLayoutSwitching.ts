@@ -1,5 +1,6 @@
 import { EMU_PER_PX } from '../../constants';
 import { XmlObject, PptxElement } from '../../types';
+import { cloneXmlObject } from '../../utils/clone-utils';
 import { xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeTextEditing';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
@@ -8,7 +9,7 @@ import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
  * Layout-switching helpers for the PptxHandlerRuntime mixin chain.
  *
  * Provides methods that map slide elements to a new layout's placeholders
- * by type, reposition matched placeholders, remove unmatched ones, and
+ * by type, reposition matched placeholders, preserve unmatched content, and
  * inject empty placeholders that exist only in the target layout.
  */
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
@@ -134,7 +135,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		if (type === 'title' || type === 'ctrtitle') {
 			return 'title';
 		}
-		if (type === 'body' || type === 'obj' || type === 'subtitle') {
+		if (
+			type === 'body' ||
+			type === 'obj' ||
+			type === 'subtitle' ||
+			type === 'pic' ||
+			type === 'chart' ||
+			type === 'tbl' ||
+			type === 'media'
+		) {
 			return 'content';
 		}
 		return type;
@@ -147,7 +156,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 *
 	 * - Placeholder elements whose type matches a new-layout placeholder
 	 *   get their position/size updated to the new layout's values.
-	 * - Placeholder elements with no match in the new layout are removed.
+	 * - Placeholder elements with no match in the new layout are preserved.
 	 * - New-layout placeholders with no matching slide element produce
 	 *   empty text elements that are appended to the slide.
 	 * - Non-placeholder elements are left untouched.
@@ -161,9 +170,10 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	): PptxElement[] {
 		const layoutPlaceholders = this.extractLayoutPlaceholders(newLayoutXml);
 
-		// Build a map from match-key -> layout placeholder info
-		const layoutPhMap = new Map<
-			string,
+		// Keep placeholders as an array. A layout may legally contain multiple
+		// placeholders with the same type (and occasionally an omitted idx), so
+		// a Map would silently discard all but the last one.
+		const targetPlaceholders: Array<
 			{
 				phInfo: PlaceholderInfo;
 				xEmu: number;
@@ -173,10 +183,9 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				shapeXml: XmlObject;
 				matched: boolean;
 			}
-		>();
+		> = [];
 		for (const lp of layoutPlaceholders) {
-			const key = this.buildPlaceholderMatchKey(lp.phInfo);
-			layoutPhMap.set(key, { ...lp, matched: false });
+			targetPlaceholders.push({ ...lp, matched: false });
 		}
 
 		const resultElements: PptxElement[] = [];
@@ -190,25 +199,26 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				continue;
 			}
 
-			const matchKey = this.buildPlaceholderMatchKey(phInfo);
-			const layoutPh = layoutPhMap.get(matchKey);
-
-			// Fall back to matching by type only (ignoring idx) for common
-			// placeholder types like title/ctrTitle/subTitle/body
-			let resolvedLayoutPh = layoutPh;
-			if (!resolvedLayoutPh && phInfo.type) {
-				for (const [, lp] of layoutPhMap.entries()) {
-					if (!lp.matched && lp.phInfo.type === phInfo.type) {
-						resolvedLayoutPh = lp;
-						break;
-					}
-				}
-			}
+			const sourceType = phInfo.type || 'body';
+			const sourceRole = this.placeholderRole(phInfo);
+			// PowerPoint placeholder ids are the strongest identity, but only
+			// within a compatible semantic role. This prevents (for example) a
+			// picture being moved into a title box merely because both use idx=1.
+			let resolvedLayoutPh = targetPlaceholders.find(
+				(lp) =>
+					!lp.matched &&
+					phInfo.idx !== undefined &&
+					lp.phInfo.idx === phInfo.idx &&
+					this.placeholderRole(lp.phInfo) === sourceRole,
+			);
+			// Fall back to exact type, then to PowerPoint-compatible roles.
+			resolvedLayoutPh ??= targetPlaceholders.find(
+				(lp) => !lp.matched && (lp.phInfo.type || 'body') === sourceType,
+			);
 			// PowerPoint treats centered-title/title and body/object/subtitle
 			// placeholders as compatible roles when switching layout families.
 			if (!resolvedLayoutPh) {
-				const sourceRole = this.placeholderRole(phInfo);
-				for (const [, lp] of layoutPhMap.entries()) {
+				for (const lp of targetPlaceholders) {
 					if (!lp.matched && this.placeholderRole(lp.phInfo) === sourceRole) {
 						resolvedLayoutPh = lp;
 						break;
@@ -220,7 +230,10 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				// Matched: update position and size from new layout
 				resolvedLayoutPh.matched = true;
 
-				const updatedElement = { ...element };
+				const updatedElement = {
+					...element,
+					rawXml: element.rawXml ? cloneXmlObject(element.rawXml) : element.rawXml,
+				} as PptxElement;
 				if (resolvedLayoutPh.cxEmu > 0 && resolvedLayoutPh.cyEmu > 0) {
 					updatedElement.x = Math.round(resolvedLayoutPh.xEmu / EMU_PER_PX);
 					updatedElement.y = Math.round(resolvedLayoutPh.yEmu / EMU_PER_PX);
@@ -238,14 +251,22 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						resolvedLayoutPh.cyEmu,
 					);
 				}
+				if (updatedElement.rawXml) {
+					this.updateElementRawXmlPlaceholder(updatedElement.rawXml, resolvedLayoutPh.phInfo);
+				}
 
 				resultElements.push(updatedElement);
+			} else {
+				// Never discard user content merely because the selected layout has
+				// no corresponding placeholder. PowerPoint keeps such content as a
+				// free-standing element; preserving it also keeps pictures and text
+				// from disappearing during layout changes.
+				resultElements.push(element);
 			}
-			// Else: placeholder has no match in the new layout -- drop it
 		}
 
 		// Add empty placeholders from the new layout that were not matched
-		for (const [, lp] of layoutPhMap) {
+		for (const lp of targetPlaceholders) {
 			if (lp.matched) {
 				continue;
 			}
@@ -272,6 +293,28 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		}
 
 		return resultElements;
+	}
+
+	private updateElementRawXmlPlaceholder(rawXml: XmlObject, phInfo: PlaceholderInfo): void {
+		const nvPr =
+			xmlPath(rawXml, 'p:nvSpPr', 'p:nvPr') ??
+			xmlPath(rawXml, 'p:nvPicPr', 'p:nvPr') ??
+			xmlPath(rawXml, 'p:nvGraphicFramePr', 'p:nvPr');
+		if (!nvPr) {
+			return;
+		}
+		const ph = (nvPr['p:ph'] as XmlObject | undefined) ?? {};
+		nvPr['p:ph'] = ph;
+		if (phInfo.type) {
+			ph['@_type'] = phInfo.type;
+		} else {
+			delete ph['@_type'];
+		}
+		if (phInfo.idx !== undefined) {
+			ph['@_idx'] = phInfo.idx;
+		} else {
+			delete ph['@_idx'];
+		}
 	}
 
 	// ── rawXml transform update ─────────────────────────────────────────

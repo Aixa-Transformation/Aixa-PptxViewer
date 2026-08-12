@@ -36,6 +36,10 @@ export interface PptxNotesMaster {
 	placeholders?: Array<{
 		type: string;
 		idx?: string;
+		x?: number;
+		y?: number;
+		width?: number;
+		height?: number;
 	}>;
 	/** Editable elements on the notes master (header, footer, date, page number, slide image, notes body). */
 	elements?: PptxElement[];
@@ -68,6 +72,10 @@ export interface PptxHandoutMaster {
 	placeholders?: Array<{
 		type: string;
 		idx?: string;
+		x?: number;
+		y?: number;
+		width?: number;
+		height?: number;
 	}>;
 	/** Editable elements on the handout master (header, footer, date, page number, slide placeholders). */
 	elements?: PptxElement[];

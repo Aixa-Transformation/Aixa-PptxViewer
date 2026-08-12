@@ -65,6 +65,52 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const customerData = await this.parsePresentationCustomerData();
 		this.thumbnailData = (await this.parseThumbnail()) ?? null;
 
+		// Materialize every discovered layout, including layouts not used by an
+		// existing slide. This gives the ribbon gallery the actual master/layout
+		// artwork (pictures, shapes and text) instead of names only.
+		const previousEagerDecodeImages = this.eagerDecodeImages;
+		this.eagerDecodeImages = true;
+		try {
+			for (const master of slideMasters) {
+				for (const layout of master.layouts ?? []) {
+					const previewSlidePath = `ppt/slides/__layout_preview_${layout.path
+						.split('/')
+						.pop()}`;
+					this.slideRelsMap.set(
+						previewSlidePath,
+						new Map([['rIdLayoutPreview', `/${layout.path}`]]),
+					);
+					// A referenced slide may already have cached this layout without
+					// decoded media. Reparse it so gallery images are self-contained.
+					this.layoutCache.delete(layout.path);
+					layout.elements = await this.getLayoutElements(previewSlidePath);
+					this.slideRelsMap.delete(previewSlidePath);
+					layout.backgroundColor ??= master.backgroundColor;
+				}
+			}
+		} finally {
+			this.eagerDecodeImages = previousEagerDecodeImages;
+		}
+
+		const layoutPreviewMap = new Map(
+			slideMasters.flatMap((master) =>
+				(master.layouts ?? []).map((layout) => [layout.path, layout] as const),
+			),
+		);
+		const layoutOptions = this.getLayoutOptions().map((option) => {
+			const preview = layoutPreviewMap.get(option.path);
+			return preview
+				? {
+						...option,
+						previewElements: preview.elements,
+						previewBackgroundColor: preview.backgroundColor,
+						previewWidth: presentationState.width,
+						previewHeight: presentationState.height,
+						previewPlaceholders: preview.placeholders,
+					}
+				: option;
+		});
+
 		return new PptxLoadDataBuilder()
 			.withDimensions(
 				presentationState.width,
@@ -74,7 +120,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			)
 			.withNotesDimensions(presentationState.notesWidthEmu, presentationState.notesHeightEmu)
 			.withSlides(slidesWithWarnings)
-			.withLayoutOptions(this.getLayoutOptions())
+			.withLayoutOptions(layoutOptions)
 			.withHeaderFooter(headerFooter)
 			.withPresentationProperties(presentationProperties)
 			.withViewProperties(viewProperties)

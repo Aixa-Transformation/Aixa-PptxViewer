@@ -230,6 +230,11 @@ export function buildToolbarProps(input: BuildToolbarPropsInput): ToolbarProps {
 		isOverflowMenuOpen: s.isOverflowMenuOpen,
 		onSetOverflowMenuOpen: s.setIsOverflowMenuOpen,
 		layoutOptions: scopedLayoutOptions,
+		themeFonts: {
+			heading: s.theme?.fontScheme?.majorFont?.latin,
+			body: s.theme?.fontScheme?.minorFont?.latin,
+		},
+		embeddedFontFamilies: Array.from(new Set(s.embeddedFonts.map((font) => font.name))),
 		onInsertSlideFromLayout: slideOps.handleInsertSlideFromLayout,
 		customShows: s.customShows,
 		activeCustomShowId: s.activeCustomShowId,

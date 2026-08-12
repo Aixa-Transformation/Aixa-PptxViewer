@@ -122,6 +122,8 @@ export interface ToolbarProps {
 	isOverflowMenuOpen: boolean;
 	onSetOverflowMenuOpen: (open: boolean) => void;
 	layoutOptions: Array<{ path: string; name: string }>;
+	themeFonts?: { heading?: string; body?: string };
+	embeddedFontFamilies?: string[];
 	onInsertSlideFromLayout: (path: string, name?: string) => void;
 	onApplyLayout?: (path: string) => void;
 	customShows: PptxCustomShow[];

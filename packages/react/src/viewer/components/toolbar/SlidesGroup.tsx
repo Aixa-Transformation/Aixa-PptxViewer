@@ -1,18 +1,79 @@
+import type { PptxLayoutOption, PptxSlide } from 'pptx-viewer-core';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuChevronDown, LuFolderPlus, LuPlus, LuRotateCcw, LuLayoutGrid } from 'react-icons/lu';
 
 import { cn } from '../../utils';
+import { StaticElementRenderer } from '../StaticElementRenderer';
 import { RibbonMenu } from './RibbonMenu';
 import { ic, pill, sep } from './toolbar-constants';
 
 export interface SlidesGroupProps {
 	canEdit: boolean;
-	layoutOptions: Array<{ path: string; name: string }>;
+	layoutOptions: PptxLayoutOption[];
 	onInsertSlideFromLayout: (path: string, name?: string) => void;
 	onApplyLayout?: (path: string) => void;
 	onResetSlide?: () => void;
 	onAddSection?: () => void;
+}
+
+function LayoutPreview({ layout }: { layout: PptxLayoutOption }): React.ReactElement {
+	const width = Math.max(layout.previewWidth ?? 960, 1);
+	const height = Math.max(layout.previewHeight ?? 540, 1);
+	const previewWidth = 128;
+	const previewHeight = 72;
+	const scale = Math.min(previewWidth / width, previewHeight / height);
+	const slide: PptxSlide = {
+		id: `layout-preview-${layout.path}`,
+		rId: '',
+		slideNumber: 0,
+		elements: layout.previewElements ?? [],
+		backgroundColor: layout.previewBackgroundColor ?? '#ffffff',
+	};
+
+	return (
+		<div
+			className='relative shrink-0 overflow-hidden border border-border/70 bg-white shadow-sm'
+			style={{ width: previewWidth, height: previewHeight }}
+		>
+			<div
+				className='absolute left-0 top-0 origin-top-left overflow-hidden'
+				style={{
+					width,
+					height,
+					transform: `scale(${scale})`,
+					backgroundColor: layout.previewBackgroundColor ?? '#ffffff',
+				}}
+			>
+				{(layout.previewElements ?? []).slice(0, 100).map((element, index) => (
+					<StaticElementRenderer
+						key={element.id}
+						element={element}
+						activeSlide={slide}
+						allSlides={[slide]}
+						zIndex={index}
+					/>
+				))}
+				{(layout.previewPlaceholders ?? []).map((placeholder, index) =>
+					placeholder.x !== undefined &&
+					placeholder.y !== undefined &&
+					placeholder.width !== undefined &&
+					placeholder.height !== undefined ? (
+						<div
+							key={`${placeholder.type}-${placeholder.idx ?? index}`}
+							className='absolute border-2 border-dashed border-slate-400/80 bg-white/10'
+							style={{
+								left: placeholder.x,
+								top: placeholder.y,
+								width: placeholder.width,
+								height: placeholder.height,
+							}}
+						/>
+					) : null,
+				)}
+			</div>
+		</div>
+	);
 }
 
 export function SlidesGroup(p: SlidesGroupProps): React.ReactElement {
@@ -87,19 +148,20 @@ export function SlidesGroup(p: SlidesGroupProps): React.ReactElement {
 							</button>
 						)}
 						{newSlideMenuOpen && (
-							<RibbonMenu anchorRef={newSlideMenuRef} className='flex flex-col w-48 pt-1'>
-								<div className='rounded-lg border border-border bg-popover backdrop-blur-lg shadow-2xl py-1 max-h-60 overflow-y-auto'>
+							<RibbonMenu anchorRef={newSlideMenuRef} className='flex flex-col w-[620px] pt-1'>
+								<div className='grid grid-cols-4 gap-2 rounded-lg border border-border bg-popover backdrop-blur-lg shadow-2xl p-3 max-h-[520px] overflow-y-auto'>
 									{p.layoutOptions.map((lo) => (
 										<button
 											key={lo.path}
 											type='button'
-											className='flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors'
+										className='flex min-w-0 flex-col items-center gap-1 rounded p-1 text-xs text-foreground hover:bg-muted transition-colors'
 											onClick={() => {
 												p.onInsertSlideFromLayout(lo.path, lo.name);
 												setNewSlideMenuOpen(false);
 											}}
 										>
-											{lo.name}
+										<LayoutPreview layout={lo} />
+										<span className='w-full truncate text-center'>{lo.name}</span>
 										</button>
 									))}
 								</div>
@@ -120,19 +182,20 @@ export function SlidesGroup(p: SlidesGroupProps): React.ReactElement {
 							{t('pptx.master.layout')}
 						</button>
 						{layoutMenuOpen && (
-							<RibbonMenu anchorRef={layoutMenuRef} className='flex flex-col w-48 pt-1'>
-								<div className='rounded-lg border border-border bg-popover backdrop-blur-lg shadow-2xl py-1 max-h-60 overflow-y-auto'>
+							<RibbonMenu anchorRef={layoutMenuRef} className='flex flex-col w-[620px] pt-1'>
+								<div className='grid grid-cols-4 gap-2 rounded-lg border border-border bg-popover backdrop-blur-lg shadow-2xl p-3 max-h-[520px] overflow-y-auto'>
 									{p.layoutOptions.map((lo) => (
 										<button
 											key={lo.path}
 											type='button'
-											className='flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors'
+										className='flex min-w-0 flex-col items-center gap-1 rounded p-1 text-xs text-foreground hover:bg-muted transition-colors'
 											onClick={() => {
 												p.onApplyLayout?.(lo.path);
 												setLayoutMenuOpen(false);
 											}}
 										>
-											{lo.name}
+										<LayoutPreview layout={lo} />
+										<span className='w-full truncate text-center'>{lo.name}</span>
 										</button>
 									))}
 								</div>

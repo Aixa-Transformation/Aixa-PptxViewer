@@ -141,15 +141,28 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 		} = props;
 
 		useEffect(() => {
+			const fontFamilies = Array.from(
+				new Set(fonts.map((font) => font.family.trim()).filter(Boolean)),
+			);
+			const fontWindow = window as Window & {
+				__AIXA_PPTX_CUSTOM_FONT_FAMILIES__?: string[];
+			};
+			fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = fontFamilies;
+			window.dispatchEvent(new CustomEvent('aixa:pptx-custom-fonts', { detail: fontFamilies }));
 			const css = buildUserFontFaceStyles(fonts);
 			if (!css) {
-				return;
+				return () => {
+					fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = [];
+				};
 			}
 			const style = document.createElement('style');
 			style.dataset.pptxUserFonts = 'true';
 			style.textContent = css;
 			document.head.appendChild(style);
-			return () => style.remove();
+			return () => {
+				style.remove();
+				fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = [];
+			};
 		}, [fonts]);
 
 		// ── Theme catalog (File > Options > Appearance) ────────────────

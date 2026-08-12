@@ -2,7 +2,14 @@ import { hasTextProperties } from 'pptx-viewer-core';
 import type { PptxElement } from 'pptx-viewer-core';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuChevronDown, LuClipboardPaste, LuCopy, LuPaintbrush, LuScissors } from 'react-icons/lu';
+import {
+	LuChevronDown,
+	LuClipboardPaste,
+	LuCopy,
+	LuPaintbrush,
+	LuScissors,
+	LuUpload,
+} from 'react-icons/lu';
 
 import type { ElementClipboardPayload } from '../../types';
 import { cn } from '../../utils';
@@ -26,10 +33,15 @@ export interface HomeSectionProps {
 	onAddSection?: () => void;
 	selectedElement?: PptxElement | null;
 	onUpdateTextStyle?: (style: Record<string, unknown>) => void;
+	themeFonts?: { heading?: string; body?: string };
+	embeddedFontFamilies?: string[];
 }
 
-function extractFontInfo(element?: PptxElement | null): { fontFamily: string; fontSize: string } {
-	const defaults = { fontFamily: 'Segoe UI', fontSize: '24' };
+function extractFontInfo(
+	element?: PptxElement | null,
+	defaultFontFamily = 'Segoe UI',
+): { fontFamily: string; fontSize: string } {
+	const defaults = { fontFamily: defaultFontFamily, fontSize: '24' };
 	if (!element) {
 		return defaults;
 	}
@@ -50,18 +62,52 @@ function extractFontInfo(element?: PptxElement | null): { fontFamily: string; fo
 }
 
 const COMMON_FONTS = [
+	'Abadi',
+	'Aptos',
+	'Aptos Display',
 	'Arial',
+	'Arial Black',
+	'Arial Narrow',
+	'Bahnschrift',
+	'Baskerville',
+	'Book Antiqua',
+	'Bookman Old Style',
 	'Calibri',
+	'Calibri Light',
 	'Cambria',
+	'Candara',
+	'Century',
+	'Century Gothic',
+	'Consolas',
 	'Comic Sans MS',
 	'Courier New',
+	'Franklin Gothic Book',
+	'Franklin Gothic Demi',
+	'Franklin Gothic Medium',
+	'Garamond',
 	'Georgia',
+	'Gill Sans MT',
+	'Helvetica Neue',
 	'Helvetica',
 	'Impact',
+	'Inter',
+	'Lucida Console',
+	'Lucida Sans Unicode',
+	'Microsoft Sans Serif',
+	'Montserrat',
+	'Noto Sans',
+	'Open Sans',
+	'Palatino Linotype',
+	'Poppins',
+	'Roboto',
+	'Rockwell',
 	'Segoe UI',
+	'Source Sans Pro',
 	'Tahoma',
 	'Times New Roman',
 	'Trebuchet MS',
+	'Tw Cen MT',
+	'Tw Cen MT Condensed',
 	'Verdana',
 ];
 
@@ -81,9 +127,53 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 		);
 	});
 	const fontMenuRef = useRef<HTMLDivElement>(null);
+	const fontFileInputRef = useRef<HTMLInputElement>(null);
 	const sizeMenuRef = useRef<HTMLDivElement>(null);
-	const { fontFamily, fontSize } = extractFontInfo(p.selectedElement);
-	const availableFonts = Array.from(new Set([...customFontFamilies, ...COMMON_FONTS]));
+	const { fontFamily, fontSize } = extractFontInfo(
+		p.selectedElement,
+		p.themeFonts?.body ?? p.themeFonts?.heading ?? 'Segoe UI',
+	);
+	const themeFontEntries = [
+		p.themeFonts?.heading ? { family: p.themeFonts.heading, label: 'Headings' } : undefined,
+		p.themeFonts?.body ? { family: p.themeFonts.body, label: 'Body' } : undefined,
+	].filter((entry): entry is { family: string; label: string } => Boolean(entry));
+	const embeddedFonts = Array.from(new Set(p.embeddedFontFamilies ?? []));
+	const specialFonts = new Set([
+		...themeFontEntries.map((entry) => entry.family),
+		...embeddedFonts,
+		...customFontFamilies,
+	]);
+	const availableFonts = COMMON_FONTS.filter((family) => !specialFonts.has(family));
+
+	const applyFont = (family: string) => {
+		p.onUpdateTextStyle?.({ fontFamily: family });
+		setFontMenuOpen(false);
+	};
+
+	const registerLocalFont = async (file: File): Promise<void> => {
+		const stem = file.name.replace(/\.(?:ttf|otf|woff2?)$/iu, '');
+		const bold = /(?:^|[-_\s])(?:bold|semibold|demibold|black)(?:$|[-_\s])/iu.test(stem);
+		const italic = /(?:^|[-_\s])(?:italic|oblique)(?:$|[-_\s])/iu.test(stem);
+		const family = stem
+			.replace(/(?:[-_\s])(?:regular|normal|book|medium|bold|semibold|demibold|black|italic|oblique)+$/iu, '')
+			.replace(/[-_]+/gu, ' ')
+			.trim();
+		if (!family || typeof FontFace === 'undefined') {
+			return;
+		}
+		const face = new FontFace(family, await file.arrayBuffer(), {
+			weight: bold ? '700' : '400',
+			style: italic ? 'italic' : 'normal',
+		});
+		await face.load();
+		document.fonts.add(face);
+		const next = Array.from(new Set([...customFontFamilies, family]));
+		setCustomFontFamilies(next);
+		const fontWindow = window as Window & { __AIXA_PPTX_CUSTOM_FONT_FAMILIES__?: string[] };
+		fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = next;
+		window.dispatchEvent(new CustomEvent('aixa:pptx-custom-fonts', { detail: next }));
+		applyFont(family);
+	};
 
 	useEffect(() => {
 		const handleCustomFonts = (event: Event) => {
@@ -213,8 +303,66 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 							<LuChevronDown className='w-3 h-3 ml-1 shrink-0 text-muted-foreground' />
 						</button>
 						{fontMenuOpen && (
-							<RibbonMenu anchorRef={fontMenuRef} className='flex flex-col w-48 pt-1'>
-								<div className='rounded-lg border border-border bg-popover backdrop-blur-lg shadow-2xl py-1 max-h-60 overflow-y-auto'>
+							<RibbonMenu anchorRef={fontMenuRef} className='flex flex-col w-72 pt-1'>
+								<div className='rounded-lg border border-border bg-popover backdrop-blur-lg shadow-2xl py-1 max-h-[420px] overflow-y-auto'>
+									{themeFontEntries.length > 0 && (
+										<>
+											<div className='px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground'>
+												Theme fonts
+											</div>
+											{themeFontEntries.map(({ family, label }) => (
+												<button
+													key={`${label}-${family}`}
+													type='button'
+													className='flex w-full items-center justify-between gap-3 px-3 py-1.5 text-sm text-foreground hover:bg-muted'
+													style={{ fontFamily: family }}
+													onClick={() => applyFont(family)}
+												>
+													<span className='truncate'>{family}</span>
+													<span className='shrink-0 text-[10px] text-muted-foreground'>({label})</span>
+												</button>
+											))}
+										</>
+									)}
+									{embeddedFonts.length > 0 && (
+										<>
+											<div className='border-t border-border/60 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground'>
+												Embedded in presentation
+											</div>
+											{embeddedFonts.map((family) => (
+												<button
+													key={`embedded-${family}`}
+													type='button'
+													className='flex w-full items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-muted'
+													style={{ fontFamily: family }}
+													onClick={() => applyFont(family)}
+												>
+													{family}
+												</button>
+											))}
+										</>
+									)}
+									{customFontFamilies.length > 0 && (
+										<>
+											<div className='border-t border-border/60 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground'>
+												Custom fonts
+											</div>
+											{customFontFamilies.map((family) => (
+												<button
+													key={`custom-${family}`}
+													type='button'
+													className='flex w-full items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-muted'
+													style={{ fontFamily: family }}
+													onClick={() => applyFont(family)}
+												>
+													{family}
+												</button>
+											))}
+										</>
+									)}
+									<div className='border-t border-border/60 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground'>
+										All fonts
+									</div>
 									{availableFonts.map((f) => (
 										<button
 											key={f}
@@ -222,13 +370,31 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 											className='flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors'
 											style={{ fontFamily: f }}
 											onClick={() => {
-												p.onUpdateTextStyle?.({ fontFamily: f });
-												setFontMenuOpen(false);
-											}}
+											applyFont(f);
+										}}
 										>
 											{f}
 										</button>
 									))}
+									<button
+										type='button'
+										className='sticky bottom-0 flex w-full items-center gap-2 border-t border-border bg-popover px-3 py-2 text-xs font-medium text-primary hover:bg-muted'
+										onClick={() => fontFileInputRef.current?.click()}
+									>
+										<LuUpload className='h-4 w-4' />
+										Add custom font file
+									</button>
+									<input
+										ref={fontFileInputRef}
+										type='file'
+										accept='.ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2'
+										className='hidden'
+										onChange={(event) => {
+											const file = event.currentTarget.files?.[0];
+											if (file) void registerLocalFont(file);
+											event.currentTarget.value = '';
+										}}
+									/>
 								</div>
 							</RibbonMenu>
 						)}

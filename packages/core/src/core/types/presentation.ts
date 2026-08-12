@@ -268,6 +268,21 @@ export interface PptxLayoutOption {
 	type?: string;
 	/** ZIP path of the slide master this layout belongs to. */
 	masterPath?: string;
+	/** Parsed master/layout artwork used by layout gallery thumbnails. */
+	previewElements?: PptxElement[];
+	/** Background resolved from the layout (or its master) for thumbnails. */
+	previewBackgroundColor?: string;
+	previewWidth?: number;
+	previewHeight?: number;
+	/** Positioned placeholder frames displayed in layout gallery thumbnails. */
+	previewPlaceholders?: Array<{
+		type: string;
+		idx?: string;
+		x?: number;
+		y?: number;
+		width?: number;
+		height?: number;
+	}>;
 }
 
 /**

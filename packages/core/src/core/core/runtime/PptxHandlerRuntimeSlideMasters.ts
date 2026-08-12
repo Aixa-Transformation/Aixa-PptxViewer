@@ -7,6 +7,7 @@ import type {
 	PptxNotesMaster,
 } from '../../types';
 import { parseCustomShows } from '../../utils/presentation-collections';
+import { resolveSlideLayoutOrder } from '../../utils/slide-layout-order';
 import { xmlAttr, xmlChild, xmlPath } from '../../utils/xml-access';
 import { parseMasterColorMap } from './master-color-map';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeDocProperties';
@@ -36,12 +37,26 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 */
 	protected extractPlaceholderList(
 		spTree: XmlObject | undefined,
-	): Array<{ type: string; idx?: string }> {
+	): Array<{
+		type: string;
+		idx?: string;
+		x?: number;
+		y?: number;
+		width?: number;
+		height?: number;
+	}> {
 		if (!spTree) {
 			return [];
 		}
 		const shapes = this.ensureArray(spTree['p:sp']);
-		const result: Array<{ type: string; idx?: string }> = [];
+		const result: Array<{
+			type: string;
+			idx?: string;
+			x?: number;
+			y?: number;
+			width?: number;
+			height?: number;
+		}> = [];
 		for (const sp of shapes) {
 			const ph = xmlPath(sp, 'p:nvSpPr', 'p:nvPr', 'p:ph');
 			if (!ph) {
@@ -49,7 +64,22 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			}
 			const type = (xmlAttr(ph, 'type') ?? 'body').trim();
 			const idx = xmlAttr(ph, 'idx');
-			result.push({ type, idx });
+			const xfrm = xmlPath(sp, 'p:spPr', 'a:xfrm');
+			const off = xmlChild(xfrm, 'a:off');
+			const ext = xmlChild(xfrm, 'a:ext');
+			const emu = PptxHandlerRuntime.EMU_PER_PX;
+			const x = off ? Number(xmlAttr(off, 'x')) / emu : undefined;
+			const y = off ? Number(xmlAttr(off, 'y')) / emu : undefined;
+			const width = ext ? Number(xmlAttr(ext, 'cx')) / emu : undefined;
+			const height = ext ? Number(xmlAttr(ext, 'cy')) / emu : undefined;
+			result.push({
+				type,
+				idx,
+				...(Number.isFinite(x) ? { x } : {}),
+				...(Number.isFinite(y) ? { y } : {}),
+				...(Number.isFinite(width) ? { width } : {}),
+				...(Number.isFinite(height) ? { height } : {}),
+			});
 		}
 		return result;
 	}
@@ -200,12 +230,11 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 					const rels = this.ensureArray(
 						xmlChild(relsData, 'Relationships')?.['Relationship'],
 					) as XmlObject[];
-					for (const rel of rels) {
-						const relType = String(rel['@_Type'] || '');
-						if (relType.includes('/slideLayout')) {
-							layoutPaths.push(this.resolveImagePath(path, String(rel['@_Target'] || '')));
-						}
-					}
+					layoutPaths.push(
+						...resolveSlideLayoutOrder(sldMaster, rels, (target) =>
+							this.resolveImagePath(path, target),
+						),
+					);
 				}
 
 				// Parse layout attributes
