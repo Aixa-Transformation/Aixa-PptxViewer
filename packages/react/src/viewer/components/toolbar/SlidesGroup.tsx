@@ -11,6 +11,7 @@ import { ic, pill, sep } from './toolbar-constants';
 export interface SlidesGroupProps {
 	canEdit: boolean;
 	layoutOptions: PptxLayoutOption[];
+	currentLayoutPath?: string;
 	onInsertSlideFromLayout: (path: string, name?: string) => void;
 	onApplyLayout?: (path: string) => void;
 	onResetSlide?: () => void;
@@ -154,14 +155,14 @@ export function SlidesGroup(p: SlidesGroupProps): React.ReactElement {
 										<button
 											key={lo.path}
 											type='button'
-										className='flex min-w-0 flex-col items-center gap-1 rounded p-1 text-xs text-foreground hover:bg-muted transition-colors'
+											className='flex min-w-0 flex-col items-center gap-1 rounded p-1 text-xs text-foreground hover:bg-muted transition-colors'
 											onClick={() => {
 												p.onInsertSlideFromLayout(lo.path, lo.name);
 												setNewSlideMenuOpen(false);
 											}}
 										>
-										<LayoutPreview layout={lo} />
-										<span className='w-full truncate text-center'>{lo.name}</span>
+											<LayoutPreview layout={lo} />
+											<span className='w-full truncate text-center'>{lo.name}</span>
 										</button>
 									))}
 								</div>
@@ -184,20 +185,27 @@ export function SlidesGroup(p: SlidesGroupProps): React.ReactElement {
 						{layoutMenuOpen && (
 							<RibbonMenu anchorRef={layoutMenuRef} className='flex flex-col w-[620px] pt-1'>
 								<div className='grid grid-cols-4 gap-2 rounded-lg border border-border bg-popover backdrop-blur-lg shadow-2xl p-3 max-h-[520px] overflow-y-auto'>
-									{p.layoutOptions.map((lo) => (
-										<button
-											key={lo.path}
-											type='button'
-										className='flex min-w-0 flex-col items-center gap-1 rounded p-1 text-xs text-foreground hover:bg-muted transition-colors'
-											onClick={() => {
-												p.onApplyLayout?.(lo.path);
-												setLayoutMenuOpen(false);
-											}}
-										>
-										<LayoutPreview layout={lo} />
-										<span className='w-full truncate text-center'>{lo.name}</span>
-										</button>
-									))}
+									{p.layoutOptions.map((lo) => {
+										const isActive = lo.path === p.currentLayoutPath;
+										return (
+											<button
+												key={lo.path}
+												type='button'
+												aria-current={isActive ? 'true' : undefined}
+												className={cn(
+													'flex min-w-0 flex-col items-center gap-1 rounded p-1 text-xs text-foreground hover:bg-muted transition-colors',
+													isActive && 'bg-accent ring-2 ring-primary ring-offset-1 ring-offset-popover',
+												)}
+												onClick={() => {
+													p.onApplyLayout?.(lo.path);
+													setLayoutMenuOpen(false);
+												}}
+											>
+												<LayoutPreview layout={lo} />
+												<span className='w-full truncate text-center'>{lo.name}</span>
+											</button>
+										);
+									})}
 								</div>
 							</RibbonMenu>
 						)}

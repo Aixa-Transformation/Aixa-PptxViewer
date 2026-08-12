@@ -165,6 +165,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onPaste={p.onPaste}
 							onToggleFormatPainter={p.onToggleFormatPainter}
 							layoutOptions={p.layoutOptions}
+							currentLayoutPath={p.currentLayoutPath}
 							onInsertSlideFromLayout={p.onInsertSlideFromLayout}
 							onApplyLayout={p.onApplyLayout}
 							selectedElement={p.selectedElement}

@@ -516,6 +516,7 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 				isOverflowMenuOpen={s.isOverflowMenuOpen}
 				onSetOverflowMenuOpen={s.setIsOverflowMenuOpen}
 				layoutOptions={scopedLayoutOptions}
+				currentLayoutPath={activeSlide?.layoutPath}
 				themeFonts={{
 					heading: s.theme?.fontScheme?.majorFont?.latin,
 					body: s.theme?.fontScheme?.minorFont?.latin,

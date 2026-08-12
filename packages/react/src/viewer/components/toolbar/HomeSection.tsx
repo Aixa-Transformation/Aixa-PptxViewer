@@ -27,6 +27,7 @@ export interface HomeSectionProps {
 	onPaste: () => void;
 	onToggleFormatPainter?: () => void;
 	layoutOptions: Array<{ path: string; name: string }>;
+	currentLayoutPath?: string;
 	onInsertSlideFromLayout: (path: string, name?: string) => void;
 	onApplyLayout?: (path: string) => void;
 	onResetSlide?: () => void;
@@ -37,10 +38,17 @@ export interface HomeSectionProps {
 	embeddedFontFamilies?: string[];
 }
 
-function extractFontInfo(
+export function extractFontInfo(
 	element?: PptxElement | null,
-	defaultFontFamily = 'Segoe UI',
+	themeFonts?: { heading?: string; body?: string },
 ): { fontFamily: string; fontSize: string } {
+	const placeholderType = (element as { placeholderType?: string } | null | undefined)?.placeholderType;
+	const isHeading = placeholderType === 'title' || placeholderType === 'ctrTitle';
+	const defaultFontFamily =
+		(isHeading ? themeFonts?.heading : themeFonts?.body) ??
+		themeFonts?.body ??
+		themeFonts?.heading ??
+		'Segoe UI';
 	const defaults = { fontFamily: defaultFontFamily, fontSize: '24' };
 	if (!element) {
 		return defaults;
@@ -131,7 +139,7 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 	const sizeMenuRef = useRef<HTMLDivElement>(null);
 	const { fontFamily, fontSize } = extractFontInfo(
 		p.selectedElement,
-		p.themeFonts?.body ?? p.themeFonts?.heading ?? 'Segoe UI',
+		p.themeFonts,
 	);
 	const themeFontEntries = [
 		p.themeFonts?.heading ? { family: p.themeFonts.heading, label: 'Headings' } : undefined,
@@ -284,6 +292,7 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 			<SlidesGroup
 				canEdit={p.canEdit}
 				layoutOptions={p.layoutOptions}
+				currentLayoutPath={p.currentLayoutPath}
 				onInsertSlideFromLayout={p.onInsertSlideFromLayout}
 				onApplyLayout={p.onApplyLayout}
 				onResetSlide={p.onResetSlide}
