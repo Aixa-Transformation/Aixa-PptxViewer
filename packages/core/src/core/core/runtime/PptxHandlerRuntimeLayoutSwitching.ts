@@ -90,9 +90,18 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			shapeXml: XmlObject;
 		}> = [];
 
-		const shapes = this.ensureArray(spTree['p:sp']) as XmlObject[];
+		// Most layout placeholders are p:sp nodes, but imported and third-party
+		// decks can also persist picture or graphic-frame placeholders directly.
+		const shapes = [
+			...(this.ensureArray(spTree['p:sp']) as XmlObject[]),
+			...(this.ensureArray(spTree['p:pic']) as XmlObject[]),
+			...(this.ensureArray(spTree['p:graphicFrame']) as XmlObject[]),
+		];
 		for (const shape of shapes) {
-			const nvPr = xmlPath(shape, 'p:nvSpPr', 'p:nvPr');
+			const nvPr =
+				xmlPath(shape, 'p:nvSpPr', 'p:nvPr') ??
+				xmlPath(shape, 'p:nvPicPr', 'p:nvPr') ??
+				xmlPath(shape, 'p:nvGraphicFramePr', 'p:nvPr');
 			const phInfo = this.readPlaceholderInfoFromNvPr(nvPr);
 			if (!phInfo) {
 				continue;
@@ -149,6 +158,46 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		return type;
 	}
 
+	private preferredPlaceholderTypes(element: PptxElement): string[] {
+		switch (element.type) {
+			case 'image':
+				return ['pic', 'obj'];
+			case 'chart':
+				return ['chart', 'obj'];
+			case 'table':
+				return ['tbl', 'obj'];
+			case 'video':
+			case 'audio':
+				return ['media', 'obj'];
+			case 'text':
+				return ['body', 'subtitle', 'obj'];
+			default:
+				return ['obj', 'body'];
+		}
+	}
+
+	private placeholderMatchScore(
+		element: PptxElement,
+		source: PlaceholderInfo,
+		target: PlaceholderInfo,
+	): number {
+		const sourceType = source.type || 'body';
+		const targetType = target.type || 'body';
+		const sourceRole = this.placeholderRole(source);
+		const targetRole = this.placeholderRole(target);
+		if (sourceRole !== targetRole) return -1;
+
+		let score = 0;
+		if (source.idx !== undefined && target.idx === source.idx) score += 100;
+		if (targetType === sourceType) score += 50;
+		const preferredIndex = this.preferredPlaceholderTypes(element).indexOf(targetType);
+		if (preferredIndex >= 0) score += 30 - preferredIndex * 5;
+		// An object placeholder accepts every content kind, but it must rank below
+		// the kind-specific picture/chart/table/media destination when both exist.
+		if (targetType === 'obj') score += 10;
+		return score;
+	}
+
 	// ── Core layout switching logic ─────────────────────────────────────
 
 	/**
@@ -199,30 +248,17 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				continue;
 			}
 
-			const sourceType = phInfo.type || 'body';
-			const sourceRole = this.placeholderRole(phInfo);
-			// PowerPoint placeholder ids are the strongest identity, but only
-			// within a compatible semantic role. This prevents (for example) a
-			// picture being moved into a title box merely because both use idx=1.
-			let resolvedLayoutPh = targetPlaceholders.find(
-				(lp) =>
-					!lp.matched &&
-					phInfo.idx !== undefined &&
-					lp.phInfo.idx === phInfo.idx &&
-					this.placeholderRole(lp.phInfo) === sourceRole,
-			);
-			// Fall back to exact type, then to PowerPoint-compatible roles.
-			resolvedLayoutPh ??= targetPlaceholders.find(
-				(lp) => !lp.matched && (lp.phInfo.type || 'body') === sourceType,
-			);
-			// PowerPoint treats centered-title/title and body/object/subtitle
-			// placeholders as compatible roles when switching layout families.
-			if (!resolvedLayoutPh) {
-				for (const lp of targetPlaceholders) {
-					if (!lp.matched && this.placeholderRole(lp.phInfo) === sourceRole) {
-						resolvedLayoutPh = lp;
-						break;
-					}
+			// Rank every compatible destination. This is important for layouts that
+			// combine several content placeholders: a picture must choose pic before
+			// body, a chart must choose chart, and repeated placeholders still use idx.
+			let resolvedLayoutPh: (typeof targetPlaceholders)[number] | undefined;
+			let bestScore = -1;
+			for (const candidate of targetPlaceholders) {
+				if (candidate.matched) continue;
+				const score = this.placeholderMatchScore(element, phInfo, candidate.phInfo);
+				if (score > bestScore) {
+					bestScore = score;
+					resolvedLayoutPh = candidate;
 				}
 			}
 

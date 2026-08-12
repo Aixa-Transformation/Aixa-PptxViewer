@@ -24,6 +24,11 @@ function LayoutPreview({ layout }: { layout: PptxLayoutOption }): React.ReactEle
 	const previewWidth = 128;
 	const previewHeight = 72;
 	const scale = Math.min(previewWidth / width, previewHeight / height);
+	// Placeholder chrome lives inside the scaled slide canvas. Compensate for
+	// that transform so its outline remains approximately 1.5px in the visible
+	// thumbnail instead of shrinking to an almost invisible hairline.
+	const placeholderBorderWidth = 1.5 / scale;
+	const placeholderInsetWidth = 0.75 / scale;
 	const slide: PptxSlide = {
 		id: `layout-preview-${layout.path}`,
 		rId: '',
@@ -68,6 +73,10 @@ function LayoutPreview({ layout }: { layout: PptxLayoutOption }): React.ReactEle
 								top: placeholder.y,
 								width: placeholder.width,
 								height: placeholder.height,
+								borderWidth: placeholderBorderWidth,
+								borderColor: 'rgba(71, 85, 105, 0.92)',
+								backgroundColor: 'rgba(255, 255, 255, 0.22)',
+								boxShadow: `inset 0 0 0 ${placeholderInsetWidth}px rgba(255, 255, 255, 0.72)`,
 							}}
 						/>
 					) : null,
@@ -193,14 +202,21 @@ export function SlidesGroup(p: SlidesGroupProps): React.ReactElement {
 												type='button'
 												aria-current={isActive ? 'true' : undefined}
 												className={cn(
-													'flex min-w-0 flex-col items-center gap-1 rounded p-1 text-xs text-foreground hover:bg-muted transition-colors',
-													isActive && 'bg-accent ring-2 ring-primary ring-offset-1 ring-offset-popover',
+													'relative flex min-w-0 flex-col items-center gap-1 rounded border-[3px] p-1 text-xs text-foreground transition-colors hover:bg-muted',
+													isActive
+														? 'border-blue-600 bg-blue-50 shadow-[0_0_0_2px_rgba(37,99,235,0.25)] dark:bg-blue-950/40'
+														: 'border-transparent',
 												)}
 												onClick={() => {
 													p.onApplyLayout?.(lo.path);
 													setLayoutMenuOpen(false);
 												}}
 											>
+												{isActive && (
+													<span className='absolute right-1 top-1 z-10 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow'>
+														✓
+													</span>
+												)}
 												<LayoutPreview layout={lo} />
 												<span className='w-full truncate text-center'>{lo.name}</span>
 											</button>
