@@ -111,6 +111,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			content: incomingContent,
 			singleSlideOnly = false,
 			fonts = [],
+			onUploadCustomFontPackage,
 			filePath,
 			fileName,
 			canEdit = false,
@@ -799,6 +800,21 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 									aiEnabled={Boolean(ai)}
 									isAiPanelOpen={aiPanel.isOpen}
 									onToggleAiPanel={aiPanel.toggle}
+									onUploadCustomFontPackage={onUploadCustomFontPackage}
+									onEmbedCustomFonts={(fonts) => {
+										state.setEmbeddedFonts((current) => {
+											const merged = [...current];
+											for (const font of fonts) {
+												const index = merged.findIndex(
+													(existing) => existing.name === font.name && Boolean(existing.bold) === Boolean(font.bold) && Boolean(existing.italic) === Boolean(font.italic),
+												);
+												if (index >= 0) merged[index] = font;
+												else merged.push(font);
+											}
+											return merged;
+										});
+										state.setIsDirty(true);
+									}}
 								/>
 							)}
 

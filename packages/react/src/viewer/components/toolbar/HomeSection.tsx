@@ -1,5 +1,7 @@
 import { hasTextProperties } from 'pptx-viewer-core';
-import type { PptxElement } from 'pptx-viewer-core';
+import type { PptxElement, PptxEmbeddedFont } from 'pptx-viewer-core';
+import type { ViewerFontSource } from 'pptx-viewer-shared';
+import JSZip from 'jszip';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -36,6 +38,8 @@ export interface HomeSectionProps {
 	onUpdateTextStyle?: (style: Record<string, unknown>) => void;
 	themeFonts?: { heading?: string; body?: string };
 	embeddedFontFamilies?: string[];
+	onUploadCustomFontPackage?: (file: File, fonts: ViewerFontSource[]) => void | Promise<void>;
+	onEmbedCustomFonts?: (fonts: PptxEmbeddedFont[]) => void;
 }
 
 export function extractFontInfo(
@@ -121,6 +125,17 @@ const COMMON_FONTS = [
 
 const COMMON_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 54, 60, 72, 96];
 
+const CUSTOM_FONT_FILE_EXTENSION = /\.(?:ttf|otf|woff2?)$/iu;
+
+const getZipEntryBaseName = (path: string): string =>
+	path.replace(/\\/gu, '/').split('/').filter(Boolean).pop() ?? path;
+
+const isUsableZipFontEntry = (path: string): boolean => {
+	const normalized = path.replace(/\\/gu, '/').toLowerCase();
+	if (normalized.includes('__macosx/') || normalized.endsWith('/.ds_store')) return false;
+	return CUSTOM_FONT_FILE_EXTENSION.test(normalized);
+};
+
 export function HomeSection(p: HomeSectionProps): React.ReactElement {
 	const { t } = useTranslation();
 	const [fontMenuOpen, setFontMenuOpen] = useState(false);
@@ -158,39 +173,107 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 		setFontMenuOpen(false);
 	};
 
-	const registerLocalFont = async (file: File): Promise<void> => {
-		const stem = file.name.replace(/\.(?:ttf|otf|woff2?)$/iu, '');
+	type LocalViewerFontSource = ViewerFontSource & { data: ArrayBuffer };
+
+	const fontSourceFromFile = async (file: File): Promise<LocalViewerFontSource | null> => {
+		const baseName = getZipEntryBaseName(file.name);
+		const stem = baseName.replace(CUSTOM_FONT_FILE_EXTENSION, '');
 		const bold = /(?:^|[-_\s])(?:bold|semibold|demibold|black)(?:$|[-_\s])/iu.test(stem);
 		const italic = /(?:^|[-_\s])(?:italic|oblique)(?:$|[-_\s])/iu.test(stem);
 		const family = stem
 			.replace(/(?:[-_\s])(?:regular|normal|book|medium|bold|semibold|demibold|black|italic|oblique)+$/iu, '')
 			.replace(/[-_]+/gu, ' ')
 			.trim();
-		if (!family || typeof FontFace === 'undefined') {
-			return;
-		}
-		const face = new FontFace(family, await file.arrayBuffer(), {
-			weight: bold ? '700' : '400',
+		if (!family) return null;
+		const normalizedName = baseName.toLowerCase();
+		const format = normalizedName.endsWith('.woff2') ? 'woff2' : normalizedName.endsWith('.woff') ? 'woff' : normalizedName.endsWith('.otf') ? 'opentype' : 'truetype';
+		return {
+			family,
+			src: URL.createObjectURL(file),
+			format,
+			weight: bold ? 700 : 400,
 			style: italic ? 'italic' : 'normal',
-		});
-		await face.load();
-		document.fonts.add(face);
-		const next = Array.from(new Set([...customFontFamilies, family]));
+			data: await file.arrayBuffer(),
+		};
+	};
+
+	const registerFontSources = async (sources: LocalViewerFontSource[]): Promise<void> => {
+		if (typeof FontFace === 'undefined') return;
+		const loadedSources: LocalViewerFontSource[] = [];
+		for (const source of sources) {
+			try {
+				// Loading the extracted bytes directly avoids browser differences in
+				// parsing blob URLs and missing MIME types from ZIP entries.
+				const face = new FontFace(source.family, source.data, {
+					weight: String(source.weight ?? 400),
+					style: source.style ?? 'normal',
+				});
+				await face.load();
+				document.fonts.add(face);
+				loadedSources.push(source);
+			} catch (error) {
+				console.warn(`[PowerPointViewer] Could not load custom font ${source.family}.`, error);
+			}
+		}
+		if (loadedSources.length === 0) {
+			throw new Error('None of the selected font files could be loaded by this browser.');
+		}
+		const next = Array.from(new Set([...customFontFamilies, ...loadedSources.map((source) => source.family)]));
 		setCustomFontFamilies(next);
 		const fontWindow = window as Window & { __AIXA_PPTX_CUSTOM_FONT_FAMILIES__?: string[] };
 		fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = next;
 		window.dispatchEvent(new CustomEvent('aixa:pptx-custom-fonts', { detail: next }));
-		applyFont(family);
+		if (loadedSources[0]) applyFont(loadedSources[0].family);
+	};
+
+	const registerLocalFontPackage = async (file: File): Promise<void> => {
+		let sources: LocalViewerFontSource[] = [];
+		if (/\.zip$/iu.test(file.name)) {
+			const zip = await JSZip.loadAsync(file);
+			// JSZip exposes a flat map containing entries from every directory,
+			// so this finds fonts no matter how deeply they are nested.
+			const entries = Object.values(zip.files).filter(
+				(entry) => !entry.dir && isUsableZipFontEntry(entry.name),
+			);
+			sources = (await Promise.all(entries.map(async (entry) => {
+				const blob = await entry.async('blob');
+				return fontSourceFromFile(
+					new File([blob], getZipEntryBaseName(entry.name), { type: blob.type }),
+				);
+			}))).filter((source): source is LocalViewerFontSource => Boolean(source));
+		} else {
+			const source = await fontSourceFromFile(file);
+			if (source) sources = [source];
+		}
+		if (sources.length === 0) throw new Error('No browser-compatible font files were found.');
+		// The host callback is the security gate (for example an antivirus scan).
+		// It must complete before untrusted bytes are registered or embedded.
+		await p.onUploadCustomFontPackage?.(
+			file,
+			sources.map(({ data: _data, ...source }) => source),
+		);
+		await registerFontSources(sources);
+		p.onEmbedCustomFonts?.(
+			sources.map((source) => ({
+				name: source.family,
+				dataUrl: '',
+				bold: Number(source.weight ?? 400) >= 600,
+				italic: source.style === 'italic' || source.style === 'oblique',
+				format: source.format,
+				rawFontData: new Uint8Array(source.data.slice(0)),
+			})),
+		);
 	};
 
 	useEffect(() => {
 		const handleCustomFonts = (event: Event) => {
 			const families = (event as CustomEvent<unknown>).detail;
-			setCustomFontFamilies(
-				Array.isArray(families)
-					? families.filter((family): family is string => typeof family === 'string' && family.trim().length > 0)
-					: [],
-			);
+			const incoming = Array.isArray(families)
+				? families.filter((family): family is string => typeof family === 'string' && family.trim().length > 0)
+				: [];
+			// Host updates may arrive after a local ZIP was loaded. Preserve the
+			// locally registered families until the host persists and echoes them.
+			setCustomFontFamilies((current) => Array.from(new Set([...current, ...incoming])));
 		};
 		window.addEventListener('aixa:pptx-custom-fonts', handleCustomFonts);
 		return () => window.removeEventListener('aixa:pptx-custom-fonts', handleCustomFonts);
@@ -391,16 +474,16 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 										onClick={() => fontFileInputRef.current?.click()}
 									>
 										<LuUpload className='h-4 w-4' />
-										Add custom font file
+										Add custom font package
 									</button>
 									<input
 										ref={fontFileInputRef}
 										type='file'
-										accept='.ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2'
+										accept='.zip,.ttf,.otf,.woff,.woff2,application/zip,font/ttf,font/otf,font/woff,font/woff2'
 										className='hidden'
 										onChange={(event) => {
 											const file = event.currentTarget.files?.[0];
-											if (file) void registerLocalFont(file);
+											if (file) void registerLocalFontPackage(file);
 											event.currentTarget.value = '';
 										}}
 									/>

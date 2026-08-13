@@ -251,6 +251,12 @@ export interface PowerPointViewerProps {
 	singleSlideOnly?: boolean;
 	/** Licensed fonts supplied by the host application. No fonts are bundled. */
 	fonts?: ViewerFontSource[];
+	/**
+	 * Persist a user-selected custom font package. ZIP packages are expanded by
+	 * the viewer for immediate preview, while the untouched file is passed to
+	 * the host so it can be scanned/stored and made available to shared viewers.
+	 */
+	onUploadCustomFontPackage?: (file: File, fonts: ViewerFontSource[]) => void | Promise<void>;
 	/** Original file path, used for autosave recovery */
 	filePath?: string;
 	/**

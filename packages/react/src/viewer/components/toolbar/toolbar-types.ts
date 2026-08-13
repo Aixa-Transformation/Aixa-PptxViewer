@@ -6,6 +6,7 @@ import type {
 	TextStyle,
 	PptxCustomShow,
 } from 'pptx-viewer-core';
+import type { ViewerFontSource } from 'pptx-viewer-shared';
 import type { ToolbarActionId } from 'pptx-viewer-shared';
 
 import type {
@@ -125,6 +126,8 @@ export interface ToolbarProps {
 	currentLayoutPath?: string;
 	themeFonts?: { heading?: string; body?: string };
 	embeddedFontFamilies?: string[];
+	onEmbedCustomFonts?: (fonts: import('pptx-viewer-core').PptxEmbeddedFont[]) => void;
+	onUploadCustomFontPackage?: (file: File, fonts: ViewerFontSource[]) => void | Promise<void>;
 	onInsertSlideFromLayout: (path: string, name?: string) => void;
 	onApplyLayout?: (path: string) => void;
 	customShows: PptxCustomShow[];

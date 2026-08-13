@@ -172,6 +172,8 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onUpdateTextStyle={p.onUpdateTextStyle}
 							themeFonts={p.themeFonts}
 							embeddedFontFamilies={p.embeddedFontFamilies}
+							onEmbedCustomFonts={p.onEmbedCustomFonts}
+							onUploadCustomFontPackage={p.onUploadCustomFontPackage}
 						/>
 					)}
 

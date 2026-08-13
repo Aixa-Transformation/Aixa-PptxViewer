@@ -8,6 +8,7 @@ import type {
 } from 'pptx-viewer-core';
 import { DEFAULT_INSERT_CHART_TYPE } from 'pptx-viewer-shared';
 import type { ToolbarActionId } from 'pptx-viewer-shared';
+import type { ViewerFontSource } from 'pptx-viewer-shared';
 /**
  * ViewerToolbarSection: Renders the top toolbar, signature badge,
  * and hidden file-input elements.
@@ -151,6 +152,8 @@ export interface ViewerToolbarSectionProps {
 	isAiPanelOpen?: boolean;
 	/** Toggle the AI assistant panel. */
 	onToggleAiPanel?: () => void;
+	onUploadCustomFontPackage?: (file: File, fonts: ViewerFontSource[]) => void | Promise<void>;
+	onEmbedCustomFonts?: (fonts: import('pptx-viewer-core').PptxEmbeddedFont[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +187,8 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 		onOpenHeaderFooter,
 		onOpenShareDialog,
 		onOpenFile,
+		onUploadCustomFontPackage,
+		onEmbedCustomFonts,
 		onOpenRecentFile,
 		onToggleFormatPainter: onToggleFormatPainterProp,
 		fileName,
@@ -522,6 +527,8 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 					body: s.theme?.fontScheme?.minorFont?.latin,
 				}}
 				embeddedFontFamilies={Array.from(new Set(s.embeddedFonts.map((font) => font.name)))}
+				onUploadCustomFontPackage={onUploadCustomFontPackage}
+				onEmbedCustomFonts={onEmbedCustomFonts}
 				onInsertSlideFromLayout={slideOps.handleInsertSlideFromLayout}
 				onApplyLayout={(path) => void onApplyLayout(path)}
 				customShows={s.customShows}

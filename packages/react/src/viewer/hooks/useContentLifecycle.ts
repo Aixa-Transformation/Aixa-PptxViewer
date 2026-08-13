@@ -123,6 +123,7 @@ export function useContentLifecycle(input: UseContentLifecycleInput): ContentLif
 		tagCollections: state.tagCollections,
 		notesMaster: state.notesMaster,
 		handoutMaster: state.handoutMaster,
+		embeddedFonts: state.embeddedFonts,
 		handlerRef,
 		inlineEditingElementIdRef: state.inlineEditingElementIdRef,
 		inlineEditingTextRef: state.inlineEditingTextRef,
