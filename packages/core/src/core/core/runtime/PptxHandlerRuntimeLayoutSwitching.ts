@@ -119,6 +119,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				)
 				: undefined;
 			const inheritedShape = masterContext?.shape ?? masterContext?.picture;
+			const resolvedShape = inheritedShape
 				? this.mergeXmlObjects(inheritedShape, shape) ?? shape
 				: shape;
 
