@@ -167,6 +167,26 @@ describe('strict conformance: real package structure', () => {
 });
 
 describe('strict conformance: load and re-save round-trip', () => {
+	it('uses the Office-compatible Strict custom-properties namespace', async () => {
+		const { bytes } = await buildDeckSavedAs('strict');
+		const handler = new PptxHandler();
+		const data = await handler.load(bytes.buffer as ArrayBuffer);
+		const saved = await handler.save(data.slides, {
+			customProperties: [{ name: 'Project', value: 'Aixa', type: 'lpwstr' }],
+		});
+		const zip = await JSZip.loadAsync(saved);
+		const customXml = await zip.file('docProps/custom.xml')!.async('string');
+		const rootRels = await zip.file('_rels/.rels')!.async('string');
+
+		expect(customXml).toContain(
+			'xmlns="http://purl.oclc.org/ooxml/officeDocument/customProperties"',
+		);
+		expect(customXml).not.toContain('/custom-properties"');
+		expect(rootRels).toContain(
+			'Type="http://purl.oclc.org/ooxml/officeDocument/relationships/customProperties"',
+		);
+	});
+
 	it('passes untouched slide-layout XML through byte-for-byte', async () => {
 		const { bytes } = await buildDeckSavedAs('strict');
 		const sourceZip = await JSZip.loadAsync(bytes);

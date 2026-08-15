@@ -66,7 +66,7 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 			}
 
 			if (
-				relationshipType === input.slideRelationshipType &&
+				this.isSlideRelationshipType(relationshipType, input.slideRelationshipType) &&
 				typeof relationshipId === 'string' &&
 				typeof relationshipTarget === 'string'
 			) {
@@ -354,5 +354,13 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 			return [];
 		}
 		return [value];
+	}
+
+	/** Match equivalent Strict and Transitional slide relationship URIs. */
+	private isSlideRelationshipType(value: unknown, expected: string): boolean {
+		if (typeof value !== 'string') {
+			return false;
+		}
+		return value === expected || value.endsWith('/relationships/slide');
 	}
 }

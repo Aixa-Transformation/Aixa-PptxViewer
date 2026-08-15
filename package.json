@@ -1,6 +1,6 @@
 {
   "name": "@aixa-transformation/pptx-viewer-workspace",
-  "version": "2.0.31",
+  "version": "2.0.32",
   "description": "Aixa Ltd PowerPoint viewer and editor monorepo.",
   "private": true,
   "license": "Apache-2.0",
