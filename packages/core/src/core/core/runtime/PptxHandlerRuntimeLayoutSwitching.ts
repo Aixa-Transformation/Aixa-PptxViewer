@@ -68,7 +68,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 * Extract all placeholders from a layout's `p:spTree`, returning
 	 * their placeholder info and their transform (position/size in EMU).
 	 */
-	protected extractLayoutPlaceholders(layoutXml: XmlObject): Array<{
+	protected extractLayoutPlaceholders(layoutXml: XmlObject, layoutPath?: string): Array<{
 		phInfo: PlaceholderInfo;
 		xEmu: number;
 		yEmu: number;
@@ -107,8 +107,23 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				continue;
 			}
 
+			// A layout placeholder commonly omits a:xfrm and inherits it from
+			// the matching master placeholder. Resolve that inheritance exactly
+			// as normal slide parsing does, otherwise the destination is 0x0 and
+			// switching appears to leave only the layout background visible.
+			const masterPath = layoutPath ? this.resolveMasterPathForLayout(layoutPath) : undefined;
+			const masterContext = masterPath
+				? this.findPlaceholderInShapeTree(
+					xmlPath(this.masterXmlMap.get(masterPath), 'p:sldMaster', 'p:cSld', 'p:spTree'),
+					phInfo,
+				)
+				: undefined;
+			const inheritedShape = masterContext?.shape ?? masterContext?.picture;
+				? this.mergeXmlObjects(inheritedShape, shape) ?? shape
+				: shape;
+
 			// Get transform
-			const spPr = shape['p:spPr'] as XmlObject | undefined;
+			const spPr = resolvedShape['p:spPr'] as XmlObject | undefined;
 			const xfrm = spPr?.['a:xfrm'] as XmlObject | undefined;
 			const off = xfrm?.['a:off'] as XmlObject | undefined;
 			const ext = xfrm?.['a:ext'] as XmlObject | undefined;
@@ -118,7 +133,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			const cxEmu = ext ? Number(ext['@_cx'] || 0) : 0;
 			const cyEmu = ext ? Number(ext['@_cy'] || 0) : 0;
 
-			result.push({ phInfo, xEmu, yEmu, cxEmu, cyEmu, shapeXml: shape });
+			result.push({ phInfo, xEmu, yEmu, cxEmu, cyEmu, shapeXml: resolvedShape });
 		}
 
 		return result;
@@ -217,7 +232,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		newLayoutXml: XmlObject,
 		newLayoutPath: string,
 	): PptxElement[] {
-		const layoutPlaceholders = this.extractLayoutPlaceholders(newLayoutXml);
+		const layoutPlaceholders = this.extractLayoutPlaceholders(newLayoutXml, newLayoutPath);
 
 		// Keep placeholders as an array. A layout may legally contain multiple
 		// placeholders with the same type (and occasionally an omitted idx), so
@@ -240,11 +255,36 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const resultElements: PptxElement[] = [];
 
 		for (const element of elements) {
-			const phInfo = this.getElementPlaceholderInfo(element);
+			const metadata = element as PptxElement & {
+				_layoutSwitchOriginal?: PptxElement;
+				_layoutSwitchGenerated?: boolean;
+			};
+			// Empty placeholders created by a previous layout are transient. Keeping
+			// them on the next switch duplicates boxes and causes visible overlap.
+			if (metadata._layoutSwitchGenerated) continue;
+			// Always remap from the canonical pre-switch element. This makes A -> B
+			// -> A reversible and prevents transforms/placeholder identities from
+			// accumulating across repeated layout selections.
+			const original = metadata._layoutSwitchOriginal ?? element;
+			const originalPhInfo = this.getElementPlaceholderInfo(original);
+			const baseElement = {
+				// Keep all current content and styling edits. Only placeholder geometry
+				// and identity come from the canonical pre-switch element.
+				...element,
+				...(originalPhInfo
+					? { x: original.x, y: original.y, width: original.width, height: original.height }
+					: {}),
+				rawXml: element.rawXml ? cloneXmlObject(element.rawXml) : element.rawXml,
+			} as PptxElement & { _layoutSwitchOriginal?: PptxElement };
+			baseElement._layoutSwitchOriginal = metadata._layoutSwitchOriginal ?? {
+				...element,
+				rawXml: element.rawXml ? cloneXmlObject(element.rawXml) : element.rawXml,
+			};
+			const phInfo = originalPhInfo ?? this.getElementPlaceholderInfo(baseElement);
 
 			if (!phInfo) {
 				// Non-placeholder element: keep as-is
-				resultElements.push(element);
+				resultElements.push(baseElement);
 				continue;
 			}
 
@@ -267,8 +307,8 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				resolvedLayoutPh.matched = true;
 
 				const updatedElement = {
-					...element,
-					rawXml: element.rawXml ? cloneXmlObject(element.rawXml) : element.rawXml,
+					...baseElement,
+					rawXml: baseElement.rawXml ? cloneXmlObject(baseElement.rawXml) : baseElement.rawXml,
 				} as PptxElement;
 				if (resolvedLayoutPh.cxEmu > 0 && resolvedLayoutPh.cyEmu > 0) {
 					updatedElement.x = Math.round(resolvedLayoutPh.xEmu / EMU_PER_PX);
@@ -297,7 +337,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				// no corresponding placeholder. PowerPoint keeps such content as a
 				// free-standing element; preserving it also keeps pictures and text
 				// from disappearing during layout changes.
-				resultElements.push(element);
+				resultElements.push(baseElement);
 			}
 		}
 
@@ -459,6 +499,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			text: '',
 			rawXml,
 		};
+		(element as PptxElement & { _layoutSwitchGenerated?: boolean })._layoutSwitchGenerated = true;
 
 		return element;
 	}

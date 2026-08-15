@@ -1,6 +1,7 @@
 import { XmlObject, TextSegment, TextStyle } from '../../types';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeShapeTextParsing';
 import type { ShapeTextParsingContext, ParagraphContentResult } from './PptxHandlerRuntimeTypes';
+import { orderedSmartArtTextEntries } from './smartart-text-order';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	/**
@@ -234,38 +235,18 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			'a:br',
 		]);
 
-		const paragraphRuns = this.ensureArray(p['a:r']);
-		const paragraphBreaks = this.ensureArray(p['a:br']);
-		const hasCollapsedRunBreakOrder = paragraphRuns.length > 1 && paragraphBreaks.length > 0;
-		for (const key of Object.keys(p)) {
+		// The shared XML parser annotates txBody paragraphs with their original
+		// direct-child order. Use that order here too: the collapsed object view
+		// groups all a:r and a:br children by tag, which previously moved leading
+		// and trailing soft breaks between runs and caused visible title wrapping.
+		for (const [key, item] of orderedSmartArtTextEntries(p)) {
 			if (!contentTagSet.has(key)) {
 				continue;
 			}
 
-			const items = this.ensureArray(p[key]);
-			const breakCount = paragraphBreaks.length;
-			const insertCollapsedBreaks = key === 'a:r' && hasCollapsedRunBreakOrder;
-			for (const [itemIndex, item] of items.entries()) {
-				switch (key) {
+			switch (key) {
 					case 'a:r': {
 						processRun(item);
-						if (insertCollapsedBreaks && itemIndex < items.length - 1) {
-							// The non-order-preserving XML view groups a:r and a:br into
-							// separate buckets. Distribute every authored break across the
-							// available run gaps instead of silently dropping extras.
-							const gapCount = items.length - 1;
-							const breaksHere =
-								Math.floor(breakCount / gapCount) +
-								(itemIndex < breakCount % gapCount ? 1 : 0);
-							for (let breakIndex = 0; breakIndex < breaksHere; breakIndex++) {
-								parts.push('\n');
-								segments.push({
-									text: '\n',
-									style: { ...mergedDefaultRunStyle },
-									isLineBreak: true,
-								});
-							}
-						}
 						break;
 					}
 					case 'a:fld':
@@ -286,9 +267,6 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						processAlternateContent(item);
 						break;
 					case 'a:br': {
-						if (hasCollapsedRunBreakOrder) {
-							break;
-						}
 						const brNode = (item ?? {}) as XmlObject;
 						const brRunProps = brNode['a:rPr'] as XmlObject | undefined;
 						const brStyle = {
@@ -308,7 +286,6 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						segments.push(brSegment);
 						break;
 					}
-				}
 			}
 		}
 

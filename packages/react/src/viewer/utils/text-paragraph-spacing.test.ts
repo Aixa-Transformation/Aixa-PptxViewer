@@ -39,13 +39,13 @@ describe('resolveParagraphSpacing', () => {
 		expect(result.marginTop).toBe(20);
 	});
 
-	it('maps a line-spacing multiplier to a unitless line-height', () => {
+	it('maps DrawingML line-spacing from natural single-line height to CSS', () => {
 		const result = resolveParagraphSpacing({
 			...base,
 			paraProps: { lineSpacing: 1.5 } as TextStyle,
 			bodyStyle: undefined,
 		});
-		expect(result.lineHeight).toBe(1.5);
+		expect(result.lineHeight).toBeCloseTo(1.8);
 	});
 
 	it('maps exact-pt line spacing to a px line-height', () => {
@@ -64,7 +64,16 @@ describe('resolveParagraphSpacing', () => {
 			paraProps: { lineSpacing: 2 } as TextStyle,
 			bodyStyle: { lineSpacingExactPt: 40 } as TextStyle,
 		});
-		expect(result.lineHeight).toBe(2);
+		expect(result.lineHeight).toBeCloseTo(2.4);
+	});
+
+	it('keeps 100% DrawingML spacing at the natural Office single-line height', () => {
+		const result = resolveParagraphSpacing({
+			...base,
+			paraProps: { lineSpacing: 1 } as TextStyle,
+			bodyStyle: undefined,
+		});
+		expect(result.lineHeight).toBeCloseTo(1.2);
 	});
 
 	it('suppresses first-paragraph top spacing when spaceFirstLast is false', () => {

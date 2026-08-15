@@ -249,6 +249,15 @@ export interface PowerPointViewerProps {
 	content: Uint8Array;
 	/** Render only the active slide canvas without the deck thumbnail pane. */
 	singleSlideOnly?: boolean;
+	/**
+	 * Zero-based slide index controlled by the host application.
+	 *
+	 * Use this when one viewer instance represents a specific slide (for
+	 * example, a section card). The viewer reapplies the requested index after
+	 * parsing or replacing `content`, so hosts do not need polling or imperative
+	 * `goTo()` recovery loops. Values outside the deck are clamped safely.
+	 */
+	activeSlideIndex?: number;
 	/** Licensed fonts supplied by the host application. No fonts are bundled. */
 	fonts?: ViewerFontSource[];
 	/**

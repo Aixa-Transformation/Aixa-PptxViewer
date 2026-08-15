@@ -4,6 +4,7 @@ import {
 	parseParagraphMargins,
 	parseParagraphRtl,
 	parseTabStops,
+	resolveParagraphAlignment,
 } from '../../utils/paragraph-properties-parser';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeShapeBodyParsing';
 import type { ShapeTextParsingContext, ParagraphStyleResult } from './PptxHandlerRuntimeTypes';
@@ -97,20 +98,25 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		if (paragraphRtl !== undefined && textStyle.rtl === undefined) {
 			textStyle.rtl = paragraphRtl;
 		}
+		// Paragraph level is authoritative for placeholder list-style inheritance.
+		// Do not let an explicit alignment on the first paragraph become a
+		// shape-wide fallback for every later paragraph (for example, a centered
+		// heading followed by left-aligned body bullets).
+		const level = pPr?.['@_lvl'] === undefined ? -1 : Number.parseInt(String(pPr['@_lvl']), 10);
+		const normalizedLevel =
+			level === -1 ? -1 : Number.isFinite(level) ? Math.min(Math.max(level, 0), 8) : 0;
+		const placeholderLevelStyle = ctx.effectiveLevelStyles
+			? (ctx.effectiveLevelStyles[normalizedLevel] ??
+				ctx.effectiveLevelStyles[-1] ??
+				(normalizedLevel === -1 ? ctx.effectiveLevelStyles[0] : undefined))
+			: undefined;
 
-		let paraAlign: TextStyle['align'] = paragraphRtl ? 'right' : 'left';
+		const paraAlign: TextStyle['align'] = resolveParagraphAlignment(
+			pPr?.['@_algn'],
+			placeholderLevelStyle?.alignment as TextStyle['align'] | undefined,
+			paragraphRtl,
+		);
 		if (pPr?.['@_algn']) {
-			const alignMap: Record<string, TextStyle['align']> = {
-				l: 'left',
-				ctr: 'center',
-				r: 'right',
-				just: 'justify',
-				justify: 'justify',
-				justLow: 'justLow',
-				dist: 'dist',
-				thaiDist: 'thaiDist',
-			};
-			paraAlign = alignMap[pPr['@_algn']] || 'left';
 			if (!textStyle.align) {
 				textStyle.align = paraAlign;
 			}
@@ -235,7 +241,6 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		);
 		// An omitted level inherits a:defPPr. It is distinct from an explicit
 		// lvl="0", which inherits a:lvl1pPr.
-		const level = pPr?.['@_lvl'] === undefined ? -1 : Number.parseInt(String(pPr['@_lvl']), 10);
 		const levelKey =
 			level === -1
 				? 'a:defPPr'
@@ -273,20 +278,9 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		} as TextStyle;
 
 		// Apply placeholder level-specific defaults as fallback
-		if (ctx.effectiveLevelStyles) {
-			const normalizedLevel =
-				level === -1 ? -1 : Number.isFinite(level) ? Math.min(Math.max(level, 0), 8) : 0;
-			const phLevel =
-				ctx.effectiveLevelStyles[normalizedLevel] ??
-				ctx.effectiveLevelStyles[-1] ??
-				(normalizedLevel === -1 ? ctx.effectiveLevelStyles[0] : undefined);
-			if (phLevel) {
-				this.applyPlaceholderLevelDefaults(mergedDefaultRunStyle, phLevel);
-				this.applyPlaceholderLevelDefaults(textStyle, phLevel);
-			}
-		}
-		if (pPr?.['@_algn'] === undefined && textStyle.align !== undefined) {
-			paraAlign = textStyle.align;
+		if (placeholderLevelStyle) {
+			this.applyPlaceholderLevelDefaults(mergedDefaultRunStyle, placeholderLevelStyle);
+			this.applyPlaceholderLevelDefaults(textStyle, placeholderLevelStyle);
 		}
 
 		// Per-paragraph indentation (also checking placeholder level defaults)
@@ -300,21 +294,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				: undefined;
 		let effectiveMarginLeft = parMarginLeft;
 		let effectiveIndent = parIndent;
-		if (ctx.effectiveLevelStyles) {
-			const normalizedLevel =
-				level === -1 ? -1 : Number.isFinite(level) ? Math.min(Math.max(level, 0), 8) : 0;
-			const phLevel =
-				ctx.effectiveLevelStyles[normalizedLevel] ??
-				ctx.effectiveLevelStyles[-1] ??
-				(normalizedLevel === -1 ? ctx.effectiveLevelStyles[0] : undefined);
-			if (phLevel) {
-				if (effectiveMarginLeft === undefined && phLevel.marginLeft !== undefined) {
-					effectiveMarginLeft = phLevel.marginLeft;
+		if (placeholderLevelStyle) {
+				if (effectiveMarginLeft === undefined && placeholderLevelStyle.marginLeft !== undefined) {
+					effectiveMarginLeft = placeholderLevelStyle.marginLeft;
 				}
-				if (effectiveIndent === undefined && phLevel.indent !== undefined) {
-					effectiveIndent = phLevel.indent;
+				if (effectiveIndent === undefined && placeholderLevelStyle.indent !== undefined) {
+					effectiveIndent = placeholderLevelStyle.indent;
 				}
-			}
 		}
 
 		return {

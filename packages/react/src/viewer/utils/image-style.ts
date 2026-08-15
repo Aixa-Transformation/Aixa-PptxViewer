@@ -76,7 +76,11 @@ export function getImageRenderStyle(element: PptxElement): React.CSSProperties {
 			...maskStyle,
 			width: '100%',
 			height: '100%',
-			objectFit: 'cover',
+			// DrawingML's default `a:stretch/a:fillRect` maps the complete bitmap
+			// into the picture frame. Cropping is represented explicitly by
+			// `a:srcRect`; using CSS `cover` here introduced an extra implicit crop
+			// whenever the frame and bitmap aspect ratios differed slightly.
+			objectFit: 'fill',
 		};
 	}
 

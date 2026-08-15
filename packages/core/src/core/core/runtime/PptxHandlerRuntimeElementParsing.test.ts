@@ -71,6 +71,14 @@ function placeholderMatches(
 		return false;
 	}
 
+	const specialTypes = new Set(['dt', 'ftr', 'hdr', 'sldnum']);
+	if (
+		(source.type === undefined && target.type !== undefined && specialTypes.has(target.type)) ||
+		(target.type === undefined && source.type !== undefined && specialTypes.has(source.type))
+	) {
+		return false;
+	}
+
 	if (source.type && target.type && !typesMatch) {
 		return false;
 	}
@@ -225,6 +233,12 @@ describe('placeholderMatches', () => {
 
 	it('should match when idx matches and only target has type', () => {
 		expect(placeholderMatches({ idx: '1' }, { idx: '1', type: 'body' })).toBeTruthy();
+	});
+
+	it('should not match untyped content to special master placeholders by index', () => {
+		expect(placeholderMatches({ idx: '2' }, { idx: '2', type: 'dt' })).toBeFalsy();
+		expect(placeholderMatches({ idx: '3' }, { idx: '3', type: 'ftr' })).toBeFalsy();
+		expect(placeholderMatches({ idx: '4' }, { idx: '4', type: 'sldnum' })).toBeFalsy();
 	});
 
 	// Source has idx, target does not — singleton type matching

@@ -99,7 +99,7 @@ export function renderTableElement(
 		>
 			<div
 				className={cn(
-					'w-full h-full overflow-hidden',
+					'w-full h-full overflow-visible',
 					isEditable && hasCellSelectionHandler ? 'pointer-events-auto' : 'pointer-events-none',
 				)}
 			>

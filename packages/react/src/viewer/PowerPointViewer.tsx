@@ -110,6 +110,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 		const {
 			content: incomingContent,
 			singleSlideOnly = false,
+			activeSlideIndex: controlledActiveSlideIndex,
 			fonts = [],
 			onUploadCustomFontPackage,
 			filePath,
@@ -308,6 +309,24 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			activeSlide,
 			selectedElement,
 		} = state;
+
+		// Keep host-owned slide selection authoritative across async PPTX parsing,
+		// theme hydration, and content replacement. Those operations can reset the
+		// viewer's internal selection to slide zero. A declarative prop lets an
+		// embedding application select its slide without repeatedly calling both
+		// setActiveSlideIndex() and goTo() from timers.
+		useEffect(() => {
+			if (controlledActiveSlideIndex == null || slides.length === 0) {
+				return;
+			}
+			const requestedIndex = Number.isFinite(controlledActiveSlideIndex)
+				? Math.trunc(controlledActiveSlideIndex)
+				: 0;
+			const nextIndex = Math.min(Math.max(0, requestedIndex), slides.length - 1);
+			if (activeSlideIndex !== nextIndex) {
+				state.setActiveSlideIndex(nextIndex);
+			}
+		}, [controlledActiveSlideIndex, slides.length, activeSlideIndex, state.setActiveSlideIndex]);
 
 		// ── Settings dialog (General tab) ────────────────────────────
 		// A single `ViewerSettings` bag + change callback, mapped over the

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import type { ConnectorArrowType, StrokeDashType, XmlObject } from '../../types';
+import type { ConnectorArrowType, ShapeStyle, StrokeDashType, XmlObject } from '../../types';
 import { PptxShapeStyleExtractor } from './PptxShapeStyleExtractor';
 
 const EMU_PER_PX = 9525;
@@ -9,7 +9,9 @@ const EMU_PER_PX = 9525;
  * Build a PptxShapeStyleExtractor with minimal stubs.
  * The stubs return deterministic values so we can test extraction logic.
  */
-function createExtractor() {
+function createExtractor(
+	resolveThemeLineRef: (refNode: XmlObject, style: ShapeStyle) => void = () => {},
+) {
 	return new PptxShapeStyleExtractor({
 		emuPerPx: EMU_PER_PX,
 		parseColor: (colorNode: XmlObject | undefined) => {
@@ -80,7 +82,7 @@ function createExtractor() {
 			return [value];
 		},
 		resolveThemeFillRef: () => {},
-		resolveThemeLineRef: () => {},
+		resolveThemeLineRef,
 		resolveThemeEffectRef: () => {},
 		extractShadowStyle: () => ({}),
 		extractInnerShadowStyle: () => ({}),
@@ -122,6 +124,19 @@ describe('pptxShapeStyleExtractor', () => {
 			expect(style.fillMode).toBe('solid');
 			expect(style.fillColor).toBe('#0000FF');
 			expect(style.fillOpacity).toBe(0.5);
+		});
+	});
+
+	describe('no-fill extraction', () => {
+		it('honours a self-closing noFill parsed as an empty scalar over a theme fillRef', () => {
+			const style = extractor.extractShapeStyle(
+				{ 'a:noFill': '' as unknown as XmlObject },
+				{ 'a:fillRef': { '@_idx': '1', 'a:srgbClr': { '@_val': '4472C4' } } },
+			);
+
+			expect(style.fillMode).toBe('none');
+			expect(style.fillColor).toBe('transparent');
+			expect(style.fillOpacity).toBe(0);
 		});
 	});
 
@@ -240,6 +255,19 @@ describe('pptxShapeStyleExtractor', () => {
 	// ── Line/stroke properties ───────────────────────────────────────────
 
 	describe('line properties', () => {
+		it('combines an explicit width with a theme-reference colour', () => {
+			const themedExtractor = createExtractor((_refNode, style) => {
+				style.strokeColor = '#2F5597';
+				style.strokeWidth = 1;
+			});
+			const style = themedExtractor.extractShapeStyle(
+				{ 'a:ln': { '@_w': '28575' } },
+				{ 'a:lnRef': { '@_idx': '2' } },
+			);
+			expect(style.strokeColor).toBe('#2F5597');
+			expect(style.strokeWidth).toBe(3);
+		});
+
 		it('extracts stroke width from a:ln/@w', () => {
 			const spPr: XmlObject = {
 				'a:solidFill': { 'a:srgbClr': { '@_val': 'FFFFFF' } },

@@ -18,6 +18,30 @@ import { ActiveXControlOverlay } from './elements/ActiveXControlOverlay';
 
 export type { SlideCanvasProps } from './canvas/canvas-types';
 
+/**
+ * A number of PowerPoint templates use a single slide-sized picture as the
+ * artwork layer and place editable text on top of it.  When that picture is
+ * later in the OOXML z-order it visually belongs on top, but letting it own
+ * pointer events makes every native object underneath feel flattened.
+ *
+ * Keep the visual order intact and treat only genuine edge-to-edge pictures
+ * as background hit-test layers. They remain selectable from the Elements
+ * pane, while text and other native objects stay directly editable on canvas.
+ */
+export function isFullSlideBackgroundPicture(
+	element: { type?: string; x?: number; y?: number; width?: number; height?: number },
+	canvasSize: { width: number; height: number },
+): boolean {
+	if (element.type !== 'picture' && element.type !== 'image') return false;
+	const tolerance = Math.max(2, Math.min(canvasSize.width, canvasSize.height) * 0.005);
+	return (
+		Math.abs(element.x ?? 0) <= tolerance &&
+		Math.abs(element.y ?? 0) <= tolerance &&
+		(element.width ?? 0) >= canvasSize.width - tolerance &&
+		(element.height ?? 0) >= canvasSize.height - tolerance
+	);
+}
+
 export function SlideCanvas({
 	activeSlide,
 	templateElements,
@@ -91,6 +115,7 @@ export function SlideCanvas({
 	// are live). Drives touch-action: none and the touch pointer-down wiring so
 	// finger gestures manipulate elements instead of scrolling the page.
 	const isEditableCanvas = (mode === 'edit' || mode === 'master') && canEdit;
+	const hasEditableForegroundElements = (activeSlide?.elements.length ?? 0) > 1;
 
 	/* ── Stable callback refs ──────────────────────────────────────── */
 	const {
@@ -302,7 +327,13 @@ export function SlideCanvas({
 							isSelected={selectedElementIdSet.has(element.id)}
 							isInlineEditing={inlineEditingElementId === element.id}
 							inlineEditingText={inlineEditingText}
-							canInteract={isEditableCanvas}
+							canInteract={
+								isEditableCanvas &&
+								!(
+									hasEditableForegroundElements &&
+									isFullSlideBackgroundPicture(element, canvasSize)
+								)
+							}
 							spellCheckEnabled={spellCheckEnabled}
 							mediaDataUrls={mediaDataUrls}
 							tableEditorState={tableEditorState}

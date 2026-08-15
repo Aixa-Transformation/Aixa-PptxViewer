@@ -17,6 +17,13 @@
 import type { TextStyle } from 'pptx-viewer-core';
 
 const PT_TO_PX = 96 / 72;
+// DrawingML percentage line spacing is relative to the font's natural single
+// line height, not to the CSS em square. In CSS, a unitless line-height of 1
+// collapses the line box to exactly one em and progressively compresses
+// multi-paragraph PowerPoint text. PowerPoint/Office uses approximately 1.2em
+// for a 100% (single-spaced) line, which also matches the browser's `normal`
+// line box for the Office-compatible fonts used by imported decks.
+const DRAWINGML_SINGLE_LINE_HEIGHT = 1.2;
 
 export interface ParagraphSpacingInput {
 	/** This paragraph's own `a:pPr` geometry (from the first segment). */
@@ -70,7 +77,7 @@ export function resolveParagraphSpacing(input: ParagraphSpacingInput): Paragraph
 	if (typeof exactPt === 'number' && exactPt > 0) {
 		result.lineHeight = `${exactPt * PT_TO_PX}px`;
 	} else if (typeof multiplier === 'number' && multiplier > 0) {
-		result.lineHeight = multiplier;
+		result.lineHeight = multiplier * DRAWINGML_SINGLE_LINE_HEIGHT;
 	}
 
 	return result;

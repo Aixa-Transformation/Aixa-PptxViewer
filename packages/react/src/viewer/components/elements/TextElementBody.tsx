@@ -14,6 +14,16 @@ import { shouldUseSvgWarp, WarpedText } from '../../utils/text-warp';
 import { ActionButtonGlyphOverlay, isActionButtonShape } from './ActionButtonGlyphOverlay';
 import type { RenderBodyOptions } from './element-body-types';
 
+export function shouldRenderTextBody(
+	isTextElement: boolean,
+	hasActualText: boolean,
+	promptText: string | undefined,
+	isPresentationPassive: boolean | undefined,
+): boolean {
+	if (!isTextElement) return Boolean(promptText) && !isPresentationPassive;
+	return hasActualText || !promptText || !isPresentationPassive;
+}
+
 export function renderTextElementBody(options: RenderBodyOptions): React.ReactNode {
 	const {
 		el,
@@ -52,15 +62,42 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 		...(scene3dStyle?.transformStyle ? { transformStyle: scene3dStyle.transformStyle } : {}),
 		...(isLinkedTextBox ? { overflow: 'hidden' } : {}),
 	};
+	// `a:noAutofit` with top anchoring keeps the authored font size and lets the
+	// text body extend below its placeholder. A fixed `height: 100%` turns the
+	// body into a constrained flex container and can suppress its final paragraph
+	// even when vertical overflow is allowed. Keep the placeholder as the minimum
+	// height while allowing the content box to grow naturally, matching Office.
+	const allowsNaturalVerticalOverflow =
+		hasTextProperties(el) &&
+		el.textStyle?.autoFitMode === 'none' &&
+		el.textStyle?.vertOverflow !== 'clip' &&
+		(el.textStyle?.vAlign === undefined || el.textStyle.vAlign === 'top') &&
+		!isLinkedTextBox;
+	const textBodySizeStyle: React.CSSProperties | undefined = allowsNaturalVerticalOverflow
+		? { height: 'auto', minHeight: '100%' }
+		: undefined;
 	const shapeType = 'shapeType' in el ? (el as { shapeType?: string }).shapeType : undefined;
-	const shouldRenderText = isTxtEl || (hasTextProperties(el) && Boolean(el.promptText));
+	// Placeholder prompts ("Click to add title", master sample text, etc.) are
+	// editor affordances, not slide content.  PowerPoint omits them from slide
+	// show/export, so passive/read-only rendering must do the same.
+	const textProperties = hasTextProperties(el) ? el : undefined;
+	const hasActualText = Boolean(textProperties?.text) || Boolean(textProperties?.textSegments?.length);
+	const shouldRenderText = shouldRenderTextBody(
+		isTxtEl,
+		hasActualText,
+		textProperties?.promptText,
+		isPresentationPassive,
+	);
+
+	// PowerPoint slide show/export omits an empty placeholder completely,
+	// including any placeholder fill or outline inherited from the layout.
+	if (!shouldRenderText) return null;
 
 	return (
 		<>
 			{vecShape}
 			{isActionButtonShape(shapeType) && <ActionButtonGlyphOverlay element={el} />}
-			{shouldRenderText &&
-				(useSvgWarp ? (
+			{useSvgWarp ? (
 					<div
 						className={cn(
 							'relative z-10 w-full h-full',
@@ -88,6 +125,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							...txtS,
 							...getTextWarpStyle(txtSE),
 							...transformStyle,
+							...textBodySizeStyle,
 						}}
 					>
 						{renderTextSegments(
@@ -102,7 +140,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							!isPresentationPassive,
 						)}
 					</div>
-				))}
+				)}
 		</>
 	);
 }

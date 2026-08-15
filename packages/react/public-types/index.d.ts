@@ -17,6 +17,8 @@ export interface PowerPointViewerProps {
 	content: Uint8Array;
 	canEdit?: boolean;
 	singleSlideOnly?: boolean;
+	/** Zero-based slide index controlled by the host application. */
+	activeSlideIndex?: number;
 	className?: string;
 	theme?: unknown;
 	onContentChange?: (content: Uint8Array) => void;
