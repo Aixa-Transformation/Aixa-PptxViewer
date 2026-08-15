@@ -2,6 +2,15 @@ import type { PptxElement, PptxSmartArtDrawingShape, SmartArtStyle } from 'pptx-
 import React from 'react';
 
 import { colour, contrastingTextColor, styleShadow, styleStroke } from './smartart-helpers';
+import { renderConnectorMarker } from './connector-path';
+
+function smartArtDashArray(token: string | undefined, strokeWidth: number): string | undefined {
+	if (!token || token === 'solid') return undefined;
+	if (token === 'dash' || token === 'sysDash') return `${4 * strokeWidth} ${3 * strokeWidth}`;
+	if (token === 'dot' || token === 'sysDot') return `${strokeWidth} ${2 * strokeWidth}`;
+	if (token.includes('DashDot')) return `${4 * strokeWidth} ${2 * strokeWidth} ${strokeWidth} ${2 * strokeWidth}`;
+	return `${4 * strokeWidth} ${3 * strokeWidth}`;
+}
 
 /**
  * Render pre-computed drawing shapes from `ppt/diagrams/drawing*.xml`.
@@ -49,10 +58,35 @@ export function renderDrawingShapes(
 				const relY = shape.y - minY;
 				const rx = shape.shapeType === 'roundRect' ? Math.min(shape.width, shape.height) * 0.1 : 0;
 				const isEllipse = shape.shapeType === 'ellipse';
+				const isLine = shape.shapeType === 'line';
+				const lineColor = shape.strokeColor ?? shape.fillColor ?? colour(i, palette);
+				const lineWidth = shape.strokeWidth ?? Math.max(sw, 1);
+				const markerSeed = `${element.id}-${shape.id}-${i}`.replace(/[^a-zA-Z0-9_-]/gu, '_');
+				const startMarkerId = `${markerSeed}-start`;
+				const endMarkerId = `${markerSeed}-end`;
 
 				return (
 					<g key={`${element.id}-dsp-${shape.id}-${i}`} style={{ filter: shadow }}>
-						{shape.fillImageUrl ? (
+						{isLine ? (
+							<>
+								<defs>
+									{renderConnectorMarker(startMarkerId, shape.startArrow, lineColor, shape.startArrowWidth, shape.startArrowLength)}
+									{renderConnectorMarker(endMarkerId, shape.endArrow, lineColor, shape.endArrowWidth, shape.endArrowLength)}
+								</defs>
+								<line
+									x1={relX}
+									y1={relY}
+									x2={relX + shape.width}
+									y2={relY + shape.height}
+									stroke={lineColor}
+									strokeWidth={lineWidth}
+									strokeDasharray={smartArtDashArray(shape.strokeDash, lineWidth)}
+									markerStart={shape.startArrow && shape.startArrow !== 'none' ? `url(#${startMarkerId})` : undefined}
+									markerEnd={shape.endArrow && shape.endArrow !== 'none' ? `url(#${endMarkerId})` : undefined}
+									vectorEffect='non-scaling-stroke'
+								/>
+							</>
+						) : shape.fillImageUrl ? (
 							<image
 								x={relX}
 								y={relY}

@@ -16,6 +16,7 @@ import type {
 	ParsedTableStyleFill,
 	XmlObject,
 } from '../../types';
+import { parseOoxmlFixedPercentage } from './ooxml-fixed-percentage';
 
 /** EMU per CSS pixel (96 DPI). Matches the cell-level border converter. */
 const EMU_PER_PIXEL = 9525;
@@ -52,9 +53,9 @@ export function parseSolidFillStyle(
 		return undefined;
 	}
 	const tintRaw = schemeClr['a:tint'] as XmlObject | undefined;
-	const tint = tintRaw ? parseInt(String(tintRaw['@_val'] || '0'), 10) || undefined : undefined;
+	const tint = tintRaw ? parseOoxmlFixedPercentage(tintRaw['@_val']) : undefined;
 	const shadeRaw = schemeClr['a:shade'] as XmlObject | undefined;
-	const shade = shadeRaw ? parseInt(String(shadeRaw['@_val'] || '0'), 10) || undefined : undefined;
+	const shade = shadeRaw ? parseOoxmlFixedPercentage(shadeRaw['@_val']) : undefined;
 	return { schemeColor, tint, shade };
 }
 

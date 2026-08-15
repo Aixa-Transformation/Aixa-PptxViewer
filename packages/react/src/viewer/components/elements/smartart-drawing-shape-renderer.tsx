@@ -8,6 +8,7 @@ import {
 	styleShadow,
 	styleStroke,
 } from '../../utils/smartart-helpers';
+import { renderConnectorMarker } from '../../utils/connector-path';
 import {
 	fitFontSize,
 	chevronPoints,
@@ -93,6 +94,14 @@ function drawingShapeGradientDef(
 			</linearGradient>
 		),
 	};
+}
+
+function drawingLineDashArray(token: string | undefined, strokeWidth: number): string | undefined {
+	if (!token || token === 'solid') return undefined;
+	if (token === 'dash' || token === 'sysDash') return `${4 * strokeWidth} ${3 * strokeWidth}`;
+	if (token === 'dot' || token === 'sysDot') return `${strokeWidth} ${2 * strokeWidth}`;
+	if (token.includes('DashDot')) return `${4 * strokeWidth} ${2 * strokeWidth} ${strokeWidth} ${2 * strokeWidth}`;
+	return `${4 * strokeWidth} ${3 * strokeWidth}`;
 }
 
 /** PowerPoint's `upArrowCallout` cache is a banner with a centred arrow below it. */
@@ -182,6 +191,7 @@ export function DrawingShapeRenderer({
 				const relY = shape.y - minY;
 				const rx = shape.shapeType === 'roundRect' ? Math.min(shape.width, shape.height) * 0.1 : 0;
 				const isEllipse = shape.shapeType === 'ellipse';
+				const isLine = shape.shapeType === 'line';
 				const isChevron = shape.shapeType === 'chevron' || shape.shapeType === 'homePlate';
 				const isUpArrowCallout = shape.shapeType === 'upArrowCallout';
 				// The cached drawing may use shape adjustments that are not repeated in
@@ -214,6 +224,11 @@ export function DrawingShapeRenderer({
 					: undefined;
 				const strokeCol = shape.strokeColor ?? (sw > 0 ? 'rgba(255,255,255,0.3)' : 'none');
 				const strokeW = shape.strokeWidth ?? sw;
+				const lineColor = strokeCol === 'none' ? shape.fillColor ?? colour(i, palette) : strokeCol;
+				const lineWidth = Math.max(strokeW, 0.5);
+				const markerSeed = `${elementId}-${shape.id}-${i}`.replace(/[^a-zA-Z0-9_-]/gu, '_');
+				const startMarkerId = `${markerSeed}-start`;
+				const endMarkerId = `${markerSeed}-end`;
 				const underlayFill = shape.fillNone
 					? shapes
 							.slice(0, i)
@@ -248,8 +263,31 @@ export function DrawingShapeRenderer({
 				return (
 					<g key={`${elementId}-dsp-${shape.id}-${i}`} {...groupProps}>
 						{nodeLabel ? <title>{nodeLabel}</title> : null}
-						{gradient ? <defs>{gradient.def}</defs> : null}
-						{shape.fillImageUrl ? (
+						{gradient || isLine ? (
+							<defs>
+								{gradient?.def}
+								{isLine
+									? renderConnectorMarker(startMarkerId, shape.startArrow, lineColor, shape.startArrowWidth, shape.startArrowLength)
+									: null}
+								{isLine
+									? renderConnectorMarker(endMarkerId, shape.endArrow, lineColor, shape.endArrowWidth, shape.endArrowLength)
+									: null}
+							</defs>
+						) : null}
+						{isLine ? (
+							<line
+								x1={relX}
+								y1={relY}
+								x2={relX + shape.width}
+								y2={relY + shape.height}
+								stroke={lineColor}
+								strokeWidth={lineWidth}
+								strokeDasharray={drawingLineDashArray(shape.strokeDash, lineWidth)}
+								markerStart={shape.startArrow && shape.startArrow !== 'none' ? `url(#${startMarkerId})` : undefined}
+								markerEnd={shape.endArrow && shape.endArrow !== 'none' ? `url(#${endMarkerId})` : undefined}
+								vectorEffect='non-scaling-stroke'
+							/>
+						) : shape.fillImageUrl ? (
 							<image
 								x={relX}
 								y={relY}

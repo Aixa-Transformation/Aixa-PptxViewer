@@ -4,6 +4,7 @@ import {
 	buildParagraphPropertiesXml,
 	assembleParagraphXml,
 	computeUniformSegmentOverrides,
+	isSyntheticBulletMarkerSegment,
 } from './PptxHandlerRuntimeSaveParagraphHelpers';
 import type { ParagraphSpacingConfig } from './PptxHandlerRuntimeSaveParagraphHelpers';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeSaveRunProperties';
@@ -177,6 +178,20 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						currentParagraphProperties = segment.paragraphProperties;
 					}
 					capturedParagraphMeta = true;
+				}
+
+				// The loader represents an OOXML bullet as a synthetic marker segment
+				// followed by the paragraph's authored runs.  The marker belongs in
+				// a:pPr/a:buChar (or a:buAutoNum), not in a separate a:r/a:t.  Writing
+				// that synthetic text as a normal run made every save/reload cycle add
+				// another visible bullet (one bullet on first load, then two, three,
+				// and so on while navigating in controlled host applications).
+				//
+				// Do not skip editor-authored segments that merely carry bulletInfo:
+				// those contain the actual item text.  Only the exact generated marker
+				// segment is metadata-only.
+				if (isSyntheticBulletMarkerSegment(segment)) {
+					return;
 				}
 
 				// Soft line break (`a:br`) — emit a single br node inside the

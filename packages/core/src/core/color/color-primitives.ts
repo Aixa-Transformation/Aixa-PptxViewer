@@ -100,12 +100,14 @@ export function colorWithOpacity(color: string, opacity: number | undefined): st
  * @returns Normalised fraction in [0, 1], or `undefined` if unparseable.
  */
 export function parseDrawingPercent(value: unknown): number | undefined {
-	const parsed = Number.parseFloat(String(value ?? '').trim());
+	const raw = String(value ?? '').trim();
+	const parsed = Number.parseFloat(raw);
 	if (!Number.isFinite(parsed)) {
 		return undefined;
 	}
-	// Divide by 100 000 to convert OOXML thousandths to a 0-1 fraction
-	return clampUnitInterval(parsed / 100000);
+	// Transitional OOXML uses integer thousandths; Strict OOXML permits the
+	// equivalent lexical percentage form (for example, `20%`).
+	return clampUnitInterval(raw.endsWith('%') ? parsed / 100 : parsed / 100000);
 }
 
 // ---------------------------------------------------------------------------
@@ -298,12 +300,12 @@ export function hslToRgb(h: number, s: number, l: number): { r: number; g: numbe
  * @returns Unclamped fraction, or `undefined` if unparseable.
  */
 export function parseDrawingFraction(value: unknown): number | undefined {
-	const parsed = Number.parseFloat(String(value ?? '').trim());
+	const raw = String(value ?? '').trim();
+	const parsed = Number.parseFloat(raw);
 	if (!Number.isFinite(parsed)) {
 		return undefined;
 	}
-	// Divide by 100 000 to convert OOXML thousandths to a decimal fraction
-	return parsed / 100000;
+	return raw.endsWith('%') ? parsed / 100 : parsed / 100000;
 }
 
 /**

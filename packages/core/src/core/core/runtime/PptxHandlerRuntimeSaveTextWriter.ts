@@ -136,7 +136,19 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// Resolve text value and segments
 		const textValueForSave = this.getTextValueForSave(el.text, el.textSegments);
 		let textSegmentsForSave = el.textSegments;
-		if (typeof el.text === 'string' && this.areTextSegmentsUniform(el.textSegments)) {
+		// Bullet marker segments are structural metadata, even when every visible
+		// run happens to share one uniform style.  Flattening them to `el.text`
+		// turns the generated marker into authored text; the inherited buChar is
+		// then applied again on the next load and bullets multiply on every host
+		// save/content refresh.
+		const hasStructuredListMarkers = Boolean(
+			el.textSegments?.some((segment) => segment.bulletInfo && !segment.bulletInfo.none),
+		);
+		if (
+			typeof el.text === 'string' &&
+			this.areTextSegmentsUniform(el.textSegments) &&
+			!hasStructuredListMarkers
+		) {
 			textSegmentsForSave = undefined;
 			const existingTextSegments = this.extractTextSegmentsFromTxBodyForRewrite(
 				txBody,

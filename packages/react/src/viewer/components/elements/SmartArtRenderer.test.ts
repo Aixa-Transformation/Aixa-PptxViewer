@@ -304,6 +304,37 @@ describe('drawing shape bounds', () => {
 		expect(html).not.toContain('rotate(180');
 	});
 
+	it('renders zero-height cached timeline lines with their arrowhead and dash style', () => {
+		const html = renderToStaticMarkup(
+			React.createElement(DrawingShapeRenderer, {
+				elementId: 'smartart-timeline',
+				shapes: [
+					makeDrawingShape({
+						shapeType: 'line',
+						x: 0,
+						y: 50,
+						width: 400,
+						height: 0,
+						strokeColor: '#E3B09A',
+						strokeWidth: 1,
+						strokeDash: 'solid',
+						endArrow: 'triangle',
+						endArrowWidth: 'lg',
+						endArrowLength: 'lg',
+					}),
+				],
+				style: 'flat',
+				palette: ['#4F81BD'],
+			}),
+		);
+
+		expect(html).toContain('<line');
+		expect(html).toContain('x2="400"');
+		expect(html).toContain('stroke="#E3B09A"');
+		expect(html).toContain('marker-end="url(#smartart-timeline-');
+		expect(html).toContain('<polygon points="0,0 10,5 0,10"');
+	});
+
 	it('computes correct bounding box for single shape', () => {
 		const shape = makeDrawingShape({ x: 10, y: 20, width: 100, height: 50 });
 		const minX = shape.x;

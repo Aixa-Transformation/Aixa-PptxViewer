@@ -201,6 +201,26 @@ describe('getTableCellBandStyle', () => {
 		expect(style!.backgroundColor).toBe('#4472C4');
 	});
 
+	it('applies DrawingML tint values as retained source colour', () => {
+		const tableStyleMap: ParsedTableStyleMap = {
+			'{TINTED-BAND}': {
+				band1HFill: { schemeColor: 'accent2', tint: 20_000 },
+			},
+		};
+		const theme = { colorScheme: { accent2: '#C43E1C' } };
+		const el = makeTableElement({
+			bandedRows: true,
+			tableStyleId: '{TINTED-BAND}',
+		});
+		const style = getTableCellBandStyle(el, 0, 0, 3, 3, {
+			tableStyleMap,
+			theme: theme as unknown as PptxTheme,
+		});
+
+		// 20% #C43E1C + 80% white = #F3D8D2.
+		expect(style?.backgroundColor).toBe('#F3D8D2');
+	});
+
 	it('preserves an explicitly transparent first-row fill', () => {
 		const tableStyleMap: ParsedTableStyleMap = {
 			'{NO-FILL-HEADER}': {
