@@ -69,14 +69,15 @@ describe('guidToKey', () => {
 
 	it('produces correct bytes for known GUID', () => {
 		// GUID: AABBCCDD-1122-3344-5566-778899AABBCC
-		// Stripped: AABBCCDD11223344556677889 9AABBCC
+		// Reversed bytes: CC BB AA 99 88 77 66 55 44 33 22 11 DD CC BB AA
 		const key = guidToKey('AABBCCDD-1122-3344-5566-778899AABBCC');
-		expect(key[0]).toBe(0xaa);
+		expect(key[0]).toBe(0xcc);
 		expect(key[1]).toBe(0xbb);
-		expect(key[2]).toBe(0xcc);
-		expect(key[3]).toBe(0xdd);
-		expect(key[4]).toBe(0x11);
-		expect(key[5]).toBe(0x22);
+		expect(key[2]).toBe(0xaa);
+		expect(key[3]).toBe(0x99);
+		expect(key[4]).toBe(0x88);
+		expect(key[5]).toBe(0x77);
+		expect(key[15]).toBe(0xaa);
 	});
 
 	it('throws for invalid GUID length', () => {
@@ -86,7 +87,7 @@ describe('guidToKey', () => {
 	it('handles GUID with braces (braces are stripped)', () => {
 		const key = guidToKey('{AABBCCDD-1122-3344-5566-778899AABBCC}');
 		expect(key).toHaveLength(16);
-		expect(key[0]).toBe(0xaa);
+		expect(key[0]).toBe(0xcc);
 	});
 });
 

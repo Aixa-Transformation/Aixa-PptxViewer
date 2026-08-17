@@ -88,6 +88,14 @@ export interface EotHeader {
 	fontDataOffset: number;
 }
 
+export interface EotBuildOptions {
+	familyName: string;
+	styleName?: string;
+	fullName?: string;
+	weight?: number;
+	italic?: boolean;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Public API                                                        */
 /* ------------------------------------------------------------------ */
@@ -102,6 +110,55 @@ export function isEotFormat(data: Uint8Array): boolean {
 	}
 	const magic = readUint16LE(data, EOT_MAGIC_OFFSET);
 	return magic === EOT_MAGIC;
+}
+
+/**
+ * Wrap an individual TrueType/OpenType sfnt in an uncompressed EOT container.
+ * PresentationML `.fntdata` parts written by PowerPoint use EOT rather than
+ * the GUID-obfuscated WordprocessingML representation.
+ */
+export function createEotFromSfnt(
+	fontData: Uint8Array,
+	options: EotBuildOptions,
+): Uint8Array {
+	const encodeName = (value: string): Uint8Array => {
+		const bytes = new Uint8Array((value.length + 1) * 2);
+		const view = new DataView(bytes.buffer);
+		for (let i = 0; i < value.length; i++) {
+			view.setUint16(i * 2, value.charCodeAt(i), true);
+		}
+		return bytes;
+	};
+	const names = [
+		encodeName(options.familyName),
+		encodeName(options.styleName ?? ''),
+		encodeName(''),
+		encodeName(options.fullName ?? options.familyName),
+	];
+	const headerSize = 80 + names.reduce((sum, name) => sum + 4 + name.length, 0);
+	const result = new Uint8Array(headerSize + fontData.length);
+	const view = new DataView(result.buffer);
+	view.setUint32(0, result.length, true);
+	view.setUint32(4, fontData.length, true);
+	view.setUint32(8, 0x00020001, true);
+	view.setUint32(12, 0, true); // uncompressed, not XOR-encrypted
+	result[26] = 1; // DEFAULT_CHARSET
+	result[27] = options.italic ? 1 : 0;
+	view.setUint32(28, options.weight ?? 400, true);
+	view.setUint16(32, 0, true);
+	view.setUint16(34, EOT_MAGIC, true);
+
+	let offset = 80;
+	for (const name of names) {
+		view.setUint16(offset, 0, true);
+		offset += 2;
+		view.setUint16(offset, name.length, true);
+		offset += 2;
+		result.set(name, offset);
+		offset += name.length;
+	}
+	result.set(fontData, offset);
+	return result;
 }
 
 /**

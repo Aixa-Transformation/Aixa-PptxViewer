@@ -53,12 +53,10 @@ export function extractGuidFromPartName(partName: string): string | null {
 /**
  * Convert a GUID string to a 16-byte XOR key.
  *
- * Per ECMA-376 Part 2 §14.2.1, the key is formed by:
+ * Per ISO/IEC 29500, the key is formed by:
  *   1. Removing '{', '}', and '-' from the GUID string.
  *   2. Converting consecutive pairs of hex characters to bytes.
- *
- * No byte-order reversal is performed — the hex pairs are converted
- * sequentially to produce 16 key bytes.
+ *   3. Reversing the order of all 16 bytes (big-endian ordering).
  */
 export function guidToKey(guid: string): Uint8Array {
 	const stripped = guid.replace(/[-{}]/g, '');
@@ -68,7 +66,8 @@ export function guidToKey(guid: string): Uint8Array {
 
 	const key = new Uint8Array(KEY_LENGTH);
 	for (let i = 0; i < KEY_LENGTH; i++) {
-		key[i] = parseInt(stripped.substring(i * 2, i * 2 + 2), 16);
+		const sourceIndex = KEY_LENGTH - i - 1;
+		key[i] = parseInt(stripped.substring(sourceIndex * 2, sourceIndex * 2 + 2), 16);
 	}
 
 	return key;

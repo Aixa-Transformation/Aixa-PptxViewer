@@ -175,6 +175,25 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 
 	type LocalViewerFontSource = ViewerFontSource & { data: ArrayBuffer };
 
+	const isPowerPointFontSource = (source: LocalViewerFontSource): boolean =>
+		source.format === 'truetype' || source.format === 'opentype';
+
+	const selectPowerPointFontSources = (
+		sources: LocalViewerFontSource[],
+	): LocalViewerFontSource[] => {
+		const selected = new Map<string, LocalViewerFontSource>();
+		for (const source of sources) {
+			if (!isPowerPointFontSource(source)) continue;
+			const bold = Number(source.weight ?? 400) >= 600;
+			const italic = source.style === 'italic' || source.style === 'oblique';
+			const key = `${source.family.toLocaleLowerCase()}|${bold ? 'bold' : 'regular'}|${italic ? 'italic' : 'normal'}`;
+			// A ZIP often contains the same face as TTF, WOFF and WOFF2. Only
+			// OpenType/TrueType sfnt data is valid in a PowerPoint font part.
+			selected.set(key, source);
+		}
+		return [...selected.values()];
+	};
+
 	const fontSourceFromFile = async (file: File): Promise<LocalViewerFontSource | null> => {
 		const baseName = getZipEntryBaseName(file.name);
 		const stem = baseName.replace(CUSTOM_FONT_FILE_EXTENSION, '');
@@ -253,8 +272,14 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 			sources.map(({ data: _data, ...source }) => source),
 		);
 		await registerFontSources(sources);
+		const powerPointSources = selectPowerPointFontSources(sources);
+		if (powerPointSources.length === 0) {
+			throw new Error(
+				'This font can be previewed in the browser, but PowerPoint embedding requires a .ttf or .otf file. Add that file to the ZIP and upload it again.',
+			);
+		}
 		p.onEmbedCustomFonts?.(
-			sources.map((source) => ({
+			powerPointSources.map((source) => ({
 				name: source.family,
 				dataUrl: '',
 				bold: Number(source.weight ?? 400) >= 600,

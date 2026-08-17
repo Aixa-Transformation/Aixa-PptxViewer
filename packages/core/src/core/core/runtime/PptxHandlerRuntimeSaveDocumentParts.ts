@@ -19,6 +19,7 @@ import { writeCustomerDataScopes } from '../../utils/customer-data-package';
 import type { CustomerDataScope } from '../../utils/customer-data-package';
 import { serializeEmbeddedFontList, setEmbeddedFontList } from '../../utils/embedded-font-list';
 import { obfuscateFont, generateFontGuid } from '../../utils/font-deobfuscation';
+import { createEotFromSfnt } from '../../utils/eot-parser';
 import { safeResolveZipPath } from '../../utils/safe-path';
 import { writeTagCollections } from '../../utils/tag-package';
 import type { PptxSaveFormat } from '../types';
@@ -663,6 +664,18 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 			for (const variant of variants) {
 				const fontData = variant.rawFontData!;
+				const isWebFont = variant.format === 'woff' || variant.format === 'woff2';
+				const hasSfntSignature =
+					fontData.length >= 4 &&
+					((fontData[0] === 0x00 && fontData[1] === 0x01 && fontData[2] === 0x00 && fontData[3] === 0x00) ||
+						String.fromCharCode(fontData[0]!, fontData[1]!, fontData[2]!, fontData[3]!) === 'OTTO' ||
+						String.fromCharCode(fontData[0]!, fontData[1]!, fontData[2]!, fontData[3]!) === 'true' ||
+						String.fromCharCode(fontData[0]!, fontData[1]!, fontData[2]!, fontData[3]!) === 'ttcf');
+				if (!variant.originalRId && (isWebFont || !hasSfntSignature)) {
+					throw new Error(
+						`Cannot embed custom font "${variant.name}" in PowerPoint: use a valid .ttf or .otf font file, not WOFF/WOFF2 browser data.`,
+					);
+				}
 
 				// Determine what we can reuse from the load side. A variant
 				// was loaded from an existing part when it has `originalRId`
@@ -704,10 +717,19 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				} else {
 					// New / externally-supplied font: mint a fresh GUID-named part.
 					guid = variant.fontGuid ?? generateFontGuid();
-					const fileName = `{${guid}}.fntdata`;
+					const usedFontNumbers = relationships
+						.map((relationship) => /fonts\/font(?<number>\d+)\.fntdata$/iu.exec(String(relationship?.['@_Target'] || ''))?.groups?.number)
+						.map((number) => Number(number))
+						.filter((number) => Number.isFinite(number));
+					const fileName = `font${Math.max(0, ...usedFontNumbers) + 1}.fntdata`;
 					fontPartPath = `ppt/fonts/${fileName}`;
 					relativeTarget = `fonts/${fileName}`;
-					bytesToWrite = obfuscateFont(fontData, guid);
+					bytesToWrite = createEotFromSfnt(fontData, {
+						familyName: variant.name,
+						styleName: variant.bold ? (variant.italic ? 'Bold Italic' : 'Bold') : variant.italic ? 'Italic' : 'Regular',
+						weight: variant.bold ? 700 : 400,
+						italic: variant.italic,
+					});
 
 					// Reuse an existing rel pointing at the same target,
 					// otherwise allocate a new rId.
