@@ -96,6 +96,39 @@ export interface EotBuildOptions {
 	italic?: boolean;
 }
 
+function readUint16BE(data: Uint8Array, offset: number): number {
+	return ((data[offset] ?? 0) << 8) | (data[offset + 1] ?? 0);
+}
+
+function readUint32BE(data: Uint8Array, offset: number): number {
+	return (
+		(((data[offset] ?? 0) << 24) >>> 0) |
+		((data[offset + 1] ?? 0) << 16) |
+		((data[offset + 2] ?? 0) << 8) |
+		(data[offset + 3] ?? 0)
+	) >>> 0;
+}
+
+function findSfntTable(data: Uint8Array, tag: string): { offset: number; length: number } | null {
+	if (data.length < 12) return null;
+	const numTables = readUint16BE(data, 4);
+	for (let i = 0; i < numTables; i++) {
+		const record = 12 + i * 16;
+		if (record + 16 > data.length) break;
+		const recordTag = String.fromCharCode(
+			data[record]!,
+			data[record + 1]!,
+			data[record + 2]!,
+			data[record + 3]!,
+		);
+		if (recordTag !== tag) continue;
+		const offset = readUint32BE(data, record + 8);
+		const length = readUint32BE(data, record + 12);
+		return offset + length <= data.length ? { offset, length } : null;
+	}
+	return null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Public API                                                        */
 /* ------------------------------------------------------------------ */
@@ -135,28 +168,59 @@ export function createEotFromSfnt(
 		encodeName(''),
 		encodeName(options.fullName ?? options.familyName),
 	];
-	const headerSize = 80 + names.reduce((sum, name) => sum + 4 + name.length, 0);
+	// EOTPrefix is 82 bytes. Each name is encoded as uint16 byteLength,
+	// UTF-16LE bytes, then a uint16 terminator. A final empty RootString
+	// (uint16 zero) precedes the raw SFNT payload for version 0x00020001.
+	const headerSize = 82 + names.reduce((sum, name) => sum + 2 + name.length, 0) + 2;
 	const result = new Uint8Array(headerSize + fontData.length);
 	const view = new DataView(result.buffer);
+	const os2 = findSfntTable(fontData, 'OS/2');
+	const head = findSfntTable(fontData, 'head');
 	view.setUint32(0, result.length, true);
 	view.setUint32(4, fontData.length, true);
 	view.setUint32(8, 0x00020001, true);
 	view.setUint32(12, 0, true); // uncompressed, not XOR-encrypted
+	if (os2 && os2.length >= 42) {
+		// EOT mirrors the identifying OS/2 fields. Desktop PowerPoint validates
+		// these values before accepting an embedded font; zero-filled metadata is
+		// tolerated by browsers but causes Office to silently substitute a font.
+		result.set(fontData.slice(os2.offset + 32, os2.offset + 42), 16); // PANOSE
+	}
 	result[26] = 1; // DEFAULT_CHARSET
 	result[27] = options.italic ? 1 : 0;
-	view.setUint32(28, options.weight ?? 400, true);
-	view.setUint16(32, 0, true);
+	view.setUint32(
+		28,
+		options.weight ?? (os2 && os2.length >= 6 ? readUint16BE(fontData, os2.offset + 4) : 400),
+		true,
+	);
+	view.setUint16(
+		32,
+		os2 && os2.length >= 10 ? readUint16BE(fontData, os2.offset + 8) : 0,
+		true,
+	);
 	view.setUint16(34, EOT_MAGIC, true);
+	if (os2 && os2.length >= 58) {
+		for (let i = 0; i < 4; i++) {
+			view.setUint32(36 + i * 4, readUint32BE(fontData, os2.offset + 42 + i * 4), true);
+		}
+	}
+	if (os2 && os2.length >= 86) {
+		view.setUint32(52, readUint32BE(fontData, os2.offset + 78), true);
+		view.setUint32(56, readUint32BE(fontData, os2.offset + 82), true);
+	}
+	if (head && head.length >= 12) {
+		view.setUint32(60, readUint32BE(fontData, head.offset + 8), true);
+	}
 
-	let offset = 80;
+	let offset = 82;
 	for (const name of names) {
-		view.setUint16(offset, 0, true);
-		offset += 2;
-		view.setUint16(offset, name.length, true);
+		view.setUint16(offset, Math.max(0, name.length - 2), true);
 		offset += 2;
 		result.set(name, offset);
 		offset += name.length;
 	}
+	view.setUint16(offset, 0, true); // empty RootString
+	offset += 2;
 	result.set(fontData, offset);
 	return result;
 }

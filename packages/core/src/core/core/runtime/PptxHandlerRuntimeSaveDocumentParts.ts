@@ -616,9 +616,26 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			return;
 		}
 
+		// Font parts that came from the source package are already valid and are
+		// already connected to presentation.xml by their original relationships.
+		// Rewriting those opaque EOT parts and rebuilding their relationship XML
+		// makes some PowerPoint-authored decks unreadable (notably decks that carry
+		// many embedded font subsets). Preserve them byte-for-byte and only author
+		// package records for genuinely new custom fonts.
+		const newFontsWithData = fontsWithData.filter(
+			(font) => !(font.originalRId && font.partPath),
+		);
+		if (newFontsWithData.length === 0) {
+			// Nothing font-related changed. In particular, do not run the original
+			// embedded-font list through the generic XML builder: PowerPoint embeds
+			// vendor-specific metadata in these nodes and expects it to survive the
+			// round trip exactly.
+			return;
+		}
+
 		// ── 1. Group fonts by typeface name ───────────────────────────
 		const fontsByName = new Map<string, PptxEmbeddedFont[]>();
-		for (const font of fontsWithData) {
+		for (const font of newFontsWithData) {
 			const existing = fontsByName.get(font.name) ?? [];
 			existing.push(font);
 			fontsByName.set(font.name, existing);
@@ -726,7 +743,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 					relativeTarget = `fonts/${fileName}`;
 					bytesToWrite = createEotFromSfnt(fontData, {
 						familyName: variant.name,
-						styleName: variant.bold ? (variant.italic ? 'Bold Italic' : 'Bold') : variant.italic ? 'Italic' : 'Regular',
+						styleName: variant.bold
+							? variant.italic
+								? 'Bold Italic'
+								: 'Bold'
+							: variant.italic
+								? 'Italic'
+								: 'Regular',
 						weight: variant.bold ? 700 : 400,
 						italic: variant.italic,
 					});
@@ -778,12 +801,33 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				'p:embeddedFont':
 					embeddedFontEntries.length === 1 ? embeddedFontEntries[0] : embeddedFontEntries,
 			};
-			const metadata = explicitFontList
-				? serializeEmbeddedFontList(explicitFontList)
-				: explicitFonts === undefined && this.loadedEmbeddedFontList
-					? serializeEmbeddedFontList(this.loadedEmbeddedFontList)
-					: generatedList;
-			setEmbeddedFontList(this.presentationData, metadata);
+			const preservedMetadata = explicitFontList ?? this.loadedEmbeddedFontList;
+			let metadata = generatedList;
+			let metadataAppliedInPlace = false;
+			if (preservedMetadata?.rawXml && !explicitFontList) {
+				// parseEmbeddedFontList retains the actual object owned by
+				// presentationData. Mutating only its embeddedFont array keeps every
+				// original descriptor, attribute and unknown extension intact.
+				const rawList = preservedMetadata.rawXml;
+				const embeddedFontKey =
+					Object.keys(rawList).find(
+						(key) => key.replace(/^.*:/u, '') === 'embeddedFont',
+					) ?? 'p:embeddedFont';
+				const preservedEntries = this.ensureArray(rawList[embeddedFontKey]) as XmlObject[];
+				rawList[embeddedFontKey] = [...preservedEntries, ...embeddedFontEntries];
+				metadataAppliedInPlace = true;
+			} else if (preservedMetadata) {
+				metadata = serializeEmbeddedFontList(preservedMetadata);
+				const embeddedFontKey =
+					Object.keys(metadata).find(
+						(key) => key.replace(/^.*:/u, '') === 'embeddedFont',
+					) ?? 'p:embeddedFont';
+				const preservedEntries = this.ensureArray(metadata[embeddedFontKey]) as XmlObject[];
+				metadata[embeddedFontKey] = [...preservedEntries, ...embeddedFontEntries];
+			}
+			if (!metadataAppliedInPlace) {
+				setEmbeddedFontList(this.presentationData, metadata);
+			}
 		}
 
 		// ── 6. Ensure [Content_Types].xml has fntdata extension ──────
