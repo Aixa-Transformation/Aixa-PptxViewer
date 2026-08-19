@@ -49,5 +49,31 @@ describe('authored notes package round-trip', () => {
 		const final = await finalLoader.load(resaved.buffer as ArrayBuffer);
 		expect(final.slides[0].notes).toBe(slide.notes);
 		expect(final.notesMaster).toBeDefined();
+
+		// Some valid generators (including PptxGenJS) place sldIdLst before
+		// notesMasterIdLst. Preserve that source-specific ordering on save:
+		// normalizing it to the Office-authored order makes desktop PowerPoint
+		// report ERROR_FILE_CORRUPT for those decks.
+		const generatorZip = await JSZip.loadAsync(saved);
+		const generatorPresentation = await generatorZip.file('ppt/presentation.xml')!.async('string');
+		const slideList = generatorPresentation.match(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/)?.[0];
+		expect(slideList).toBeDefined();
+		const generatorOrdered = generatorPresentation
+			.replace(slideList!, '')
+			.replace('</p:sldMasterIdLst>', `</p:sldMasterIdLst>${slideList!}`);
+		generatorZip.file('ppt/presentation.xml', generatorOrdered);
+		const generatorBytes = await generatorZip.generateAsync({ type: 'uint8array' });
+		const generatorLoader = new PptxHandler();
+		const generatorData = await generatorLoader.load(generatorBytes.buffer as ArrayBuffer);
+		const generatorResaved = await generatorLoader.save(generatorData.slides, {
+			notesMaster: generatorData.notesMaster,
+		});
+		const generatorResavedZip = await JSZip.loadAsync(generatorResaved);
+		const generatorResavedPresentation = await generatorResavedZip
+			.file('ppt/presentation.xml')!
+			.async('string');
+		expect(generatorResavedPresentation.indexOf('<p:sldIdLst')).toBeLessThan(
+			generatorResavedPresentation.indexOf('<p:notesMasterIdLst'),
+		);
 	});
 });

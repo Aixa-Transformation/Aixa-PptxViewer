@@ -90,6 +90,7 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 		const presentation = input.presentationData?.['p:presentation']
 			? (input.presentationData['p:presentation'] as XmlObject)
 			: null;
+		const hadSlideIdList = presentation?.['p:sldIdLst'] !== undefined;
 		const slideIdList = presentation ? (presentation['p:sldIdLst'] as XmlObject) || {} : null;
 		const existingSlideIds = slideIdList
 			? (this.ensureArray(slideIdList['p:sldId']) as XmlObject[])
@@ -184,8 +185,12 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 				};
 			});
 			rebuiltSlideIds.push(...(slideIdList['p:sldId'] as XmlObject[]));
-			// CT_Presentation requires child order:
-			//   sldMasterIdLst, notesMasterIdLst, handoutMasterIdLst, sldIdLst,
+			// Preserve the source deck's child ordering when its slide list already
+			// existed. PowerPoint-generated decks commonly place sldIdLst after the
+			// notes/handout masters, while PptxGenJS decks place it before them;
+			// moving it during a round trip can make desktop PowerPoint reject the
+			// package with ERROR_FILE_CORRUPT even though the SDK schema validator
+			// accepts both forms.
 			//   sldSz, notesSz, smartTags, embeddedFontLst, custShowLst,
 			//   photoAlbum, custDataLst, kinsoku, defaultTextStyle,
 			//   modifyVerifier, extLst.
@@ -195,10 +200,12 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 			// silently drops the slide list (opens as a blank deck, with no
 			// repair dialog). Rebuild the object so the key lands in the
 			// correct slot.
-			input.presentationData['p:presentation'] = this.insertSlideIdListInOrder(
-				presentation,
-				slideIdList,
-			);
+			if (!hadSlideIdList) {
+				input.presentationData['p:presentation'] = this.insertSlideIdListInOrder(
+					presentation,
+					slideIdList,
+				);
+			}
 		}
 
 		return buildSlideReferenceRemap({
@@ -211,8 +218,10 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 
 	/**
 	 * Return a new presentation XML object whose `p:sldIdLst` child sits in the
-	 * schema-mandated position (after `sldMasterIdLst` / `notesMasterIdLst` /
-	 * `handoutMasterIdLst`, before `sldSz`). Non-sldIdLst keys keep their
+	 * schema position for a newly-created presentation (after the master-id
+	 * lists and before `sldSz`). Existing presentations never use this helper;
+	 * their original relative child order is preserved byte-for-byte.
+	 * Non-sldIdLst keys keep their
 	 * relative order; attribute keys (`@_...`) stay at the front.
 	 */
 	private insertSlideIdListInOrder(presentation: XmlObject, slideIdList: XmlObject): XmlObject {

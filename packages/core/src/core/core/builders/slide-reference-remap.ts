@@ -33,6 +33,19 @@ export function buildSlideReferenceRemap(init: SlideReferenceRemapInput): PptxSl
 			newRIdToNumeric.set(relationshipId, numericSlideId);
 		}
 	}
+	const orderedSldIds = init.slides
+		.map((slide) => newRIdToNumeric.get(slide.rId))
+		.filter((id): id is string => id !== undefined);
+	const originalPaths = new Set(init.originalSldIdToPath.values());
+	const newSldIds = new Set<string>();
+	for (const slide of init.slides) {
+		if (!originalPaths.has(slide.id)) {
+			const numericId = newRIdToNumeric.get(slide.rId);
+			if (numericId) {
+				newSldIds.add(numericId);
+			}
+		}
+	}
 
 	const rIdByOldRId = new Map<string, string>();
 	const removedRIds = new Set<string>();
@@ -66,5 +79,14 @@ export function buildSlideReferenceRemap(init: SlideReferenceRemapInput): PptxSl
 		}
 	}
 
-	return { rIdByOldRId, sldIdByOldSldId, removedRIds, removedSldIds, changed };
+	changed ||= newSldIds.size > 0;
+	return {
+		rIdByOldRId,
+		sldIdByOldSldId,
+		removedRIds,
+		removedSldIds,
+		orderedSldIds,
+		newSldIds,
+		changed,
+	};
 }
