@@ -1,7 +1,9 @@
+import JSZip from 'jszip';
 import { describe, it, expect } from 'vitest';
 
 import { createShapeElement } from '../../core/builders/sdk/ElementFactory';
 import { PresentationBuilder } from '../../core/builders/sdk/PresentationBuilder';
+import { SlideBuilder } from '../../core/builders/sdk/SlideBuilder';
 import { PptxHandler } from '../../core/PptxHandler';
 import type { TextPptxElement, ShapePptxElement } from '../../core/types/elements';
 import type { PptxSlide } from '../../core/types/presentation';
@@ -432,6 +434,46 @@ describe('pptxHandler Integration', () => {
 	// multiple operations
 	// -----------------------------------------------------------------------
 	describe('multiple operations', () => {
+		it('inserts a genuinely blank slide in the middle without copying source relationships', async () => {
+			const { handler, data, createSlide } = await createAndLoad();
+			data.slides.push(
+				createSlide('Blank')
+					.addText('First slide content', { x: 50, y: 50, width: 400, height: 50 })
+					.setNotes('First slide notes')
+					.build(),
+				createSlide('Blank')
+					.addText('Last slide content', { x: 50, y: 50, width: 400, height: 50 })
+					.build(),
+			);
+
+			const { handler: loadedHandler, data: loadedData } = await saveAndReload(
+				handler,
+				data.slides,
+			);
+			const blank = new SlideBuilder(
+				loadedData.slides.length + 1,
+				loadedData.slides[0].layoutPath,
+				'Blank',
+			).build();
+			loadedData.slides.splice(1, 0, blank);
+
+			const saved = await loadedHandler.save(loadedData.slides);
+			const zip = await JSZip.loadAsync(saved);
+			const blankRelsPath = blank.id.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
+			const blankRelationships = await zip.file(blankRelsPath)!.async('string');
+
+			expect(blankRelationships).toContain('/slideLayout');
+			expect(blankRelationships).not.toContain('/notesSlide');
+			expect(blankRelationships).not.toContain('/chart');
+			expect(blankRelationships).not.toContain('/image');
+
+			const reloaded = await new PptxHandler().load(saved.buffer as ArrayBuffer);
+			expect(reloaded.slides).toHaveLength(3);
+			expect(reloaded.slides[0].elements).not.toHaveLength(0);
+			expect(reloaded.slides[1].elements).toHaveLength(0);
+			expect(reloaded.slides[2].elements).not.toHaveLength(0);
+		});
+
 		it('should support add slide -> save -> add another slide -> save', async () => {
 			const { handler, data, createSlide } = await createAndLoad();
 

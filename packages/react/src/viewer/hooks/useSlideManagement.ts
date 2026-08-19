@@ -119,6 +119,10 @@ export function useSlideManagement(input: UseSlideManagementInput): SlideManagem
 				const clone: PptxSlide = {
 					...src,
 					id: makeSlideId(),
+					rId: '',
+					// Unlike a new blank slide, a duplicate must explicitly copy the
+					// source slide's relationship part (images, charts, notes, etc.).
+					sourceSlideId: src.id,
 					elements: src.elements.map((el) => ({
 						...el,
 						id: `${el.id}-dup-${Math.random().toString(36).slice(2, 6)}`,
