@@ -1524,6 +1524,28 @@ describe('toolbar - Quick Access Bar (ToolbarPrimaryRow)', () => {
 		expect(html).toContain('aria-label="Toggle inspector panel"');
 	});
 
+	it('hides the comments toggle when requested by the host', () => {
+		const html = render(
+			React.createElement(
+				ToolbarPrimaryRow,
+				createMockToolbarProps({ hiddenActions: ['commentsToggle'] }),
+			),
+		);
+		expect(html).not.toContain('aria-label="Comments"');
+	});
+
+	it('moves the inspector toggle into the tab row in compact header mode', () => {
+		const html = render(
+			React.createElement(
+				Toolbar,
+				createMockToolbarProps({ hiddenActions: ['compactPrimaryRow', 'design'] }),
+			),
+		);
+		expect(html).toContain('aria-label="Toggle inspector panel"');
+		expect(html).not.toContain('>Design</button>');
+		expect(html).not.toContain('aria-label="Comments"');
+	});
+
 	it('can keep the inspector toggle while hiding the adjacent host controls', () => {
 		const html = render(
 			React.createElement(

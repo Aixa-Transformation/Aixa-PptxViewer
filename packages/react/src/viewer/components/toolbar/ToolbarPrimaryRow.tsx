@@ -46,7 +46,7 @@ export function ToolbarPrimaryRow(p: ToolbarProps): React.ReactElement {
 			<div className='flex-1 min-w-2 max-md:min-w-1' />
 
 			{/* Right: Comments + Present + Share + Inspector + Settings + Overflow */}
-			{(mode === 'edit' || mode === 'master') && (
+			{(mode === 'edit' || mode === 'master') && !isHidden('commentsToggle') && (
 				<button
 					type='button'
 					onClick={p.onToggleComments}
@@ -118,7 +118,7 @@ export function ToolbarPrimaryRow(p: ToolbarProps): React.ReactElement {
 
 			{sep}
 
-			{(mode === 'edit' || mode === 'master') && (
+			{(mode === 'edit' || mode === 'master') && !isHidden('compactPrimaryRow') && (
 				<button
 					type='button'
 					onClick={onToggleInspector}

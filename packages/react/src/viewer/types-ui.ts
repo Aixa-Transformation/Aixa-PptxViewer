@@ -450,7 +450,8 @@ export interface PowerPointViewerProps {
 	 * `undo`, `redo`, `record`, `notes`, `fullscreen`, `zoom`, `navigation`,
 	 * `present`, `customShows`, `settings`, `overflow`, `newSlide`,
 	 * `resetSlide`, `section`, `inspectorElements`, `inspectorComments`,
-	 * `inspectorBackgroundOnly`, `commandSearch`, `slidesPaneToggle`)
+	 * `inspectorBackgroundOnly`, `commandSearch`, `slidesPaneToggle`,
+	 * `commentsToggle`, `compactPrimaryRow`)
 	 * and ribbon-tab ids (`file`, `home`, `insert`, `draw`, `design`,
 	 * `transitions`, `animations`, `slideShow`, `record`, `review`, `view`,
 	 * `help`). `zoom` and `navigation` each hide their whole control cluster

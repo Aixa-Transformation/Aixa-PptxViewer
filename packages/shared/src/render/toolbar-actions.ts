@@ -41,7 +41,9 @@ export type ToolbarButtonId =
 	| 'inspectorComments'
 	| 'inspectorBackgroundOnly'
 	| 'commandSearch'
-	| 'slidesPaneToggle';
+	| 'slidesPaneToggle'
+	| 'commentsToggle'
+	| 'compactPrimaryRow';
 
 /** A top-level ribbon tab. `record` intentionally shares its id with the quick-access Record button above: both surface the same recording feature, so hiding one hides the other. */
 export type ToolbarTabId =
