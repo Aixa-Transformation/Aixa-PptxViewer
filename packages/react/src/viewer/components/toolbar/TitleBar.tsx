@@ -48,6 +48,7 @@ export function TitleBar(p: TitleBarProps): React.ReactElement {
 	const { t } = useTranslation();
 	const editing = (p.mode === 'edit' || p.mode === 'master') && p.canEdit;
 	const { isHidden } = useToolbarVisibility(p.hiddenActions);
+	const fileControlsHidden = isHidden('file');
 
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchFocused, setSearchFocused] = useState(false);
@@ -106,35 +107,41 @@ export function TitleBar(p: TitleBarProps): React.ReactElement {
 
 			{editing && (
 				<>
-					<span className={TB.autosaveGroup}>
-						<span className={TB.autosaveLabel}>{t('pptx.titleBar.autoSave')}</span>
-						<button
-							type='button'
-							role='switch'
-							aria-checked={p.autosaveEnabled}
-							onClick={p.onToggleAutosave}
-							className={cn(
-								TB.toggleTrack,
-								p.autosaveEnabled ? TB.toggleTrackOn : TB.toggleTrackOff,
-							)}
-							title={t('pptx.titleBar.toggleAutoSave')}
-							aria-label={t('pptx.titleBar.toggleAutoSave')}
-						>
-							<span
+					{!fileControlsHidden && (
+						<span className={TB.autosaveGroup}>
+							<span className={TB.autosaveLabel}>{t('pptx.titleBar.autoSave')}</span>
+							<button
+								type='button'
+								role='switch'
+								aria-checked={p.autosaveEnabled}
+								onClick={p.onToggleAutosave}
 								className={cn(
-									TB.toggleKnob,
-									p.autosaveEnabled ? TB.toggleKnobOn : TB.toggleKnobOff,
+									TB.toggleTrack,
+									p.autosaveEnabled ? TB.toggleTrackOn : TB.toggleTrackOff,
 								)}
-							/>
-						</button>
-						<span className={TB.autosaveLabel}>
-							{t(p.autosaveEnabled ? 'pptx.titleBar.autoSaveOn' : 'pptx.titleBar.autoSaveOff')}
+								title={t('pptx.titleBar.toggleAutoSave')}
+								aria-label={t('pptx.titleBar.toggleAutoSave')}
+							>
+								<span
+									className={cn(
+										TB.toggleKnob,
+										p.autosaveEnabled ? TB.toggleKnobOn : TB.toggleKnobOff,
+									)}
+								/>
+							</button>
+							<span className={TB.autosaveLabel}>
+								{t(
+									p.autosaveEnabled
+										? 'pptx.titleBar.autoSaveOn'
+										: 'pptx.titleBar.autoSaveOff',
+								)}
+							</span>
 						</span>
-					</span>
+					)}
 
-					<div className={TB.separator} />
+					{!fileControlsHidden && <div className={TB.separator} />}
 
-					{p.onSave && (
+					{!fileControlsHidden && p.onSave && (
 						<button
 							type='button'
 							onClick={p.onSave}
@@ -184,7 +191,7 @@ export function TitleBar(p: TitleBarProps): React.ReactElement {
 
 			<span className={TB.fileGroup}>
 				<span className={TB.fileName}>{p.fileName || t(TITLE_BAR_DEFAULT_FILE_KEY)}</span>
-				{editing && (
+				{editing && !fileControlsHidden && (
 					<>
 						<span className={TB.statusDot} aria-hidden='true'>
 							&bull;
@@ -202,7 +209,8 @@ export function TitleBar(p: TitleBarProps): React.ReactElement {
 				)}
 			</span>
 
-			<span className={TB.searchWrap}>
+			{!isHidden('commandSearch') && (
+				<span className={TB.searchWrap}>
 				{(p.mode === 'edit' || p.mode === 'master') && (
 					<div ref={searchRef} className='relative w-full max-w-md'>
 						<div
@@ -269,7 +277,8 @@ export function TitleBar(p: TitleBarProps): React.ReactElement {
 						)}
 					</div>
 				)}
-			</span>
+				</span>
+			)}
 
 			{/* Right block mirrors the left visually; kept minimal. */}
 			<span className={TB.rightSpacer} />

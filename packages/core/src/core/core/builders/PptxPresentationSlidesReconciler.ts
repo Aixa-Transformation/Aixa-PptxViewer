@@ -91,7 +91,22 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 			? (input.presentationData['p:presentation'] as XmlObject)
 			: null;
 		const hadSlideIdList = presentation?.['p:sldIdLst'] !== undefined;
-		const slideIdList = presentation ? (presentation['p:sldIdLst'] as XmlObject) || {} : null;
+		const parsedSlideIdList = presentation?.['p:sldIdLst'];
+		const slideIdList: XmlObject | null = presentation
+			? parsedSlideIdList !== null &&
+				typeof parsedSlideIdList === 'object' &&
+				!Array.isArray(parsedSlideIdList)
+				? (parsedSlideIdList as XmlObject)
+				: {}
+			: null;
+		// fast-xml-parser represents a self-closing <p:sldIdLst/> as an empty
+		// string.  Replace that primitive in place before adding slide ids;
+		// otherwise the reconciler mutates a detached object and writes a deck
+		// whose relationships contain slides while presentation.xml still lists
+		// none.  Keeping the existing key also preserves the source child order.
+		if (presentation && hadSlideIdList && slideIdList !== parsedSlideIdList) {
+			presentation['p:sldIdLst'] = slideIdList;
+		}
 		const existingSlideIds = slideIdList
 			? (this.ensureArray(slideIdList['p:sldId']) as XmlObject[])
 			: [];

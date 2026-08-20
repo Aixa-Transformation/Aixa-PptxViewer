@@ -447,7 +447,10 @@ export interface PowerPointViewerProps {
 	/**
 	 * Hide individual toolbar buttons and/or ribbon tabs instead of the whole
 	 * toolbar. Accepts any mix of button ids (`share`, `broadcast`, `export`,
-	 * `undo`, `redo`, `record`, `notes`, `fullscreen`, `zoom`, `navigation`)
+	 * `undo`, `redo`, `record`, `notes`, `fullscreen`, `zoom`, `navigation`,
+	 * `present`, `customShows`, `settings`, `overflow`, `newSlide`,
+	 * `resetSlide`, `section`, `inspectorElements`, `inspectorComments`,
+	 * `inspectorBackgroundOnly`, `commandSearch`, `slidesPaneToggle`)
 	 * and ribbon-tab ids (`file`, `home`, `insert`, `draw`, `design`,
 	 * `transitions`, `animations`, `slideShow`, `record`, `review`, `view`,
 	 * `help`). `zoom` and `navigation` each hide their whole control cluster
@@ -455,6 +458,8 @@ export interface PowerPointViewerProps {
 	 * is shared between the quick-access Record button and the Record ribbon
 	 * tab: hiding it hides both. Omitted or empty hides nothing (default,
 	 * fully backward compatible).
+	 * Hiding `file` also hides the title-bar AutoSave status/toggle and quick
+	 * Save button, keeping all package-owned persistence controls together.
 	 *
 	 * @example
 	 * ```tsx

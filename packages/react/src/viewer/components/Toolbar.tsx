@@ -38,7 +38,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 		return <MobileToolbar {...p} />;
 	}
 
-	const sFil = toolbarSection === 'file';
+	const sFil = toolbarSection === 'file' && isTabVisible('file');
 	const sHome = toolbarSection === 'home';
 	const sIns = toolbarSection === 'insert';
 	const sTxt = sHome || toolbarSection === 'text';
@@ -174,6 +174,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							embeddedFontFamilies={p.embeddedFontFamilies}
 							onEmbedCustomFonts={p.onEmbedCustomFonts}
 							onUploadCustomFontPackage={p.onUploadCustomFontPackage}
+							hiddenActions={p.hiddenActions}
 						/>
 					)}
 

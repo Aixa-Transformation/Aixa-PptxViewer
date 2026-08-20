@@ -1,4 +1,5 @@
 import React from 'react';
+import { isActionHidden, type ToolbarActionId } from 'pptx-viewer-shared';
 import { useTranslation } from 'react-i18next';
 import { LuX } from 'react-icons/lu';
 
@@ -10,18 +11,28 @@ interface InspectorPaneHeaderProps {
 	activeTab: InspectorTab;
 	onSetActiveTab: (tab: InspectorTab) => void;
 	onClose: () => void;
+	hiddenActions?: readonly ToolbarActionId[];
+}
+
+export function getVisibleInspectorTabs(hiddenActions?: readonly ToolbarActionId[]) {
+	return INSPECTOR_TABS.filter(({ key }) => {
+		if (key === 'elements') return !isActionHidden('inspectorElements', hiddenActions);
+		if (key === 'comments') return !isActionHidden('inspectorComments', hiddenActions);
+		return true;
+	});
 }
 
 export function InspectorPaneHeader({
 	activeTab,
 	onSetActiveTab,
 	onClose,
+	hiddenActions,
 }: InspectorPaneHeaderProps): React.ReactElement {
 	const { t } = useTranslation();
 	return (
 		<div className='flex items-center justify-between gap-2 px-3 py-2 border-b border-border'>
 			<div className='flex items-center gap-1 rounded bg-muted p-0.5'>
-				{INSPECTOR_TABS.map(({ key, label, icon: Icon }) => (
+				{getVisibleInspectorTabs(hiddenActions).map(({ key, label, icon: Icon }) => (
 					<button
 						key={key}
 						type='button'

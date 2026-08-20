@@ -1,4 +1,9 @@
-import { getLinkedTextBoxSegments, hasTextProperties } from 'pptx-viewer-core';
+import {
+	evaluatePresetShape,
+	getLinkedTextBoxSegments,
+	hasTextProperties,
+	type PptxElement,
+} from 'pptx-viewer-core';
 import React from 'react';
 
 import { DEFAULT_TEXT_COLOR } from '../../constants';
@@ -22,6 +27,39 @@ export function shouldRenderTextBody(
 ): boolean {
 	if (!isTextElement) return Boolean(promptText) && !isPresentationPassive;
 	return hasActualText || !promptText || !isPresentationPassive;
+}
+
+/**
+ * PowerPoint keeps chevron text inside the rectangular portion between the
+ * rear notch and the arrow tip.  Rendering text over the full shape bounds
+ * clips the first words against the notch and changes the authored wrapping.
+ *
+ * Keep this scoped to chevrons for now: other preset shapes historically use
+ * the full element box in the editor and applying every preset's text rect at
+ * once would be a much broader layout change.
+ */
+export function getChevronTextFrameStyle(el: PptxElement): React.CSSProperties | undefined {
+	if (!('shapeType' in el) || el.shapeType !== 'chevron') return undefined;
+
+	const textRect = evaluatePresetShape(
+		el.shapeType,
+		el.width,
+		el.height,
+		el.shapeAdjustments,
+	)?.textRect;
+	if (!textRect) return undefined;
+
+	const width = Math.max(0, textRect.r - textRect.l);
+	const height = Math.max(0, textRect.b - textRect.t);
+	if (width <= 0 || height <= 0) return undefined;
+
+	return {
+		position: 'absolute',
+		left: textRect.l,
+		top: textRect.t,
+		width,
+		height,
+	};
 }
 
 export function renderTextElementBody(options: RenderBodyOptions): React.ReactNode {
@@ -77,6 +115,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 		? { height: 'auto', minHeight: '100%' }
 		: undefined;
 	const shapeType = 'shapeType' in el ? (el as { shapeType?: string }).shapeType : undefined;
+	const presetTextFrameStyle = getChevronTextFrameStyle(el);
 	// Placeholder prompts ("Click to add title", master sample text, etc.) are
 	// editor affordances, not slide content.  PowerPoint omits them from slide
 	// show/export, so passive/read-only rendering must do the same.
@@ -103,7 +142,11 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							'relative z-10 w-full h-full',
 							onHyperlinkClick ? '' : 'pointer-events-none',
 						)}
-						style={{ ...getTextLayoutStyle(el), ...transformStyle }}
+						style={{
+							...getTextLayoutStyle(el),
+							...transformStyle,
+							...presetTextFrameStyle,
+						}}
 					>
 						<WarpedText
 							element={el}
@@ -126,6 +169,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							...getTextWarpStyle(txtSE),
 							...transformStyle,
 							...textBodySizeStyle,
+							...presetTextFrameStyle,
 						}}
 					>
 						{renderTextSegments(

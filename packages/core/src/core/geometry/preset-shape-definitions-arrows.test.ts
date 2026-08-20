@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ARROW_PRESET_DEFINITIONS } from './preset-shape-definitions-arrows';
+import { evaluatePresetShape } from './preset-shape-evaluator';
 
 const REQUIRED_SHAPES = [
 	// Containers / 3-D primitives
@@ -125,6 +126,12 @@ describe('preset shape arrow definitions', () => {
 
 	it('chevron default adj is 50000', () => {
 		expect(ARROW_PRESET_DEFINITIONS.chevron?.avLst?.adj).toBe(50000);
+	});
+
+	it('sizes a wide chevron notch and head from the short side', () => {
+		const result = evaluatePresetShape('chevron', 400, 100);
+		expect(result?.svgPath).toBe('M 0 0 L 350 0 L 400 50 L 350 100 L 0 100 L 50 50 Z');
+		expect(result?.textRect).toEqual({ l: 50, t: 0, r: 350, b: 100 });
 	});
 
 	it('leftRightArrow / upDownArrow defaults are 50% body / 50% head per spec', () => {

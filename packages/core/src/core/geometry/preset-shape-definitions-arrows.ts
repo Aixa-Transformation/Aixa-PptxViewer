@@ -801,13 +801,16 @@ const homePlate: PresetShapeGeometryDefinition = {
 	],
 };
 
-// chevron — rightward chevron with notched tail. adj1 = notch depth (default
-// 50000 = halfway).
+// chevron — rightward chevron with notched tail. The adjustment is measured
+// against the short side (`ss`), not the full width. Using `w` makes wide
+// PowerPoint chevrons collapse into excessively deep arrowheads/notches.
 const chevron: PresetShapeGeometryDefinition = {
 	name: 'chevron',
 	avLst: { adj: 50000 },
-	gdLst: [gd('a', 'pin 0 adj 100000'), gd('x1', '*/ w a 100000'), gd('x2', '+- r 0 x1')],
-	rect: { l: 'l', t: 't', r: 'x2', b: 'b' },
+	gdLst: [gd('a', 'pin 0 adj 100000'), gd('x1', '*/ ss a 100000'), gd('x2', '+- r 0 x1')],
+	// Keep text between the tail notch and the arrowhead. PowerPoint clips the
+	// outer silhouette but lays out chevron text inside this safe rectangle.
+	rect: { l: 'x1', t: 't', r: 'x2', b: 'b' },
 	pathLst: [
 		{
 			commands: [

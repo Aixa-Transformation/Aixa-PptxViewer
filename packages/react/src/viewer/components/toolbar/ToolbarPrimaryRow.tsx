@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuMessageSquare, LuPanelLeft, LuPanelRight, LuSettings, LuSparkles } from 'react-icons/lu';
 
+import { useToolbarVisibility } from '../../hooks/useToolbarVisibility';
 import { cn } from '../../utils';
 import { useCollaboration, UserAvatarBar } from '../collaboration';
 import { CustomShowsControls } from './CustomShowsControls';
@@ -22,6 +23,7 @@ export function ToolbarPrimaryRow(p: ToolbarProps): React.ReactElement {
 	} = p;
 
 	const collab = useCollaboration();
+	const { isHidden } = useToolbarVisibility(p.hiddenActions);
 
 	const qab =
 		'p-1 max-md:p-2 max-md:min-h-[40px] max-md:min-w-[40px] rounded-sm transition-colors hover:bg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed active:scale-90 active:opacity-70';
@@ -29,7 +31,7 @@ export function ToolbarPrimaryRow(p: ToolbarProps): React.ReactElement {
 	return (
 		<div className='flex items-center gap-0.5 max-md:gap-0 px-1.5 py-0.5 max-md:px-1'>
 			{/* Left: Slides pane toggle + Undo/Redo + Find */}
-			{mode !== 'present' && (
+			{mode !== 'present' && !isHidden('slidesPaneToggle') && (
 				<button
 					type='button'
 					onClick={onToggleSidebar}
@@ -85,30 +87,34 @@ export function ToolbarPrimaryRow(p: ToolbarProps): React.ReactElement {
 					</button>
 				)}
 
-			<ModeSwitcher
-				mode={p.mode}
-				onSetMode={p.onSetMode}
-				onCloseMasterView={p.onCloseMasterView}
-				onToggleSlideSorter={p.onToggleSlideSorter}
-				onEnterPresenterView={p.onEnterPresenterView}
-				onEnterRehearsalMode={p.onEnterRehearsalMode}
-				onOpenSetUpSlideShow={p.onOpenSetUpSlideShow}
-				onOpenBroadcastDialog={p.onOpenBroadcastDialog}
-				onToggleSubtitles={p.onToggleSubtitles}
-				showSubtitles={p.showSubtitles}
-			/>
+			{!isHidden('present') && (
+				<ModeSwitcher
+					mode={p.mode}
+					onSetMode={p.onSetMode}
+					onCloseMasterView={p.onCloseMasterView}
+					onToggleSlideSorter={p.onToggleSlideSorter}
+					onEnterPresenterView={p.onEnterPresenterView}
+					onEnterRehearsalMode={p.onEnterRehearsalMode}
+					onOpenSetUpSlideShow={p.onOpenSetUpSlideShow}
+					onOpenBroadcastDialog={p.onOpenBroadcastDialog}
+					onToggleSubtitles={p.onToggleSubtitles}
+					showSubtitles={p.showSubtitles}
+				/>
+			)}
 
-			<CustomShowsControls
-				customShows={p.customShows}
-				activeCustomShowId={p.activeCustomShowId}
-				canEdit={p.canEdit}
-				isCurrentSlideInActiveShow={p.isCurrentSlideInActiveShow}
-				onSetActiveCustomShowId={p.onSetActiveCustomShowId}
-				onCreateCustomShow={p.onCreateCustomShow}
-				onRenameActiveCustomShow={p.onRenameActiveCustomShow}
-				onDeleteActiveCustomShow={p.onDeleteActiveCustomShow}
-				onToggleCurrentSlideInActiveShow={p.onToggleCurrentSlideInActiveShow}
-			/>
+			{!isHidden('customShows') && (
+				<CustomShowsControls
+					customShows={p.customShows}
+					activeCustomShowId={p.activeCustomShowId}
+					canEdit={p.canEdit}
+					isCurrentSlideInActiveShow={p.isCurrentSlideInActiveShow}
+					onSetActiveCustomShowId={p.onSetActiveCustomShowId}
+					onCreateCustomShow={p.onCreateCustomShow}
+					onRenameActiveCustomShow={p.onRenameActiveCustomShow}
+					onDeleteActiveCustomShow={p.onDeleteActiveCustomShow}
+					onToggleCurrentSlideInActiveShow={p.onToggleCurrentSlideInActiveShow}
+				/>
+			)}
 
 			{sep}
 
@@ -138,22 +144,24 @@ export function ToolbarPrimaryRow(p: ToolbarProps): React.ReactElement {
 			)}
 
 			{/* Settings */}
-			<button
-				type='button'
-				onClick={p.onOpenSettings ?? p.onToggleShortcuts}
-				className={cn(qab, 'text-muted-foreground')}
-				title={t('pptx.toolbar.settingsShortcuts')}
-				aria-label={t('pptx.toolbar.settings')}
-			>
-				<LuSettings className={ics} />
-			</button>
+			{!isHidden('settings') && (
+				<button
+					type='button'
+					onClick={p.onOpenSettings ?? p.onToggleShortcuts}
+					className={cn(qab, 'text-muted-foreground')}
+					title={t('pptx.toolbar.settingsShortcuts')}
+					aria-label={t('pptx.toolbar.settings')}
+				>
+					<LuSettings className={ics} />
+				</button>
+			)}
 
 			{!canEdit && (
 				<span className='inline-flex items-center px-2 py-0.5 rounded-sm bg-amber-600/90 text-[10px] text-amber-50'>
 					{t('pptx.toolbar.readOnly')}
 				</span>
 			)}
-			<OverflowMenu {...p} />
+			{!isHidden('overflow') && <OverflowMenu {...p} />}
 		</div>
 	);
 }

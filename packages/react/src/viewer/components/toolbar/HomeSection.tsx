@@ -1,6 +1,6 @@
 import { hasTextProperties } from 'pptx-viewer-core';
 import type { PptxElement, PptxEmbeddedFont } from 'pptx-viewer-core';
-import type { ViewerFontSource } from 'pptx-viewer-shared';
+import type { ToolbarActionId, ViewerFontSource } from 'pptx-viewer-shared';
 import JSZip from 'jszip';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +34,7 @@ export interface HomeSectionProps {
 	onApplyLayout?: (path: string) => void;
 	onResetSlide?: () => void;
 	onAddSection?: () => void;
+	hiddenActions?: readonly ToolbarActionId[];
 	selectedElement?: PptxElement | null;
 	onUpdateTextStyle?: (style: Record<string, unknown>) => void;
 	themeFonts?: { heading?: string; body?: string };
@@ -405,6 +406,7 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 				onApplyLayout={p.onApplyLayout}
 				onResetSlide={p.onResetSlide}
 				onAddSection={p.onAddSection}
+				hiddenActions={p.hiddenActions}
 			/>
 
 			{/* Font group */}
