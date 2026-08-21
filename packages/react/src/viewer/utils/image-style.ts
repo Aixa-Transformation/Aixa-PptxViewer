@@ -265,3 +265,4 @@ export function getImageTilingStyle(element: PptxElement): React.CSSProperties |
 		height: '100%',
 	};
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

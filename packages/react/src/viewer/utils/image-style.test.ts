@@ -355,3 +355,4 @@ describe('getImageRenderStyle', () => {
 		expect(style.transformOrigin).toBe('top left');
 	});
 });
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

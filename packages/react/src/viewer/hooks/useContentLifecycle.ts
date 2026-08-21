@@ -139,3 +139,4 @@ export function useContentLifecycle(input: UseContentLifecycleInput): ContentLif
 
 	return { handlerRef, serializeSlides, autosaveStatus };
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

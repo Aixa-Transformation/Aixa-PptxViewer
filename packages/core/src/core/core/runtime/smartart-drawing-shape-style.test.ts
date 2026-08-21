@@ -176,3 +176,4 @@ describe('extractDrawingShapeTextStyle', () => {
 		expect(style.fontColor).toBe('#FFFFFF');
 	});
 });
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -366,3 +366,4 @@ export function computeUniformSegmentOverrides(
 
 	return uniformSegmentOverrides;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

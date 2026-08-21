@@ -378,3 +378,4 @@ export function extractFontFromEot(
 
 	return { fontData, header };
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

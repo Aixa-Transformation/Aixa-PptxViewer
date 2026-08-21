@@ -309,3 +309,4 @@ export function applySections(
 	replaceChildren(list, 'section', effectiveSections.map(updateSection), 'p14:section');
 	location.parent[location.key] = list;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

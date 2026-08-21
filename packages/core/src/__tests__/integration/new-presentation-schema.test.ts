@@ -89,3 +89,4 @@ describe('new-presentation template schema conformance', () => {
 		expect(ct).toContain('application/vnd.openxmlformats-officedocument.extended-properties+xml');
 	});
 });
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

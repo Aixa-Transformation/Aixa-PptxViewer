@@ -212,3 +212,4 @@ export function getTextStyleForElement(
 		}),
 	};
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

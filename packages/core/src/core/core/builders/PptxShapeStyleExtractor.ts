@@ -288,3 +288,4 @@ export class PptxShapeStyleExtractor implements IPptxShapeStyleExtractor {
 		return undefined;
 	}
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

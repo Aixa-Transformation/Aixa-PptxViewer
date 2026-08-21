@@ -229,3 +229,4 @@ export interface PlaceholderDefaults {
 	/** Prompt text extracted from the layout/master placeholder (e.g. "Click to add title"). */
 	promptText?: string;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

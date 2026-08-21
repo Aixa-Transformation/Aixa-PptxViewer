@@ -1079,3 +1079,4 @@ describe('inlineTextEditor: full style chain integration', () => {
 		expect(style.paddingRight).toBe(10);
 	});
 });
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

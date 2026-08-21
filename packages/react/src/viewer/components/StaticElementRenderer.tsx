@@ -184,3 +184,4 @@ function StaticElementRendererImpl({
 export const StaticElementRenderer = React.memo(StaticElementRendererImpl);
 StaticElementRenderer.displayName = 'StaticElementRenderer';
 export const STATIC_ELEMENTS_ARE_PRESENTATION_PASSIVE = true;
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -60,3 +60,4 @@ export default defineConfig((options) => ({
 	// A data URL keeps the real PPTX master/layout package self-contained.
 	loader: { '.pptx': 'dataurl' },
 }));
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

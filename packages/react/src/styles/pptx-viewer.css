@@ -34,3 +34,4 @@
 [data-pptx-viewer] [data-pptx-paragraph] {
 	text-align: var(--pptx-paragraph-align) !important;
 }
+/* Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project. */

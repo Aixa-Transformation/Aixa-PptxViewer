@@ -492,3 +492,4 @@ export interface PowerPointViewerProps {
 export interface PowerPointViewerHandle extends FileViewerHandle, PowerPointViewerAPI {
 	getContent: () => Promise<Uint8Array>;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

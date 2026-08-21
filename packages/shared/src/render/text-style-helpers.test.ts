@@ -106,3 +106,4 @@ describe('computeAutoFitTextStyle', () => {
 		expect(result.fontSize!).toBeGreaterThanOrEqual(6);
 	});
 });
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -94,3 +94,4 @@ export interface InspectorPaneProps {
 	/** Width of the panel in pixels (for resizable panels). */
 	panelWidth?: number;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

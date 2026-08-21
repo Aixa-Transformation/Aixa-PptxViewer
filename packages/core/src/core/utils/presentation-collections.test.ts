@@ -228,3 +228,4 @@ describe('presentation collections', () => {
 		expect(showSlides.map((entry) => entry['@_r:id'])).toStrictEqual(['rId2', 'rId3']);
 	});
 });
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

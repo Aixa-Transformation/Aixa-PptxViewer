@@ -713,3 +713,4 @@ export interface PptxEmbeddedFont {
 	 */
 	originalPartBytes?: Uint8Array;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -293,3 +293,4 @@ export function cell3DBevelCss(cell3D: PptxTableCell3D): TableCellCss {
 	const shadow = `inset ${-off.x * size}px ${-off.y * size}px ${size}px rgba(0,0,0,0.4)`;
 	return { boxShadow: `${highlight}, ${shadow}` };
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

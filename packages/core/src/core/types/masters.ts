@@ -245,3 +245,4 @@ export interface PptxThemeOption {
 	/** Human-readable theme name from `a:theme/@name`, when present. */
 	name?: string;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

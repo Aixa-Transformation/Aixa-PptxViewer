@@ -44,3 +44,4 @@ export class Presentation {
 	save(): Promise<Uint8Array>;
 	dispose(): void;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

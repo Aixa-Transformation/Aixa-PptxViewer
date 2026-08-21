@@ -306,3 +306,4 @@ describe('pptxElementXmlBuilder constructor', () => {
 		expect(off['@_x']).toBe(String(Math.round(10 * 12700)));
 	});
 });
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -387,3 +387,4 @@ export function parseBulletInfo(
 	// No bullet
 	return null;
 }
+// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.
