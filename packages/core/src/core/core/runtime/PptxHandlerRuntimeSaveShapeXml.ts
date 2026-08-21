@@ -1,3 +1,4 @@
+import { sanitizeDrawingmlPresetGeometryTree } from '../../geometry/preset-shape-values';
 import { XmlObject } from '../../types';
 import type {
 	ChartPptxElement,
@@ -439,6 +440,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	protected buildGroupShapeXml(group: GroupPptxElement): XmlObject | null {
 		// If the group still has rawXml and children haven't changed, reuse it
 		if (group.rawXml && group.children.length === 0) {
+			sanitizeDrawingmlPresetGeometryTree(group.rawXml);
 			return group.rawXml;
 		}
 
@@ -514,6 +516,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			if (!xml) {
 				continue;
 			}
+
+			// Group children with preserved raw XML bypass the ordinary top-level
+			// element writer. Apply model geometry when possible, then recursively
+			// repair any older invalid nested preset values that remain.
+			this.applyGeometryUpdate(xml, child);
+			sanitizeDrawingmlPresetGeometryTree(xml);
 
 			// Update child transform — coordinates are relative to group
 			const childXfrm = ((xml['p:spPr'] as XmlObject | undefined)?.['a:xfrm'] || xml['p:xfrm']) as

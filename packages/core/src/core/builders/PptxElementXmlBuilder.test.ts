@@ -118,9 +118,20 @@ describe('pptxElementXmlBuilder.normalizePresetGeometry', () => {
 		expect(builder.normalizePresetGeometry('bentConnector3')).toBe('bentConnector3');
 	});
 
-	it('allows underscores in shape names', () => {
+	it('rejects internal custom-geometry sentinels and unknown identifiers', () => {
 		const builder = new PptxElementXmlBuilder(createDefaultOptions());
-		expect(builder.normalizePresetGeometry('custom_shape')).toBe('custom_shape');
+		expect(builder.normalizePresetGeometry('custom')).toBe('rect');
+		expect(builder.normalizePresetGeometry('custom_shape')).toBe('rect');
+		expect(builder.normalizePresetGeometry('unknownShape')).toBe('rect');
+	});
+
+	it('maps editor aliases to schema-valid preset names', () => {
+		const builder = new PptxElementXmlBuilder(createDefaultOptions());
+		expect(builder.normalizePresetGeometry('rightTriangle')).toBe('rtTriangle');
+		expect(builder.normalizePresetGeometry('cross')).toBe('plus');
+		expect(builder.normalizePresetGeometry('actionButtonBackOrPrevious')).toBe(
+			'actionButtonBackPrevious',
+		);
 	});
 
 	it('returns "rect" for names containing special characters', () => {

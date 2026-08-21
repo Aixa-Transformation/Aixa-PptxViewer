@@ -1,4 +1,9 @@
-import type { ConnectorPptxElement, PptxElementWithText, XmlObject } from 'pptx-viewer-core';
+import {
+	normalizeDrawingmlPresetShape,
+	type ConnectorPptxElement,
+	type PptxElementWithText,
+	type XmlObject,
+} from 'pptx-viewer-core';
 import { translationsEn } from 'pptx-viewer-shared/i18n';
 
 import { DEFAULT_STROKE_COLOR, EMU_PER_PX } from '../constants';
@@ -10,7 +15,7 @@ export function createTemplateShapeRawXml(element: PptxElementWithText): XmlObje
 	const name = isText
 		? translationsEn['pptx.elementType.textBox']
 		: translationsEn['pptx.editorToolbar.shapeRectangle'];
-	const geometry = element.shapeType === 'cylinder' ? 'can' : element.shapeType || 'rect';
+	const geometry = normalizeDrawingmlPresetShape(element.shapeType);
 	const adjustmentEntries = Object.entries(element.shapeAdjustments || {}).filter(
 		([key, value]) => key.trim().length > 0 && Number.isFinite(value),
 	);
@@ -73,7 +78,7 @@ export function createTemplateShapeRawXml(element: PptxElementWithText): XmlObje
 export function createTemplateConnectorRawXml(element: ConnectorPptxElement): XmlObject {
 	const geometry =
 		element.shapeType && element.shapeType !== 'connector'
-			? element.shapeType
+			? normalizeDrawingmlPresetShape(element.shapeType)
 			: 'straightConnector1';
 	const strokeColor = normalizeHexColor(element.shapeStyle?.strokeColor, DEFAULT_STROKE_COLOR);
 	const strokeWidth = Math.max(1, element.shapeStyle?.strokeWidth || 1);

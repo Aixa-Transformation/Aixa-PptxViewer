@@ -27,6 +27,12 @@ export {
 } from './preset-shape-definitions-table';
 
 export {
+	DRAWINGML_PRESET_SHAPE_VALUES,
+	normalizeDrawingmlPresetShape,
+	sanitizeDrawingmlPresetGeometryTree,
+} from './preset-shape-values';
+
+export {
 	evaluatePresetShape,
 	lookupPresetShape,
 	type PresetShapeEvaluationResult,

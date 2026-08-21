@@ -111,6 +111,16 @@ describe('createTemplateShapeRawXml', () => {
 		expect(prstGeom['@_prst']).toBe('rect');
 	});
 
+	it('should reject custom and unknown preset geometry names', () => {
+		for (const shapeType of ['custom', 'custGeom', 'unknownShape']) {
+			const element = makeShapeElement({ shapeType });
+			const xml = createTemplateShapeRawXml(element);
+			const spPr = xml['p:spPr'] as XmlObject;
+			const prstGeom = spPr['a:prstGeom'] as XmlObject;
+			expect(prstGeom['@_prst']).toBe('rect');
+		}
+	});
+
 	it('should include text content in the body', () => {
 		const element = makeTextElement({ text: 'My Text' });
 		const xml = createTemplateShapeRawXml(element);
@@ -168,6 +178,14 @@ describe('createTemplateConnectorRawXml', () => {
 		const spPr = xml['p:spPr'] as XmlObject;
 		const prstGeom = spPr['a:prstGeom'] as XmlObject;
 		expect(prstGeom['@_prst']).toBe('bentConnector3');
+	});
+
+	it('should reject an invalid connector preset geometry name', () => {
+		const element = makeConnector({ shapeType: 'custom' });
+		const xml = createTemplateConnectorRawXml(element);
+		const spPr = xml['p:spPr'] as XmlObject;
+		const prstGeom = spPr['a:prstGeom'] as XmlObject;
+		expect(prstGeom['@_prst']).toBe('rect');
 	});
 
 	it('should include stroke width in line node', () => {

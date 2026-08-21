@@ -63,6 +63,15 @@ describe('createTemplateShapeRawXml', () => {
 		expect(prstGeom['@_prst']).toBe('rect');
 	});
 
+	it('never writes custom or unknown shape names as preset geometry', () => {
+		for (const shapeType of ['custom', 'custom_shape', 'unknownShape']) {
+			const el = { ...baseElement, shapeType } as PptxElementWithText;
+			const xml = createTemplateShapeRawXml(el);
+			const prstGeom = (xml['p:spPr'] as XmlObject)['a:prstGeom'] as XmlObject;
+			expect(prstGeom['@_prst']).toBe('rect');
+		}
+	});
+
 	it('includes text content in body', () => {
 		const xml = createTemplateShapeRawXml(baseElement);
 		const txBody = xml['p:txBody'] as XmlObject;
@@ -119,6 +128,13 @@ describe('createTemplateConnectorRawXml', () => {
 		const xml = createTemplateConnectorRawXml(el);
 		const prstGeom = (xml['p:spPr'] as XmlObject)['a:prstGeom'] as XmlObject;
 		expect(prstGeom['@_prst']).toBe('bentConnector3');
+	});
+
+	it('falls back to rect for an invalid connector preset', () => {
+		const el = { ...baseConnector, shapeType: 'custom' } as ConnectorPptxElement;
+		const xml = createTemplateConnectorRawXml(el);
+		const prstGeom = (xml['p:spPr'] as XmlObject)['a:prstGeom'] as XmlObject;
+		expect(prstGeom['@_prst']).toBe('rect');
 	});
 
 	it('sets correct EMU position', () => {
