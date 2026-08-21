@@ -343,4 +343,3 @@ describe('extractTableCellStyle', () => {
 		expect(result.fontSize).toBeCloseTo(24, 0);
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

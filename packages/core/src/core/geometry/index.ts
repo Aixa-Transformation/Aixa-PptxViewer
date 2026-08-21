@@ -105,4 +105,3 @@ export {
 	getCalloutViewBoxBounds,
 } from './callout-geometry';
 export type { CalloutPoint, CalloutLeaderLineGeometry } from './callout-geometry';
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

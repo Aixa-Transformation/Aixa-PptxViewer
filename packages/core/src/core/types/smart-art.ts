@@ -392,4 +392,3 @@ export interface PptxSmartArtData {
 	/** Internal save hint: cached drawing geometry or text changed in the editor. */
 	drawingDirty?: boolean;
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

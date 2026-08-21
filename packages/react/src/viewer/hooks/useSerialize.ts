@@ -168,4 +168,3 @@ export function useSerialize(input: UseSerializeInput): () => Promise<Uint8Array
 		password,
 	]);
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

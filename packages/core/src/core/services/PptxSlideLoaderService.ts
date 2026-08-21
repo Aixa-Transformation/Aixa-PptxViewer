@@ -409,4 +409,3 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 		return typeof value === 'object' && value !== null && !Array.isArray(value);
 	}
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

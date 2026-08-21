@@ -394,4 +394,3 @@ export function renderTextSegments(
 		);
 	});
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

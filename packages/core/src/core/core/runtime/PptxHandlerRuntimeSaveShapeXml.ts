@@ -562,4 +562,3 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		return grpXml;
 	}
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

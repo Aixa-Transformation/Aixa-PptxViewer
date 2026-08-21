@@ -401,4 +401,3 @@ describe('toSlideRelsPath', () => {
 		expect(toSlideRelsPath('ppt/slides/slide1.xml')).toBe('ppt/slides/_rels/slide1.xml.rels');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

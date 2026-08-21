@@ -268,4 +268,3 @@ describe('strict conformance: load and re-save round-trip', () => {
 		expect(presXml).not.toContain('http://purl.oclc.org/ooxml/presentationml/main');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -194,4 +194,3 @@ describe('detectFontFormat', () => {
 		expect(detectFontFormat(data)).toBe('truetype');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

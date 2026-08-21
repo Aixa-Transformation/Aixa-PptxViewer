@@ -646,4 +646,3 @@ describe('rTL paragraph alignment overrides', () => {
 		expect(para.props.style.textAlign).toBe('justify');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

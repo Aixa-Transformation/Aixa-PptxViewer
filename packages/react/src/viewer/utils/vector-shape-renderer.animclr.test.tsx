@@ -114,4 +114,3 @@ describe('renderVectorShape p:animClr fill/stroke recolor (cylinder preset)', ()
 		expect(html).toContain('stroke="inherit"');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -177,4 +177,3 @@ describe('createTemplateConnectorRawXml', () => {
 		expect((ln['a:tailEnd'] as XmlObject)['@_type']).toBe('stealth');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

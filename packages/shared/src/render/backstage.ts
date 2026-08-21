@@ -180,4 +180,3 @@ export function formatBackstageSize(bytes: number): string {
 	}
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

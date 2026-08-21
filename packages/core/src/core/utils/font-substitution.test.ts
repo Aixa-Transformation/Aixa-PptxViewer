@@ -478,4 +478,3 @@ describe('end-to-end PANOSE font substitution', () => {
 		expect(result).toContain('serif');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

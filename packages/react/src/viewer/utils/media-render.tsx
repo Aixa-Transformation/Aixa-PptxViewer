@@ -252,4 +252,3 @@ export function renderMediaElement(
 		</div>
 	);
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

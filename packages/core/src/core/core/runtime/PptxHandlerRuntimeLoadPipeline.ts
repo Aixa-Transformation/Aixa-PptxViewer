@@ -639,4 +639,3 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		return updated;
 	}
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

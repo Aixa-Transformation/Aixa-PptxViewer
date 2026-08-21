@@ -230,4 +230,3 @@ export function parseTableStyleSectionText(
 
 	return hasProps ? result : undefined;
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

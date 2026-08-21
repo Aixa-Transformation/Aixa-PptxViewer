@@ -45,4 +45,3 @@ describe('backstage model', () => {
 		expect(formatBackstageSize(2_621_440)).toBe('2.5 MB');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -189,4 +189,3 @@ export function detectFontFormat(data: Uint8Array): 'truetype' | 'opentype' | 'w
 	// TrueType: version 1.0 (0x00010000) or 'true'
 	return 'truetype';
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

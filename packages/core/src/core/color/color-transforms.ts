@@ -280,4 +280,3 @@ function applySrgbGammaDecode(
 ): { r: number; g: number; b: number } {
 	return { r: srgbDecodeChannel(r), g: srgbDecodeChannel(g), b: srgbDecodeChannel(b) };
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

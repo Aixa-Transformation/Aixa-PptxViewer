@@ -310,4 +310,3 @@ describe('getTableCellBandStyle', () => {
 		expect(style!.backgroundColor).toBeDefined();
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

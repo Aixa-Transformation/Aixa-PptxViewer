@@ -324,4 +324,3 @@ export function ViewerMainContent(props: ViewerMainContentProps) {
 		</ChartPartSelectionProvider>
 	);
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

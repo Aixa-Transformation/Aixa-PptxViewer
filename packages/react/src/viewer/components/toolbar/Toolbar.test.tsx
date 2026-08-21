@@ -2051,4 +2051,3 @@ describe('toolbar - hiddenActions', () => {
 		expect(toolbar).not.toContain('data-testid="file-section"');
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

@@ -179,4 +179,3 @@ export interface ToolbarProps {
 	/** Toggle the AI assistant panel. */
 	onToggleAiPanel?: () => void;
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

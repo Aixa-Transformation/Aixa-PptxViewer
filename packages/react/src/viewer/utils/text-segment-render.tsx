@@ -370,4 +370,3 @@ export function renderSingleSegment(
 
 	return spanNode;
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

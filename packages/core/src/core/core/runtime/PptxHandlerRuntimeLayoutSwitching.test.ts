@@ -847,4 +847,3 @@ describe('placeholder re-mapping (GAP-E4 layout switching)', () => {
 		expect(result[0].x).toBe(50);
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

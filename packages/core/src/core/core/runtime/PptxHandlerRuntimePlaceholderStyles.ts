@@ -179,4 +179,3 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		return hasValues ? style : null;
 	}
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

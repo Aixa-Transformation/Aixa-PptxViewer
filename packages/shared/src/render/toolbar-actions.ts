@@ -100,4 +100,3 @@ export function filterVisibleTabs<T extends { id: ToolbarTabId }>(
 	}
 	return tabs.filter((tab) => !isActionHidden(tab.id, hiddenActions));
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

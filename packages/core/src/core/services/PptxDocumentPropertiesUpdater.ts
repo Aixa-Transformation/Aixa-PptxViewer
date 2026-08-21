@@ -446,4 +446,3 @@ export class PptxDocumentPropertiesUpdater {
 		return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 	}
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

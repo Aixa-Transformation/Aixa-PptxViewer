@@ -132,4 +132,3 @@ export function parseTableStyleBorders(
 	}
 	return has ? result : undefined;
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

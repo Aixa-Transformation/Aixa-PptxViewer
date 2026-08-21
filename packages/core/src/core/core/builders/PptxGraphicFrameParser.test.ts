@@ -267,4 +267,3 @@ describe('pptxGraphicFrameParser table dimensions', () => {
 		expect(result.height).toBe(180);
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

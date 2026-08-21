@@ -250,4 +250,3 @@ describe('createTemplateConnectorRawXml', () => {
 		expect(Number(ln['@_w'])).toBeGreaterThanOrEqual(EMU_PER_PX);
 	});
 });
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.

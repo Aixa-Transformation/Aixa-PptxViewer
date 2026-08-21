@@ -325,4 +325,3 @@ export function parseDrawingHueDegrees(value: unknown): number | undefined {
 	}
 	return parsed / 60000;
 }
-// Modified by Aixa Ltd from the original ChristopherVR/pptx-viewer project.
