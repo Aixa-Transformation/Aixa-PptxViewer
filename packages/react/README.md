@@ -14,6 +14,15 @@ Slides render with real **HTML/CSS** (not `<canvas>`), so text stays crisp at an
 
 ---
 
+## Attribution
+
+This project is a fork of [ChristopherVR/pptx-viewer](https://github.com/ChristopherVR/pptx-viewer).
+The original project is Copyright © 2025-present pptx-viewer contributors and is
+licensed under the Apache License 2.0. This fork is maintained by Aixa Ltd and
+contains modifications made by the Aixa Transformation team.
+
+---
+
 ## Install
 
 ```bash
