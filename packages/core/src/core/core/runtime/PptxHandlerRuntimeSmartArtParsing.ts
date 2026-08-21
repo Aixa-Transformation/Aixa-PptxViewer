@@ -191,7 +191,14 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const y = Math.round(parseInt(String(off['@_y'] || '0'), 10) / emuPerPx);
 		const width = Math.round(parseInt(String(ext['@_cx'] || '0'), 10) / emuPerPx);
 		const height = Math.round(parseInt(String(ext['@_cy'] || '0'), 10) / emuPerPx);
-		if (width <= 0 || height <= 0) {
+		// Cached SmartArt uses zero-height/zero-width preset `line` shapes for
+		// timeline rails and stems. They are valid DrawingML geometry and must not
+		// be discarded merely because their bounding box has no area.
+		const preliminaryPrstGeom = this.xmlLookupService.getChildByLocalName(spPr, 'prstGeom');
+		const preliminaryShapeType = preliminaryPrstGeom
+			? String(preliminaryPrstGeom['@_prst'] || 'rect')
+			: 'rect';
+		if ((width <= 0 || height <= 0) && preliminaryShapeType !== 'line') {
 			return null;
 		}
 
@@ -237,6 +244,28 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const strokeWidthRaw = lnNode ? parseInt(String(lnNode['@_w'] || ''), 10) : NaN;
 		const strokeWidth =
 			Number.isFinite(strokeWidthRaw) && strokeWidthRaw > 0 ? strokeWidthRaw / 12700 : undefined;
+		const prstDash = lnNode
+			? this.xmlLookupService.getChildByLocalName(lnNode, 'prstDash')
+			: undefined;
+		const headEnd = lnNode
+			? this.xmlLookupService.getChildByLocalName(lnNode, 'headEnd')
+			: undefined;
+		const tailEnd = lnNode
+			? this.xmlLookupService.getChildByLocalName(lnNode, 'tailEnd')
+			: undefined;
+		const arrowType = (node: XmlObject | undefined) => {
+			const value = node?.['@_type'];
+			return value === 'none' ||
+				value === 'triangle' ||
+				value === 'stealth' ||
+				value === 'diamond' ||
+				value === 'oval' ||
+				value === 'arrow'
+				? value
+				: undefined;
+		};
+		const arrowSize = (value: unknown) =>
+			value === 'sm' || value === 'med' || value === 'lg' ? value : undefined;
 
 		const txBody = this.xmlLookupService.getChildByLocalName(sp, 'txBody');
 		const textValues: string[] = [];
@@ -287,6 +316,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			fillColor: fill.fillColor ?? undefined,
 			strokeColor: strokeColor ?? undefined,
 			strokeWidth,
+			strokeDash: prstDash ? String(prstDash['@_val'] || '') || undefined : undefined,
+			startArrow: arrowType(headEnd),
+			endArrow: arrowType(tailEnd),
+			startArrowWidth: arrowSize(headEnd?.['@_w']),
+			startArrowLength: arrowSize(headEnd?.['@_len']),
+			endArrowWidth: arrowSize(tailEnd?.['@_w']),
+			endArrowLength: arrowSize(tailEnd?.['@_len']),
 			text: structuredText,
 			textSegments,
 			fontSize,

@@ -74,6 +74,13 @@ const deps: DrawingShapeStyleDeps = {
 };
 
 describe('extractDrawingShapeFill', () => {
+	it('preserves an explicit no-fill text overlay as transparent', () => {
+		const fill = extractDrawingShapeFill({ 'a:noFill': '' as unknown as XmlObject }, deps);
+
+		expect(fill.fillNone).toBe(true);
+		expect(fill.fillColor).toBeUndefined();
+	});
+
 	it('parses a gradient fill onto the drawing-shape model (issue #73)', () => {
 		const spPr: XmlObject = {
 			'a:gradFill': {

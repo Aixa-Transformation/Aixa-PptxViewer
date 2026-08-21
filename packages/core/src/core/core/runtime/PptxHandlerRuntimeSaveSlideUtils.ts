@@ -56,13 +56,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		) {
 			return requestedSourcePath;
 		}
-
-		for (const slidePath of this.slideMap.keys()) {
-			if (slidePath.startsWith('ppt/slides/slide')) {
-				return slidePath;
-			}
-		}
-
+		// A slide is copied only when the caller explicitly supplies a valid
+		// sourceSlideId (duplicate-slide workflow). Falling back to the first
+		// slide caused a newly inserted blank slide to inherit that slide's raw
+		// XML and every relationship, including charts, notes and media. Those
+		// duplicated/dangling relationships make PowerPoint repair or reject the
+		// package when the blank slide is inserted in the middle of a deck.
 		return undefined;
 	}
 

@@ -28,6 +28,32 @@ function ensureArrayLike<T>(value: T | T[] | undefined): T[] {
 	return Array.isArray(value) ? value : [value];
 }
 
+function readPositiveInteger(value: unknown): number {
+	const parsed = Number.parseInt(String(value ?? ''), 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+/**
+ * PowerPoint sizes tables from their grid columns and rows. Some producers
+ * (notably Google Slides/Slidesgo exports) leave a stale 3,000,000 EMU frame
+ * extent even though the table grid has subsequently been resized. Using the
+ * frame extent makes those tables narrow, tall, and clipped in the viewer.
+ */
+export function getTableGridExtent(
+	graphicData: XmlObject | undefined,
+): { widthEmu: number; heightEmu: number } | undefined {
+	const table = graphicData?.['a:tbl'] as XmlObject | undefined;
+	if (!table) {
+		return undefined;
+	}
+	const grid = table['a:tblGrid'] as XmlObject | undefined;
+	const widthEmu = ensureArrayLike(grid?.['a:gridCol'] as XmlObject | XmlObject[] | undefined)
+		.reduce((sum, column) => sum + readPositiveInteger(column?.['@_w']), 0);
+	const heightEmu = ensureArrayLike(table['a:tr'] as XmlObject | XmlObject[] | undefined)
+		.reduce((sum, row) => sum + readPositiveInteger(row?.['@_h']), 0);
+	return widthEmu > 0 && heightEmu > 0 ? { widthEmu, heightEmu } : undefined;
+}
+
 /**
  * Walk `<a:graphicData>/<a:extLst>/<a:ext>` and capture each unrecognised
  * extension verbatim so the save layer can re-emit it.
@@ -369,8 +395,15 @@ export class PptxGraphicFrameParser implements IPptxGraphicFrameParser {
 
 			if (type === 'table' && graphicData) {
 				const tableData = this.context.parseTableData(graphicData);
+				const tableGridExtent = getTableGridExtent(graphicData);
 				return {
 					...baseElement,
+					...(tableGridExtent
+						? {
+								width: Math.round(tableGridExtent.widthEmu / this.context.emuPerPx),
+								height: Math.round(tableGridExtent.heightEmu / this.context.emuPerPx),
+							}
+						: {}),
 					tableData,
 					...(extensionXml.length > 0 ? { extensionXml } : {}),
 				} as TablePptxElement;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { isEotFormat, parseEotHeader, extractFontFromEot } from './eot-parser';
+import { createEotFromSfnt, isEotFormat, parseEotHeader, extractFontFromEot } from './eot-parser';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -197,6 +197,19 @@ describe('parseEotHeader', () => {
 // ---------------------------------------------------------------------------
 
 describe('extractFontFromEot', () => {
+	it('builds an uncompressed PowerPoint EOT container that restores the sfnt bytes', () => {
+		const sfnt = new Uint8Array(64);
+		sfnt.set([0x00, 0x01, 0x00, 0x00]);
+		const eot = createEotFromSfnt(sfnt, {
+			familyName: 'Aixa Test',
+			styleName: 'Regular',
+		});
+		expect(isEotFormat(eot)).toBeTruthy();
+		const extracted = extractFontFromEot(eot);
+		expect(extracted?.fontData).toStrictEqual(sfnt);
+		expect(extracted?.header.familyName).toBe('Aixa Test');
+	});
+
 	it('returns null for non-EOT data', () => {
 		expect(extractFontFromEot(new Uint8Array(100))).toBeNull();
 	});

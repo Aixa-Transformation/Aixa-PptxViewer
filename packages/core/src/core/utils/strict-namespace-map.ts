@@ -204,8 +204,12 @@ const NAMESPACE_PAIRS: ReadonlyArray<[string, string]> = [
 		'http://schemas.openxmlformats.org/officeDocument/2006/bibliography',
 	],
 	[
-		'http://purl.oclc.org/ooxml/officeDocument/custom-properties',
+		'http://purl.oclc.org/ooxml/officeDocument/customProperties',
 		'http://schemas.openxmlformats.org/officeDocument/2006/custom-properties',
+	],
+	[
+		'http://purl.oclc.org/ooxml/officeDocument/relationships/customProperties',
+		'http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties',
 	],
 	[
 		'http://purl.oclc.org/ooxml/officeDocument/extended-properties',

@@ -45,9 +45,10 @@ function resolveTableStyleFillColor(
 	}
 
 	let color = base;
-	// Tint: 0-100 000 maps to 0.0-1.0
+	// DrawingML tint values describe how much of the source colour remains:
+	// 20 000 means 20% source + 80% white (not 20% white).
 	if (fill.tint !== undefined && fill.tint > 0) {
-		color = tintColor(color, fill.tint / 100_000);
+		color = tintColor(color, 1 - fill.tint / 100_000);
 	}
 	// Shade: 0-100 000 maps to 0.0-1.0
 	if (fill.shade !== undefined && fill.shade > 0) {
@@ -101,7 +102,7 @@ function applyTableStyleText(
 		if (base) {
 			let color = base;
 			if (text.fontTint !== undefined && text.fontTint > 0) {
-				color = tintColor(color, text.fontTint / 100_000);
+				color = tintColor(color, 1 - text.fontTint / 100_000);
 			}
 			if (text.fontShade !== undefined && text.fontShade > 0) {
 				color = shadeColor(color, 1 - text.fontShade / 100_000);
@@ -232,9 +233,14 @@ export function getTableCellBandStyle(
 	// ── Header row (first row) ──────────────────────────────────
 	if (td.firstRowHeader && rowIndex === 0) {
 		style.fontWeight = 700;
-		const headerBg = resolveFill(styleEntry?.firstRowFill, 'rgba(68, 114, 196, 0.85)');
-		style.backgroundColor = headerBg;
-		style.color = '#ffffff';
+		const authoredHeaderFill = styleEntry?.firstRowFill;
+		const headerBg = resolveFill(authoredHeaderFill, 'rgba(68, 114, 196, 0.85)');
+		// `a:noFill` is an authored transparent header, not a failed colour
+		// lookup. Do not replace it with the generic blue header fallback.
+		if (!authoredHeaderFill?.noFill) {
+			style.backgroundColor = headerBg;
+			style.color = '#ffffff';
+		}
 		applyTableStyleText(styleEntry?.firstRowText, colorScheme, style, fontScheme);
 		applied = true;
 	}

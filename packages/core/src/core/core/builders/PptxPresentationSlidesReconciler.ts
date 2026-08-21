@@ -66,7 +66,7 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 			}
 
 			if (
-				relationshipType === input.slideRelationshipType &&
+				this.isSlideRelationshipType(relationshipType, input.slideRelationshipType) &&
 				typeof relationshipId === 'string' &&
 				typeof relationshipTarget === 'string'
 			) {
@@ -90,7 +90,23 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 		const presentation = input.presentationData?.['p:presentation']
 			? (input.presentationData['p:presentation'] as XmlObject)
 			: null;
-		const slideIdList = presentation ? (presentation['p:sldIdLst'] as XmlObject) || {} : null;
+		const hadSlideIdList = presentation?.['p:sldIdLst'] !== undefined;
+		const parsedSlideIdList = presentation?.['p:sldIdLst'];
+		const slideIdList: XmlObject | null = presentation
+			? parsedSlideIdList !== null &&
+				typeof parsedSlideIdList === 'object' &&
+				!Array.isArray(parsedSlideIdList)
+				? (parsedSlideIdList as XmlObject)
+				: {}
+			: null;
+		// fast-xml-parser represents a self-closing <p:sldIdLst/> as an empty
+		// string.  Replace that primitive in place before adding slide ids;
+		// otherwise the reconciler mutates a detached object and writes a deck
+		// whose relationships contain slides while presentation.xml still lists
+		// none.  Keeping the existing key also preserves the source child order.
+		if (presentation && hadSlideIdList && slideIdList !== parsedSlideIdList) {
+			presentation['p:sldIdLst'] = slideIdList;
+		}
 		const existingSlideIds = slideIdList
 			? (this.ensureArray(slideIdList['p:sldId']) as XmlObject[])
 			: [];
@@ -184,8 +200,12 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 				};
 			});
 			rebuiltSlideIds.push(...(slideIdList['p:sldId'] as XmlObject[]));
-			// CT_Presentation requires child order:
-			//   sldMasterIdLst, notesMasterIdLst, handoutMasterIdLst, sldIdLst,
+			// Preserve the source deck's child ordering when its slide list already
+			// existed. PowerPoint-generated decks commonly place sldIdLst after the
+			// notes/handout masters, while PptxGenJS decks place it before them;
+			// moving it during a round trip can make desktop PowerPoint reject the
+			// package with ERROR_FILE_CORRUPT even though the SDK schema validator
+			// accepts both forms.
 			//   sldSz, notesSz, smartTags, embeddedFontLst, custShowLst,
 			//   photoAlbum, custDataLst, kinsoku, defaultTextStyle,
 			//   modifyVerifier, extLst.
@@ -195,10 +215,12 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 			// silently drops the slide list (opens as a blank deck, with no
 			// repair dialog). Rebuild the object so the key lands in the
 			// correct slot.
-			input.presentationData['p:presentation'] = this.insertSlideIdListInOrder(
-				presentation,
-				slideIdList,
-			);
+			if (!hadSlideIdList) {
+				input.presentationData['p:presentation'] = this.insertSlideIdListInOrder(
+					presentation,
+					slideIdList,
+				);
+			}
 		}
 
 		return buildSlideReferenceRemap({
@@ -211,8 +233,10 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 
 	/**
 	 * Return a new presentation XML object whose `p:sldIdLst` child sits in the
-	 * schema-mandated position (after `sldMasterIdLst` / `notesMasterIdLst` /
-	 * `handoutMasterIdLst`, before `sldSz`). Non-sldIdLst keys keep their
+	 * schema position for a newly-created presentation (after the master-id
+	 * lists and before `sldSz`). Existing presentations never use this helper;
+	 * their original relative child order is preserved byte-for-byte.
+	 * Non-sldIdLst keys keep their
 	 * relative order; attribute keys (`@_...`) stay at the front.
 	 */
 	private insertSlideIdListInOrder(presentation: XmlObject, slideIdList: XmlObject): XmlObject {
@@ -354,5 +378,13 @@ export class PptxPresentationSlidesReconciler implements IPptxPresentationSlides
 			return [];
 		}
 		return [value];
+	}
+
+	/** Match equivalent Strict and Transitional slide relationship URIs. */
+	private isSlideRelationshipType(value: unknown, expected: string): boolean {
+		if (typeof value !== 'string') {
+			return false;
+		}
+		return value === expected || value.endsWith('/relationships/slide');
 	}
 }

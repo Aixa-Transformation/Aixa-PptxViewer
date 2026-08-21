@@ -167,6 +167,72 @@ describe('strict conformance: real package structure', () => {
 });
 
 describe('strict conformance: load and re-save round-trip', () => {
+	it('uses the Office-compatible Strict custom-properties namespace', async () => {
+		const { bytes } = await buildDeckSavedAs('strict');
+		const handler = new PptxHandler();
+		const data = await handler.load(bytes.buffer as ArrayBuffer);
+		const saved = await handler.save(data.slides, {
+			customProperties: [{ name: 'Project', value: 'Aixa', type: 'lpwstr' }],
+		});
+		const zip = await JSZip.loadAsync(saved);
+		const customXml = await zip.file('docProps/custom.xml')!.async('string');
+		const rootRels = await zip.file('_rels/.rels')!.async('string');
+
+		expect(customXml).toContain(
+			'xmlns="http://purl.oclc.org/ooxml/officeDocument/customProperties"',
+		);
+		expect(customXml).not.toContain('/custom-properties"');
+		expect(rootRels).toContain(
+			'Type="http://purl.oclc.org/ooxml/officeDocument/relationships/customProperties"',
+		);
+	});
+
+	it('passes untouched slide-layout XML through byte-for-byte', async () => {
+		const { bytes } = await buildDeckSavedAs('strict');
+		const sourceZip = await JSZip.loadAsync(bytes);
+		const layoutPath = 'ppt/slideLayouts/slideLayout1.xml';
+		const sourceLayout = await sourceZip.file(layoutPath)!.async('string');
+
+		const handler = new PptxHandler();
+		const data = await handler.load(bytes.buffer as ArrayBuffer);
+		const resaved = await handler.save(data.slides);
+		const outputZip = await JSZip.loadAsync(resaved);
+
+		expect(await outputZip.file(layoutPath)!.async('string')).toBe(sourceLayout);
+	});
+
+	it('passes untouched view properties through byte-for-byte', async () => {
+		const { bytes } = await buildDeckSavedAs('strict');
+		const sourceZip = await JSZip.loadAsync(bytes);
+		const viewPropsPath = 'ppt/viewProps.xml';
+		const sourceViewProps = await sourceZip.file(viewPropsPath)!.async('string');
+
+		const handler = new PptxHandler();
+		const data = await handler.load(bytes.buffer as ArrayBuffer);
+		const resaved = await handler.save(data.slides);
+		const outputZip = await JSZip.loadAsync(resaved);
+
+		expect(await outputZip.file(viewPropsPath)!.async('string')).toBe(sourceViewProps);
+	});
+
+	it('preserves unrelated custom XML attributes without rebuilding them', async () => {
+		const { bytes } = await buildDeckSavedAs('strict');
+		const sourceZip = await JSZip.loadAsync(bytes);
+		const customXml =
+			'<?xml version="1.0" encoding="utf-8"?>' +
+			'<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
+			'xsi:nil="true" enabled="true"><child value="false"/></root>';
+		sourceZip.file('customXml/item1.xml', customXml);
+		const withCustomXml = await sourceZip.generateAsync({ type: 'uint8array' });
+
+		const handler = new PptxHandler();
+		const data = await handler.load(withCustomXml.buffer as ArrayBuffer);
+		const resaved = await handler.save(data.slides);
+		const outputZip = await JSZip.loadAsync(resaved);
+
+		expect(await outputZip.file('customXml/item1.xml')!.async('string')).toBe(customXml);
+	});
+
 	it('detects Strict on load and preserves it across a re-save (default preserve)', async () => {
 		const { bytes } = await buildDeckSavedAs('strict');
 

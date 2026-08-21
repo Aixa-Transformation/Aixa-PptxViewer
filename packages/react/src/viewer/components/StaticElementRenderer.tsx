@@ -84,11 +84,21 @@ function StaticElementRendererImpl({
 		element.type === 'shape' && hasFill ? '#ffffff' : DEFAULT_TEXT_COLOR,
 	);
 	const isImage = element.type === 'picture' || element.type === 'image';
+	const isTable = element.type === 'table';
+	const allowsTextOverflow =
+		isTable || (hasTextProperties(element) && element.textStyle?.vertOverflow !== 'clip');
+	const allowsUnclippedTextOverflow =
+		hasTextProperties(element) &&
+		element.textStyle?.autoFitMode === 'none' &&
+		element.textStyle?.vertOverflow !== 'clip' &&
+		(!('shapeType' in element) ||
+			element.shapeType === undefined ||
+			element.shapeType === 'rect');
 
 	return (
 		<div
 			data-static-element-type={element.type}
-			className={`${positioned ? 'absolute' : 'relative'} overflow-hidden pointer-events-none`}
+			className={`${positioned ? 'absolute' : 'relative'} ${allowsTextOverflow ? 'overflow-visible' : 'overflow-hidden'} pointer-events-none`}
 			style={{
 				left: positioned ? element.x : undefined,
 				top: positioned ? element.y : undefined,
@@ -98,6 +108,9 @@ function StaticElementRendererImpl({
 				transformOrigin: 'center',
 				zIndex,
 				...visualStyle,
+				...(allowsUnclippedTextOverflow || isTable
+					? { overflow: 'visible', clipPath: 'none' }
+					: {}),
 			}}
 		>
 			{/* Soft-edge <filter> defs + DAG fill-overlay tint layer. */}
@@ -142,7 +155,10 @@ function StaticElementRendererImpl({
 					onEditChange: noop,
 					onCommit: noop,
 					onCancel: noop,
-					isPresentationPassive: false,
+					// Inherited master/layout and preview elements are read-only. Keeping
+					// this passive prevents edit-time placeholder prompts and missing-media
+					// diagnostics from leaking into the rendered slide.
+					isPresentationPassive: STATIC_ELEMENTS_ARE_PRESENTATION_PASSIVE,
 					slideElements: activeSlide?.elements,
 					allSlides,
 					sourceSlideIndex,
@@ -167,3 +183,4 @@ function StaticElementRendererImpl({
  */
 export const StaticElementRenderer = React.memo(StaticElementRendererImpl);
 StaticElementRenderer.displayName = 'StaticElementRenderer';
+export const STATIC_ELEMENTS_ARE_PRESENTATION_PASSIVE = true;

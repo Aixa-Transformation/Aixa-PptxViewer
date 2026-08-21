@@ -99,7 +99,7 @@ export function renderTableElement(
 		>
 			<div
 				className={cn(
-					'w-full h-full overflow-hidden',
+					'w-full h-full overflow-visible',
 					isEditable && hasCellSelectionHandler ? 'pointer-events-auto' : 'pointer-events-none',
 				)}
 			>
@@ -154,7 +154,15 @@ export function renderTableElement(
 										// Explicit cell styles from XML take priority over band style.
 										// If the inspector has written overrides into tableData, those
 										// take highest priority (they are the latest user edits).
-										const xmlCellStyle = extractTableCellStyle(cell, textStyle, schemeOverrides);
+										// Keep inherited element text separate from authored cell formatting.
+										// Table-style header text must override the element default, while
+										// explicit run formatting must still win over the table style.
+										const xmlCellStyle = extractTableCellStyle(
+											cell,
+											textStyle,
+											schemeOverrides,
+											false,
+										);
 										const tdCellOverride: PptxTableCellStyle | undefined =
 											tableEl.tableData?.rows[rowIndex]?.cells[cellIndex]?.style;
 										// Diagonal borders: an explicit per-cell diagonal (from a
@@ -173,6 +181,7 @@ export function renderTableElement(
 										);
 
 										const mergedStyle: React.CSSProperties = {
+											...textStyle,
 											...bandStyle,
 											...xmlCellStyle,
 											...(tdCellOverride ? cellStyleToCss(tdCellOverride) : undefined),

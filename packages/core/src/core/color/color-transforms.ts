@@ -113,13 +113,15 @@ export function applyDrawingColorTransforms(baseColor: string, colorNode: XmlObj
 		b *= shade;
 	}
 
-	// Tint: mix toward white by linear interpolation from current toward 255.
+	// Tint: mix toward white while retaining the specified source fraction.
 	// tint=0 → unchanged, tint=1 → pure white.
 	const tint = parseDrawingPercent(getVal('a:tint'));
 	if (tint !== undefined) {
-		r += (255 - r) * tint;
-		g += (255 - g) * tint;
-		b += (255 - b) * tint;
+		// DrawingML stores the retained source-colour component: 0 is white,
+		// while 100% leaves the source colour unchanged.
+		r = 255 - (255 - r) * tint;
+		g = 255 - (255 - g) * tint;
+		b = 255 - (255 - b) * tint;
 	}
 
 	// ── 3. HSL transforms (single conversion round-trip) ─────────────────

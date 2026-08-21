@@ -90,11 +90,16 @@ export function getContainerStyle({
 		ss?.blurGrow && typeof ss.blurRadius === 'number' && ss.blurRadius > 0,
 	);
 	const overflowValue =
-		has3DExtrusion || blurGrowVisible
+		el.type === 'table' || has3DExtrusion || blurGrowVisible
 			? ('visible' as const)
 			: isImg
 				? ('hidden' as const)
 				: undefined;
+	const allowsUnclippedTextOverflow =
+		hasTextProperties(el) &&
+		el.textStyle?.autoFitMode === 'none' &&
+		el.textStyle?.vertOverflow !== 'clip' &&
+		(!('shapeType' in el) || el.shapeType === undefined || el.shapeType === 'rect');
 
 	return {
 		left: isFullscreenMedia ? 0 : el.x,
@@ -115,6 +120,10 @@ export function getContainerStyle({
 			: undefined,
 		borderColor: isFullscreenMedia ? 'transparent' : undefined,
 		...shapeVisualStyle,
+		// A rectangle clip-path is useful for painted shapes, but it must not
+		// clip a:noAutofit text. PowerPoint allows that text to continue beyond
+		// the placeholder boundary when vertOverflow is not `clip`.
+		...(allowsUnclippedTextOverflow ? { overflow: 'visible', clipPath: 'none' } : {}),
 		// Editable-template affordance: a distinct amber dashed ring + slight
 		// transparency so inherited master/layout shapes read as "template" while
 		// edit-template mode is on. Applied after the shape style so it wins; never

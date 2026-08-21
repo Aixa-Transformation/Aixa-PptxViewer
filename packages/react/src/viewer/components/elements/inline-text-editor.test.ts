@@ -736,6 +736,21 @@ describe('getTextStyleForElement', () => {
 		expect(style.textIndent).toBe(-12);
 	});
 
+	it('should not reapply inherited body indent when per-paragraph geometry exists', () => {
+		const el = makeTextElement({
+			textStyle: {
+				bodyInsetLeft: 10,
+				paragraphMarginLeft: 24,
+				paragraphIndent: -24,
+			},
+			paragraphIndents: [{ marginLeft: 0, indent: 0 }],
+		});
+		const style = getTextStyleForElement(el, DEFAULT_TEXT_COLOR);
+
+		expect(style.paddingLeft).toBe(10);
+		expect(style.textIndent).toBe(0);
+	});
+
 	it('should apply autofit font scaling', () => {
 		const el = makeTextElement({
 			textStyle: {
@@ -764,7 +779,7 @@ describe('getTextStyleForElement', () => {
 		expect(style.fontSize).toBe(6); // max(6, round(10 * 0.1)) = 6
 	});
 
-	it('should apply line spacing reduction with autofit', () => {
+	it('should preserve explicit resolved line spacing with autofit', () => {
 		const el = makeTextElement({
 			textStyle: {
 				autoFit: true,
@@ -776,7 +791,7 @@ describe('getTextStyleForElement', () => {
 		const style = getTextStyleForElement(el, DEFAULT_TEXT_COLOR);
 
 		// 1.5 * (1 - 0.2) ≈ 1.2 (floating point)
-		expect(style.lineHeight).toBeCloseTo(1.2, 10);
+		expect(style.lineHeight).toBeCloseTo(1.5, 10);
 	});
 
 	it('should set overflow visible for autofit text', () => {

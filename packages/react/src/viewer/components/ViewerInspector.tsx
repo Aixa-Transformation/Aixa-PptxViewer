@@ -21,6 +21,7 @@ import type {
 	ShapeStyle,
 	TextStyle,
 } from 'pptx-viewer-core';
+import { isActionHidden, type ToolbarActionId } from 'pptx-viewer-shared';
 import { useTranslation } from 'react-i18next';
 
 import type { UseCommentsResult } from '../hooks/useComments-helpers';
@@ -33,6 +34,7 @@ import { InspectorPane } from './InspectorPane';
 /* ------------------------------------------------------------------ */
 
 export interface ViewerInspectorProps {
+	hiddenActions?: readonly ToolbarActionId[];
 	isOpen: boolean;
 	canEdit: boolean;
 	mode: ViewerMode;
@@ -131,6 +133,7 @@ export function ViewerInspector({
 	mediaDataUrls,
 	theme,
 	panelWidth,
+	hiddenActions,
 }: ViewerInspectorProps): React.ReactElement | null {
 	const { t } = useTranslation();
 
@@ -140,7 +143,12 @@ export function ViewerInspector({
 
 	// Allow the comments tab to render even when no element is selected,
 	// because comments belong to the slide rather than a single element.
-	const tab = sidebarPanelMode as InspectorTab;
+	const requestedTab = sidebarPanelMode as InspectorTab;
+	const tab =
+		(requestedTab === 'elements' && isActionHidden('inspectorElements', hiddenActions)) ||
+		(requestedTab === 'comments' && isActionHidden('inspectorComments', hiddenActions))
+			? 'properties'
+			: requestedTab;
 	if (!selectedElement && tab !== 'comments' && tab !== 'properties') {
 		return null;
 	}
@@ -158,6 +166,7 @@ export function ViewerInspector({
 			style={panelWidth ? { width: panelWidth } : undefined}
 		>
 			<InspectorPane
+				hiddenActions={hiddenActions}
 				isOpen={isOpen}
 				canEdit={canEdit}
 				mode={mode}
@@ -167,7 +176,7 @@ export function ViewerInspector({
 				selectedElement={selectedElement}
 				selectedElementIds={effectiveSelectedIds}
 				tableEditorState={tableEditorState}
-				activeTab={sidebarPanelMode as InspectorTab}
+				activeTab={tab}
 				onSetActiveTab={(nextTab) => onSetSidebarPanelMode(nextTab)}
 				onClose={onClose}
 				onUpdateElementStyle={onUpdateElementStyle}

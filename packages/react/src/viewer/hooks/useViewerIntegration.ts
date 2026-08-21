@@ -376,7 +376,11 @@ export function useViewerIntegration(input: UseViewerIntegrationInput): ViewerIn
 		if (onDirtyChange) {
 			onDirtyChange(state.isDirty);
 		}
-	}, [state.isDirty, onDirtyChange]);
+	// `isDirty` remains true for the whole edit session. Include the mutable
+	// document payloads so hosts receive another change signal for later edits
+	// (notably applying a custom font after its binary was embedded) and can
+	// serialize the newest complete PPTX instead of only the first dirty state.
+	}, [state.isDirty, state.slides, state.embeddedFonts, onDirtyChange]);
 
 	useEffect(() => {
 		if (onActiveSlideChange) {

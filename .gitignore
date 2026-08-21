@@ -9,6 +9,9 @@ coverage/
 # Package archives created by npm/bun pack
 *.tgz
 
+# Local PowerPoint fidelity captures, references, heat maps, and reports
+fidelity-test/
+
 # Logs
 *.log
 npm-debug.log*

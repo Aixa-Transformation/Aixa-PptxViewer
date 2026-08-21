@@ -25,3 +25,12 @@
 @source "../viewer/**/*.ts";
 
 @import './theme.css';
+
+/*
+ * Preserve paragraph alignment authored in the PPTX even when the consuming
+ * application has broad/important typography rules. The value is supplied by
+ * the paragraph renderer after resolving slide -> layout -> master inheritance.
+ */
+[data-pptx-viewer] [data-pptx-paragraph] {
+	text-align: var(--pptx-paragraph-align) !important;
+}

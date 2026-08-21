@@ -5,6 +5,7 @@
 
 import { normalizeHexColor } from '../color/color-primitives';
 import { EMU_PER_PX, DEFAULT_STROKE_COLOR } from '../constants';
+import { normalizeDrawingmlPresetShape } from '../geometry/preset-shape-values';
 import type { PptxElementWithText, ConnectorPptxElement, XmlObject } from '../types';
 import { applyDrawingLineDash } from './drawing-line-dash';
 import { normalizeStrokeDashType } from './stroke-utils';
@@ -19,7 +20,7 @@ export function createTemplateShapeRawXml(element: PptxElementWithText): XmlObje
 	// rebuilt shape keeps its original text-box classification.
 	const isTextBox = element.locks?.txBox ?? isText;
 	const name = isText ? 'TextBox' : 'Rectangle';
-	const geometry = element.shapeType === 'cylinder' ? 'can' : element.shapeType || 'rect';
+	const geometry = normalizeDrawingmlPresetShape(element.shapeType);
 	const adjustmentEntries = Object.entries(element.shapeAdjustments || {}).filter(
 		([key, value]) => key.trim().length > 0 && Number.isFinite(value),
 	);
@@ -86,7 +87,7 @@ export function createTemplateShapeRawXml(element: PptxElementWithText): XmlObje
 export function createTemplateConnectorRawXml(element: ConnectorPptxElement): XmlObject {
 	const geometry =
 		element.shapeType && element.shapeType !== 'connector'
-			? element.shapeType
+			? normalizeDrawingmlPresetShape(element.shapeType)
 			: 'straightConnector1';
 	const strokeColor = normalizeHexColor(element.shapeStyle?.strokeColor, DEFAULT_STROKE_COLOR);
 	const strokeWidth = Math.max(1, element.shapeStyle?.strokeWidth || 1);

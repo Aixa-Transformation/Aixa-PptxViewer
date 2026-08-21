@@ -1,4 +1,4 @@
-import type { PptxSlide, PptxLayoutOption, PptxHandler } from 'pptx-viewer-core';
+import type { PptxElement, PptxSlide, PptxLayoutOption, PptxHandler } from 'pptx-viewer-core';
 /**
  * useLayoutSwitching -- Hook for switching an existing slide's layout.
  *
@@ -6,6 +6,7 @@ import type { PptxSlide, PptxLayoutOption, PptxHandler } from 'pptx-viewer-core'
  * APIs and exposes them as React-friendly callbacks with loading state.
  */
 import { useState, useCallback, useRef } from 'react';
+import type React from 'react';
 
 import type { EditorHistoryResult } from './useEditorHistory';
 import type { ElementOperations } from './useElementOperations';
@@ -24,6 +25,10 @@ export interface UseLayoutSwitchingInput {
 	ops: ElementOperations;
 	/** Editor history for marking dirty state. */
 	history: EditorHistoryResult;
+	/** Template elements shown behind each slide; refreshed after applying a layout. */
+	setTemplateElementsBySlideId: React.Dispatch<
+		React.SetStateAction<Record<string, PptxElement[]>>
+	>;
 }
 
 /**
@@ -58,7 +63,7 @@ export interface LayoutSwitchingResult {
  * ```
  */
 export function useLayoutSwitching(input: UseLayoutSwitchingInput): LayoutSwitchingResult {
-	const { handler, slides, activeSlideIndex, ops, history } = input;
+	const { handler, slides, activeSlideIndex, ops, history, setTemplateElementsBySlideId } = input;
 
 	const [availableLayouts, setAvailableLayouts] = useState<PptxLayoutOption[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -103,12 +108,20 @@ export function useLayoutSwitching(input: UseLayoutSwitchingInput): LayoutSwitch
 					next[activeSlideIndex] = updated;
 					return next;
 				});
+				// Template/layout artwork is kept outside slide.elements in the React
+				// viewer. Refresh that store after the relationship changes; otherwise
+				// the canvas continues showing the old layout until the file is reopened.
+				const templateElements = await handler.getTemplateElementsForSlide(updated.id);
+				setTemplateElementsBySlideId((prev) => ({
+					...prev,
+					[updated.id]: templateElements,
+				}));
 				history.markDirty();
 			} finally {
 				setIsLoading(false);
 			}
 		},
-		[handler, activeSlideIndex, ops, history],
+		[handler, activeSlideIndex, ops, history, setTemplateElementsBySlideId],
 	);
 
 	return {

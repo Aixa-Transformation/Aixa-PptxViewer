@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import type { TextStyle } from '../../types';
+import { resolveParagraphAlignment } from '../../utils/paragraph-properties-parser';
 
 // Since resolveShapeParagraphStyle is a protected method on a deeply chained
 // mixin with many dependencies, we extract and test the self-contained
@@ -145,6 +146,20 @@ describe('resolveAlignmentFromAttr', () => {
 
 	it('should default to "left" for unknown values', () => {
 		expect(resolveAlignmentFromAttr('unknown')).toBe('left');
+	});
+});
+
+describe('resolveParagraphAlignment', () => {
+	it('does not reuse a previous centered paragraph for an unaligned body paragraph', () => {
+		expect(resolveParagraphAlignment(undefined, undefined, false)).toBe('left');
+	});
+
+	it('uses the current placeholder level alignment when the paragraph omits one', () => {
+		expect(resolveParagraphAlignment(undefined, 'right', false)).toBe('right');
+	});
+
+	it('keeps an explicitly centered paragraph centered', () => {
+		expect(resolveParagraphAlignment('ctr', 'left', false)).toBe('center');
 	});
 });
 

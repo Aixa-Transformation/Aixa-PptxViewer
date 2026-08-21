@@ -15,6 +15,7 @@ import type {
 	ShapeStyle,
 	TextStyle,
 } from 'pptx-viewer-core';
+import type { ToolbarActionId } from 'pptx-viewer-shared';
 
 import type { CanvasSize, TableCellEditorState, ViewerMode } from '../../types';
 
@@ -29,6 +30,7 @@ export type InspectorTab = 'elements' | 'properties' | 'comments';
 // ---------------------------------------------------------------------------
 
 export interface InspectorPaneProps {
+	hiddenActions?: readonly ToolbarActionId[];
 	isOpen: boolean;
 	canEdit: boolean;
 	mode: ViewerMode;

@@ -57,6 +57,18 @@ export function parseAlignmentAttr(algn: string | undefined): TextStyle['align']
 	return ALIGN_MAP[algn] || undefined;
 }
 
+/** Resolve a paragraph's alignment without leaking a previous paragraph's value. */
+export function resolveParagraphAlignment(
+	authoredAlignment: unknown,
+	placeholderAlignment: TextStyle['align'] | undefined,
+	paragraphRtl: boolean | undefined,
+): TextStyle['align'] {
+	if (authoredAlignment !== undefined && authoredAlignment !== null) {
+		return parseAlignmentAttr(String(authoredAlignment)) ?? 'left';
+	}
+	return placeholderAlignment ?? (paragraphRtl ? 'right' : 'left');
+}
+
 // ---------------------------------------------------------------------------
 // Spacing helpers
 // ---------------------------------------------------------------------------

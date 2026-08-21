@@ -514,8 +514,9 @@ function remapElementsToNewLayout(elements: PptxElement[], newLayoutXml: XmlObje
 				updatedElement.height = Math.round(resolvedLayoutPh.cyEmu / EMU_PER_PX);
 			}
 			resultElements.push(updatedElement);
+		} else {
+			resultElements.push(element);
 		}
-		// Else: no match -- drop placeholder element
 	}
 
 	// Add empty placeholders from the new layout that were not matched
@@ -688,7 +689,7 @@ describe('placeholder re-mapping (GAP-E4 layout switching)', () => {
 		expect(body.y).toBe(Math.round(1524000 / EMU_PER_PX));
 	});
 
-	it("removes placeholder elements that don't exist in new layout", () => {
+	it("preserves placeholder elements that don't exist in new layout", () => {
 		const titleEl = makePhElement('t1', 'title', undefined, 10, 10, 100, 50, 'Title');
 		const subtitleEl = makePhElement('s1', 'subTitle', undefined, 10, 70, 100, 50, 'Subtitle');
 
@@ -699,9 +700,10 @@ describe('placeholder re-mapping (GAP-E4 layout switching)', () => {
 
 		const result = remapElementsToNewLayout([titleEl, subtitleEl], newLayout);
 
-		expect(result).toHaveLength(1);
+		expect(result).toHaveLength(2);
 		expect(result[0].id).toBe('t1');
 		expect(result[0].text).toBe('Title');
+		expect(result[1]).toBe(subtitleEl);
 	});
 
 	it('adds empty placeholders from new layout that are missing in slide', () => {
@@ -817,9 +819,10 @@ describe('placeholder re-mapping (GAP-E4 layout switching)', () => {
 
 		const result = remapElementsToNewLayout([titleEl, freeform], blankLayout);
 
-		// Placeholder dropped, non-placeholder kept
-		expect(result).toHaveLength(1);
-		expect(result[0].id).toBe('f1');
+		// A blank layout does not delete existing user content.
+		expect(result).toHaveLength(2);
+		expect(result[0]).toBe(titleEl);
+		expect(result[1]).toBe(freeform);
 	});
 
 	it('handles element without rawXml as non-placeholder', () => {

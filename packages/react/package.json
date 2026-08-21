@@ -1,6 +1,6 @@
 {
-	"name": "@naveen-aixa/pptx-viewer",
-	"version": "2.0.2",
+	"name": "@aixa-transformation/pptx-viewer",
+	"version": "2.0.42",
 	"publishConfig": {
 		"access": "public"
 	},
@@ -20,15 +20,15 @@
 		"slideshow",
 		"viewer"
 	],
-	"homepage": "https://github.com/ChristopherVR/pptx-viewer",
+	"homepage": "https://github.com/Aixa-Transformation/Aixa-PptxViewer#readme",
 	"bugs": {
-		"url": "https://github.com/ChristopherVR/pptx-viewer/issues"
+		"url": "https://github.com/Aixa-Transformation/Aixa-PptxViewer/issues"
 	},
 	"license": "Apache-2.0",
-	"author": "ChristopherVR",
+	"author": "Aixa Ltd",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/ChristopherVR/pptx-viewer.git",
+		"url": "git+https://github.com/Aixa-Transformation/Aixa-PptxViewer.git",
 		"directory": "packages/react"
 	},
 	"files": [
@@ -72,7 +72,8 @@
 		"./theme.css": "./src/styles/theme.css"
 	},
 	"scripts": {
-		"build": "tsup && node scripts/copy-public-types.mjs && npm run build:css",
+		"build": "npm run build --workspace pptx-viewer-core && tsup && node scripts/copy-public-types.mjs && npm run build:css",
+		"prepack": "npm run build",
 		"build:css": "npx @tailwindcss/cli -i src/styles/pptx-viewer.css -o dist/pptx-viewer.css --minify",
 		"dev": "tsup --watch",
 		"typecheck": "tsc --noEmit --pretty",

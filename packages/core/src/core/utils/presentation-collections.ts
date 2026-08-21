@@ -22,6 +22,10 @@ export interface PptxSlideReferenceRemap {
 	removedRIds: Set<string>;
 	/** Old numeric slide ids whose slide was removed (references must be dropped). */
 	removedSldIds: Set<string>;
+	/** Numeric slide ids in their final presentation order. */
+	orderedSldIds: string[];
+	/** Numeric ids minted for slides that did not exist in the source deck. */
+	newSldIds: Set<string>;
 	/** True when any reference changed or any slide was removed. */
 	changed: boolean;
 }
@@ -257,7 +261,7 @@ export function applySections(
 		location = { parent: ext, key: 'p14:sectionLst', list: ext['p14:sectionLst'] as XmlObject };
 	}
 	const list = cloneXmlObject(location.list) ?? {};
-	const effectiveSections =
+	let effectiveSections =
 		remap && remap.changed
 			? sections.map((section) => ({
 					...section,
@@ -268,6 +272,40 @@ export function applySections(
 					),
 				}))
 			: sections;
+	if (remap && remap.newSldIds.size > 0) {
+		const ownerBySlideId = new Map<string, number>();
+		for (let sectionIndex = 0; sectionIndex < effectiveSections.length; sectionIndex++) {
+			for (const slideId of effectiveSections[sectionIndex].slideIds) {
+				ownerBySlideId.set(slideId, sectionIndex);
+			}
+		}
+
+		// PowerPoint expects every slide in a sectioned deck to occur in exactly
+		// one section. A newly inserted slide has no source section reference, so
+		// inherit the preceding slide's section (or the following section when it
+		// was inserted at the beginning).
+		for (let index = 0; index < remap.orderedSldIds.length; index++) {
+			const slideId = remap.orderedSldIds[index];
+			if (!remap.newSldIds.has(slideId)) {
+				continue;
+			}
+			let owner: number | undefined;
+			for (let cursor = index - 1; cursor >= 0 && owner === undefined; cursor--) {
+				owner = ownerBySlideId.get(remap.orderedSldIds[cursor]);
+			}
+			for (let cursor = index + 1; cursor < remap.orderedSldIds.length && owner === undefined; cursor++) {
+				owner = ownerBySlideId.get(remap.orderedSldIds[cursor]);
+			}
+			if (owner !== undefined) {
+				ownerBySlideId.set(slideId, owner);
+			}
+		}
+
+		effectiveSections = effectiveSections.map((section, sectionIndex) => ({
+			...section,
+			slideIds: remap.orderedSldIds.filter((slideId) => ownerBySlideId.get(slideId) === sectionIndex),
+		}));
+	}
 	replaceChildren(list, 'section', effectiveSections.map(updateSection), 'p14:section');
 	location.parent[location.key] = list;
 }

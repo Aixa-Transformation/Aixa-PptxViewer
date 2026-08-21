@@ -4,6 +4,7 @@
  */
 import { themeColorSchemesEqual } from 'pptx-viewer-core';
 import type { PptxElement, PptxSlide } from 'pptx-viewer-core';
+import type { ToolbarActionId } from 'pptx-viewer-shared';
 import type { PptxAiBridge, PptxAiConfig } from 'pptx-viewer-shared/ai';
 
 import { ViewerInspector, SelectionPane } from '.';
@@ -29,6 +30,7 @@ import { BUILT_IN_THEMES, ThemeGallery } from './toolbar/ThemeGallery';
 // ---------------------------------------------------------------------------
 
 export interface ViewerSidePanelsProps {
+	hiddenActions?: readonly ToolbarActionId[];
 	mode: ViewerMode;
 	canEdit: boolean;
 	activeSlide: PptxSlide | undefined;
@@ -82,6 +84,7 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 		aiConfig,
 		aiBridge,
 		aiPanel,
+		hiddenActions,
 	} = props;
 
 	const effectiveSlide = mode === 'master' ? masterPseudoSlide : activeSlide;
@@ -96,6 +99,7 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 				<ResizeHandle direction='horizontal' onResize={onResizeRight} />
 			)}
 			<ViewerInspector
+				hiddenActions={hiddenActions}
 				isOpen={(mode === 'edit' || mode === 'master') && s.isInspectorPaneOpen}
 				canEdit={canEdit}
 				mode={mode}

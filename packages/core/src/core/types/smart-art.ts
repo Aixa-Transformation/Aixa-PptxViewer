@@ -212,6 +212,8 @@ export interface PptxSmartArtDrawingShape extends PptxCustomPathProperties {
 	skewY?: number;
 	/** Solid fill colour (hex). */
 	fillColor?: string;
+	/** The cached shape explicitly declares `a:noFill` and must stay transparent. */
+	fillNone?: boolean;
 	/**
 	 * Gradient fill stops when the cached shape uses `a:gradFill`. Positions are
 	 * 0..100 (percent). Renderers emit an SVG/CSS gradient instead of a flat box.
@@ -246,6 +248,15 @@ export interface PptxSmartArtDrawingShape extends PptxCustomPathProperties {
 	strokeColor?: string;
 	/** Stroke width in points. */
 	strokeWidth?: number;
+	/** Preset dash token from the cached drawing line. */
+	strokeDash?: string;
+	/** Arrowheads preserved from cached SmartArt line shapes. */
+	startArrow?: 'none' | 'triangle' | 'stealth' | 'diamond' | 'oval' | 'arrow';
+	endArrow?: 'none' | 'triangle' | 'stealth' | 'diamond' | 'oval' | 'arrow';
+	startArrowWidth?: 'sm' | 'med' | 'lg';
+	startArrowLength?: 'sm' | 'med' | 'lg';
+	endArrowWidth?: 'sm' | 'med' | 'lg';
+	endArrowLength?: 'sm' | 'med' | 'lg';
 	/** Text content of the shape. */
 	text?: string;
 	/** Standard rich-text segments projected from the associated SmartArt node. */

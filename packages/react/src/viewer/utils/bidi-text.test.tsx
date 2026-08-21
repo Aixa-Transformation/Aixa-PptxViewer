@@ -133,6 +133,115 @@ describe('resolveCssTextAlign', () => {
 // =======================================================================
 
 describe('renderTextSegments: paragraph-level BiDi', () => {
+	it('applies normAutofit scaling and line-spacing reduction to paragraph line boxes', () => {
+		const el = makeTextElement(
+			{ autoFitFontScale: 0.8, autoFitLineSpacingReduction: 0.2 },
+			{
+				textSegments: [
+					{
+						text: 'Scaled text',
+						style: {
+							fontSize: 40,
+							align: 'center',
+							lineSpacing: 1.5,
+							paragraphSpacingBefore: 10,
+						},
+					},
+					{
+						text: '\n',
+						style: {
+							fontSize: 40,
+							align: 'center',
+							lineSpacing: 1.5,
+							paragraphSpacingBefore: 10,
+						},
+					},
+					{
+						text: 'Second line',
+						style: {
+							fontSize: 40,
+							align: 'center',
+							lineSpacing: 1.5,
+							paragraphSpacingBefore: 10,
+						},
+					},
+				],
+			},
+		);
+		const result = renderTextSegments(el, '#000') as React.ReactElement[];
+		expect(result[0].props.style.fontSize).toBe(32);
+		expect(result[0].props.style.lineHeight).toBeCloseTo(1.6);
+		expect(result[1].props.style.marginTop).toBe(8);
+	});
+
+	it('preserves an authored empty paragraph as a full line box', () => {
+		const el = makeTextElement(
+			{},
+			{
+				textSegments: [
+					{ text: 'Subheading', style: { align: 'center', fontSize: 32 } },
+					{ text: '\n', style: { align: 'center', fontSize: 32 } },
+					{ text: '\n', style: { align: 'left', fontSize: 24 } },
+					{ text: 'Body', style: { align: 'left', fontSize: 24 } },
+				],
+			},
+		);
+		const result = renderTextSegments(el, '#000') as React.ReactElement[];
+		expect(result).toHaveLength(3);
+		expect(result[1].type).toBe('div');
+		const emptyLineChildren = result[1].props.children as React.ReactElement[];
+		expect(emptyLineChildren).toHaveLength(1);
+		expect(emptyLineChildren[0].type).toBe('br');
+	});
+
+	it('collapses leading empty paragraphs like PowerPoint', () => {
+		const el = makeTextElement(
+			{},
+			{
+				textSegments: [
+					{ text: '\n', style: { align: 'center', fontSize: 32 } },
+					{ text: 'Title', style: { align: 'center', fontSize: 32 } },
+				],
+			},
+		);
+		const result = renderTextSegments(el, '#000') as React.ReactElement[];
+		expect(result).toHaveLength(1);
+	});
+
+	it('collapses a trailing empty bullet paragraph like PowerPoint', () => {
+		const el = makeTextElement(
+			{},
+			{
+				textSegments: [
+					{ text: 'Last visible bullet', style: { fontSize: 22 } },
+					{ text: '\n', style: { fontSize: 22 } },
+					{
+						text: '• ',
+						style: { fontSize: 22 },
+						bulletInfo: { char: '•' },
+					},
+				],
+			},
+		);
+		const result = renderTextSegments(el, '#000') as React.ReactElement[];
+		expect(result).toHaveLength(1);
+	});
+
+	it('collapses an empty leading run followed by a soft break', () => {
+		const el = makeTextElement(
+			{},
+			{
+				textSegments: [
+					{ text: '', style: { align: 'center', fontSize: 32 } },
+					{ text: '\n', style: { align: 'center', fontSize: 32 } },
+					{ text: 'Title', style: { align: 'center', fontSize: 32 } },
+				],
+			},
+		);
+		const result = renderTextSegments(el, '#000') as React.ReactElement[];
+		expect(result).toHaveLength(1);
+	});
+
 	it('sets direction:rtl and textAlign:right on a pure RTL paragraph', () => {
 		const el = makeTextElement(
 			{ rtl: true },
@@ -203,6 +312,17 @@ describe('renderTextSegments: paragraph-level BiDi', () => {
 		const para = result[0] as React.ReactElement;
 		expect(para.props.style.marginLeft).toBe(30);
 		expect(para.props.style.marginRight).toBeUndefined();
+	});
+
+	it('suppresses first-paragraph edge spacing when spcFirstLastPara is omitted', () => {
+		const el = makeTextElement(
+			{ paragraphSpacingBefore: 13.333, align: 'left' },
+			{ textSegments: [{ text: 'Subtitle', style: { align: 'left' } }] },
+		);
+		const rendered = renderTextSegments(el, '#000000') as React.ReactElement[];
+		const para = rendered[0];
+
+		expect(para.props.style.marginTop).toBeUndefined();
 	});
 
 	it('applies explicit center alignment to RTL paragraph', () => {
@@ -507,6 +627,8 @@ describe('rTL paragraph alignment overrides', () => {
 		const para = result[0] as React.ReactElement;
 		expect(para.props.style.direction).toBe('rtl');
 		expect(para.props.style.textAlign).toBe('left');
+		expect(para.props['data-pptx-paragraph']).toBe(true);
+		expect(para.props.style['--pptx-paragraph-align']).toBe('left');
 	});
 
 	it('applies justify alignment to RTL paragraph', () => {

@@ -168,6 +168,34 @@ export interface SmartArtNodeTextProps {
 	 *   single line.
 	 */
 	anchor?: 'top' | 'middle' | 'bottom';
+	/** Available width for wrapping cached SmartArt text. */
+	maxWidth?: number;
+}
+
+/** Wrap authored SmartArt lines without discarding or ellipsizing any text. */
+export function wrapSmartArtText(text: string, maxWidth: number, fontSize: number): string[] {
+	const estimatedCharacterWidth = Math.max(fontSize * 0.52, 1);
+	const maxCharacters = Math.max(1, Math.floor(maxWidth / estimatedCharacterWidth));
+	const lines: string[] = [];
+	for (const authoredLine of text.split('\n')) {
+		if (authoredLine.length <= maxCharacters) {
+			if (authoredLine.length > 0) lines.push(authoredLine);
+			continue;
+		}
+		const words = authoredLine.split(/\s+/u).filter(Boolean);
+		let current = '';
+		for (const word of words) {
+			const candidate = current ? `${current} ${word}` : word;
+			if (candidate.length <= maxCharacters || current.length === 0) {
+				current = candidate;
+			} else {
+				lines.push(current);
+				current = word;
+			}
+		}
+		if (current) lines.push(current);
+	}
+	return lines;
 }
 
 /**
@@ -192,8 +220,11 @@ export function SmartArtNodeText({
 	fontStyle,
 	className,
 	anchor = 'middle',
+	maxWidth,
 }: SmartArtNodeTextProps): React.ReactElement {
-	const lines = text.split('\n').filter((l) => l.length > 0);
+	const lines = maxWidth
+		? wrapSmartArtText(text, maxWidth, fontSize)
+		: text.split('\n').filter((l) => l.length > 0);
 	const lineHeight = fontSize * 1.2;
 
 	let startY: number;

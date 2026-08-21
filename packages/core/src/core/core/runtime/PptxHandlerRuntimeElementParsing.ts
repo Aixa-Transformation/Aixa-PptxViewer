@@ -287,6 +287,18 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			return false;
 		}
 
+		// An omitted placeholder type defaults to `obj`; it is not a wildcard
+		// for the master's special placeholders. Matching only by idx could bind
+		// ordinary content to a date/footer/slide-number slot that reuses the same
+		// index, leaking footer tint, font and alignment into slide content.
+		const specialTypes = new Set(['dt', 'ftr', 'hdr', 'sldnum']);
+		if (
+			(source.type === undefined && target.type !== undefined && specialTypes.has(target.type)) ||
+			(target.type === undefined && source.type !== undefined && specialTypes.has(source.type))
+		) {
+			return false;
+		}
+
 		// idx agrees. When both sides carry a type they must be compatible.
 		if (source.type && target.type && !typesMatch) {
 			return false;

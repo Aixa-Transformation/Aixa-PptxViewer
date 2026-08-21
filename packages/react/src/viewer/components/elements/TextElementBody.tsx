@@ -1,4 +1,9 @@
-import { getLinkedTextBoxSegments, hasTextProperties } from 'pptx-viewer-core';
+import {
+	evaluatePresetShape,
+	getLinkedTextBoxSegments,
+	hasTextProperties,
+	type PptxElement,
+} from 'pptx-viewer-core';
 import React from 'react';
 
 import { DEFAULT_TEXT_COLOR } from '../../constants';
@@ -13,6 +18,49 @@ import { buildTextBody3DSceneStyle } from '../../utils/text-effects';
 import { shouldUseSvgWarp, WarpedText } from '../../utils/text-warp';
 import { ActionButtonGlyphOverlay, isActionButtonShape } from './ActionButtonGlyphOverlay';
 import type { RenderBodyOptions } from './element-body-types';
+
+export function shouldRenderTextBody(
+	isTextElement: boolean,
+	hasActualText: boolean,
+	promptText: string | undefined,
+	isPresentationPassive: boolean | undefined,
+): boolean {
+	if (!isTextElement) return Boolean(promptText) && !isPresentationPassive;
+	return hasActualText || !promptText || !isPresentationPassive;
+}
+
+/**
+ * PowerPoint keeps chevron text inside the rectangular portion between the
+ * rear notch and the arrow tip.  Rendering text over the full shape bounds
+ * clips the first words against the notch and changes the authored wrapping.
+ *
+ * Keep this scoped to chevrons for now: other preset shapes historically use
+ * the full element box in the editor and applying every preset's text rect at
+ * once would be a much broader layout change.
+ */
+export function getChevronTextFrameStyle(el: PptxElement): React.CSSProperties | undefined {
+	if (!('shapeType' in el) || el.shapeType !== 'chevron') return undefined;
+
+	const textRect = evaluatePresetShape(
+		el.shapeType,
+		el.width,
+		el.height,
+		el.shapeAdjustments,
+	)?.textRect;
+	if (!textRect) return undefined;
+
+	const width = Math.max(0, textRect.r - textRect.l);
+	const height = Math.max(0, textRect.b - textRect.t);
+	if (width <= 0 || height <= 0) return undefined;
+
+	return {
+		position: 'absolute',
+		left: textRect.l,
+		top: textRect.t,
+		width,
+		height,
+	};
+}
 
 export function renderTextElementBody(options: RenderBodyOptions): React.ReactNode {
 	const {
@@ -52,21 +100,53 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 		...(scene3dStyle?.transformStyle ? { transformStyle: scene3dStyle.transformStyle } : {}),
 		...(isLinkedTextBox ? { overflow: 'hidden' } : {}),
 	};
+	// `a:noAutofit` with top anchoring keeps the authored font size and lets the
+	// text body extend below its placeholder. A fixed `height: 100%` turns the
+	// body into a constrained flex container and can suppress its final paragraph
+	// even when vertical overflow is allowed. Keep the placeholder as the minimum
+	// height while allowing the content box to grow naturally, matching Office.
+	const allowsNaturalVerticalOverflow =
+		hasTextProperties(el) &&
+		el.textStyle?.autoFitMode === 'none' &&
+		el.textStyle?.vertOverflow !== 'clip' &&
+		(el.textStyle?.vAlign === undefined || el.textStyle.vAlign === 'top') &&
+		!isLinkedTextBox;
+	const textBodySizeStyle: React.CSSProperties | undefined = allowsNaturalVerticalOverflow
+		? { height: 'auto', minHeight: '100%' }
+		: undefined;
 	const shapeType = 'shapeType' in el ? (el as { shapeType?: string }).shapeType : undefined;
-	const shouldRenderText = isTxtEl || (hasTextProperties(el) && Boolean(el.promptText));
+	const presetTextFrameStyle = getChevronTextFrameStyle(el);
+	// Placeholder prompts ("Click to add title", master sample text, etc.) are
+	// editor affordances, not slide content.  PowerPoint omits them from slide
+	// show/export, so passive/read-only rendering must do the same.
+	const textProperties = hasTextProperties(el) ? el : undefined;
+	const hasActualText = Boolean(textProperties?.text) || Boolean(textProperties?.textSegments?.length);
+	const shouldRenderText = shouldRenderTextBody(
+		isTxtEl,
+		hasActualText,
+		textProperties?.promptText,
+		isPresentationPassive,
+	);
+
+	// PowerPoint slide show/export omits an empty placeholder completely,
+	// including any placeholder fill or outline inherited from the layout.
+	if (!shouldRenderText) return null;
 
 	return (
 		<>
 			{vecShape}
 			{isActionButtonShape(shapeType) && <ActionButtonGlyphOverlay element={el} />}
-			{shouldRenderText &&
-				(useSvgWarp ? (
+			{useSvgWarp ? (
 					<div
 						className={cn(
 							'relative z-10 w-full h-full',
 							onHyperlinkClick ? '' : 'pointer-events-none',
 						)}
-						style={{ ...getTextLayoutStyle(el), ...transformStyle }}
+						style={{
+							...getTextLayoutStyle(el),
+							...transformStyle,
+							...presetTextFrameStyle,
+						}}
 					>
 						<WarpedText
 							element={el}
@@ -88,6 +168,8 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							...txtS,
 							...getTextWarpStyle(txtSE),
 							...transformStyle,
+							...textBodySizeStyle,
+							...presetTextFrameStyle,
 						}}
 					>
 						{renderTextSegments(
@@ -102,7 +184,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							!isPresentationPassive,
 						)}
 					</div>
-				))}
+				)}
 		</>
 	);
 }

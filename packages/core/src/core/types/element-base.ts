@@ -167,6 +167,8 @@ export interface PlaceholderTextLevelStyle {
 	bold?: boolean;
 	italic?: boolean;
 	color?: string;
+	/** Original OOXML colour choice, retained so slide clrMap overrides resolve at use time. */
+	colorXml?: XmlObject;
 	bulletChar?: string;
 	bulletAutoNumType?: string;
 	bulletFontFamily?: string;

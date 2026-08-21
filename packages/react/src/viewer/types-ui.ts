@@ -249,8 +249,23 @@ export interface PowerPointViewerProps {
 	content: Uint8Array;
 	/** Render only the active slide canvas without the deck thumbnail pane. */
 	singleSlideOnly?: boolean;
+	/**
+	 * Zero-based slide index controlled by the host application.
+	 *
+	 * Use this when one viewer instance represents a specific slide (for
+	 * example, a section card). The viewer reapplies the requested index after
+	 * parsing or replacing `content`, so hosts do not need polling or imperative
+	 * `goTo()` recovery loops. Values outside the deck are clamped safely.
+	 */
+	activeSlideIndex?: number;
 	/** Licensed fonts supplied by the host application. No fonts are bundled. */
 	fonts?: ViewerFontSource[];
+	/**
+	 * Persist a user-selected custom font package. ZIP packages are expanded by
+	 * the viewer for immediate preview, while the untouched file is passed to
+	 * the host so it can be scanned/stored and made available to shared viewers.
+	 */
+	onUploadCustomFontPackage?: (file: File, fonts: ViewerFontSource[]) => void | Promise<void>;
 	/** Original file path, used for autosave recovery */
 	filePath?: string;
 	/**
@@ -432,7 +447,11 @@ export interface PowerPointViewerProps {
 	/**
 	 * Hide individual toolbar buttons and/or ribbon tabs instead of the whole
 	 * toolbar. Accepts any mix of button ids (`share`, `broadcast`, `export`,
-	 * `undo`, `redo`, `record`, `notes`, `fullscreen`, `zoom`, `navigation`)
+	 * `undo`, `redo`, `record`, `notes`, `fullscreen`, `zoom`, `navigation`,
+	 * `present`, `customShows`, `settings`, `overflow`, `newSlide`,
+	 * `resetSlide`, `section`, `inspectorElements`, `inspectorComments`,
+	 * `inspectorBackgroundOnly`, `commandSearch`, `slidesPaneToggle`,
+	 * `commentsToggle`, `compactPrimaryRow`)
 	 * and ribbon-tab ids (`file`, `home`, `insert`, `draw`, `design`,
 	 * `transitions`, `animations`, `slideShow`, `record`, `review`, `view`,
 	 * `help`). `zoom` and `navigation` each hide their whole control cluster
@@ -440,6 +459,8 @@ export interface PowerPointViewerProps {
 	 * is shared between the quick-access Record button and the Record ribbon
 	 * tab: hiding it hides both. Omitted or empty hides nothing (default,
 	 * fully backward compatible).
+	 * Hiding `file` also hides the title-bar AutoSave status/toggle and quick
+	 * Save button, keeping all package-owned persistence controls together.
 	 *
 	 * @example
 	 * ```tsx

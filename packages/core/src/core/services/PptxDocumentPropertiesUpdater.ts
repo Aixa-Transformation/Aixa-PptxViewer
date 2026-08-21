@@ -299,8 +299,17 @@ export class PptxDocumentPropertiesUpdater {
 						: relationships['Relationship']
 							? [relationships['Relationship'] as XmlObject]
 							: [];
-					const hasCustomRel = rels.some((r) => String(r?.['@_Type'] || '') === customRelType);
-					if (!hasCustomRel) {
+					const customRelationships = rels.filter((relationship) =>
+						this.isCustomPropertiesRelationship(relationship),
+					);
+					if (customRelationships.length > 0) {
+						const retained = customRelationships[0];
+						relationships['Relationship'] = rels.filter(
+							(relationship) =>
+								!this.isCustomPropertiesRelationship(relationship) || relationship === retained,
+						);
+						this.context.zip.file('_rels/.rels', this.context.builder.build(relsData));
+					} else {
 						// Compute next free rId
 						let maxId = 0;
 						for (const rel of rels) {
@@ -331,9 +340,6 @@ export class PptxDocumentPropertiesUpdater {
 	 * orphan content-type entry referencing a deleted part.
 	 */
 	private async removeCustomPropertiesPackagingArtifacts(): Promise<void> {
-		const customRelType =
-			'http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties';
-
 		const ctFile = this.context.zip.file('[Content_Types].xml');
 		if (ctFile) {
 			try {
@@ -371,7 +377,9 @@ export class PptxDocumentPropertiesUpdater {
 						: relationships['Relationship']
 							? [relationships['Relationship'] as XmlObject]
 							: [];
-					const filtered = rels.filter((r) => String(r?.['@_Type'] || '') !== customRelType);
+					const filtered = rels.filter(
+						(relationship) => !this.isCustomPropertiesRelationship(relationship),
+					);
 					if (filtered.length !== rels.length) {
 						relationships['Relationship'] = filtered;
 						this.context.zip.file('_rels/.rels', this.context.builder.build(relsData));
@@ -381,6 +389,18 @@ export class PptxDocumentPropertiesUpdater {
 				/* noop */
 			}
 		}
+	}
+
+	private isCustomPropertiesRelationship(relationship: XmlObject): boolean {
+		const type = String(relationship?.['@_Type'] || '');
+		const target = String(relationship?.['@_Target'] || '')
+			.replace(/\\/gu, '/')
+			.replace(/^\.\//u, '');
+		return (
+			target === 'docProps/custom.xml' ||
+			type.endsWith('/relationships/custom-properties') ||
+			type.endsWith('/relationships/customProperties')
+		);
 	}
 
 	private normalizeCustomPropertyType(type: string | undefined): string {

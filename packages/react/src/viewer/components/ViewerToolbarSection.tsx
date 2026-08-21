@@ -6,8 +6,9 @@ import type {
 	PptxElementAnimation,
 	PptxAnimationPreset,
 } from 'pptx-viewer-core';
-import { createBackstagePresentation, DEFAULT_INSERT_CHART_TYPE } from 'pptx-viewer-shared';
+import { DEFAULT_INSERT_CHART_TYPE } from 'pptx-viewer-shared';
 import type { ToolbarActionId } from 'pptx-viewer-shared';
+import type { ViewerFontSource } from 'pptx-viewer-shared';
 /**
  * ViewerToolbarSection: Renders the top toolbar, signature badge,
  * and hidden file-input elements.
@@ -127,6 +128,8 @@ export interface ViewerToolbarSectionProps {
 	dialogs: ViewerDialogsResult;
 	slideOps: SlideManagementHandlers;
 	ops: ElementOperations;
+	onApplyLayout: (layoutPath: string) => Promise<void>;
+	onCreatePresentation: (templateId: string) => Promise<void>;
 	onSetMode: (mode: ViewerMode) => void;
 	onEnterPresenterView: () => void;
 	onEnterRehearsalMode: () => void;
@@ -149,6 +152,8 @@ export interface ViewerToolbarSectionProps {
 	isAiPanelOpen?: boolean;
 	/** Toggle the AI assistant panel. */
 	onToggleAiPanel?: () => void;
+	onUploadCustomFontPackage?: (file: File, fonts: ViewerFontSource[]) => void | Promise<void>;
+	onEmbedCustomFonts?: (fonts: import('pptx-viewer-core').PptxEmbeddedFont[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +178,8 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 		dialogs,
 		slideOps,
 		ops,
+		onApplyLayout,
+		onCreatePresentation,
 		onSetMode,
 		onEnterPresenterView,
 		onEnterRehearsalMode,
@@ -180,6 +187,8 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 		onOpenHeaderFooter,
 		onOpenShareDialog,
 		onOpenFile,
+		onUploadCustomFontPackage,
+		onEmbedCustomFonts,
 		onOpenRecentFile,
 		onToggleFormatPainter: onToggleFormatPainterProp,
 		fileName,
@@ -495,14 +504,7 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 				onPackageForSharing={exportHandlers.handlePackageForSharing}
 				onOpenFile={onOpenFile}
 				onOpenRecentFile={onOpenRecentFile}
-				onCreatePresentation={(templateId) => {
-					s.setSlides(createBackstagePresentation(templateId));
-					s.setActiveSlideIndex(0);
-					s.setSelectedElementId(null);
-					s.setSelectedElementIds([]);
-					s.setTemplateElementsBySlideId({});
-					s.setIsDirty(true);
-				}}
+				onCreatePresentation={(templateId) => void onCreatePresentation(templateId)}
 				onOpenShareDialog={onOpenShareDialog}
 				onSaveAsPptx={exportHandlers.handleSaveAsPptx}
 				onSaveAsPpsx={exportHandlers.handleSaveAsPpsx}
@@ -519,7 +521,16 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 				isOverflowMenuOpen={s.isOverflowMenuOpen}
 				onSetOverflowMenuOpen={s.setIsOverflowMenuOpen}
 				layoutOptions={scopedLayoutOptions}
+				currentLayoutPath={activeSlide?.layoutPath}
+				themeFonts={{
+					heading: s.theme?.fontScheme?.majorFont?.latin,
+					body: s.theme?.fontScheme?.minorFont?.latin,
+				}}
+				embeddedFontFamilies={Array.from(new Set(s.embeddedFonts.map((font) => font.name)))}
+				onUploadCustomFontPackage={onUploadCustomFontPackage}
+				onEmbedCustomFonts={onEmbedCustomFonts}
 				onInsertSlideFromLayout={slideOps.handleInsertSlideFromLayout}
+				onApplyLayout={(path) => void onApplyLayout(path)}
 				customShows={s.customShows}
 				activeCustomShowId={s.activeCustomShowId}
 				onSetActiveCustomShowId={s.setActiveCustomShowId}

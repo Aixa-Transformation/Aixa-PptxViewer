@@ -150,6 +150,12 @@ describe('extractTableCellStyle', () => {
 		expect(result.color).toBe('black');
 	});
 
+	it('can return authored cell formatting without inherited fallback text', () => {
+		const result = extractTableCellStyle({}, { fontFamily: 'Abadi', color: '#000000' }, undefined, false);
+		expect(result.fontFamily).toBeUndefined();
+		expect(result.color).toBeUndefined();
+	});
+
 	it('extracts font size from run properties', () => {
 		const cellXml = {
 			'a:txBody': {

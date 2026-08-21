@@ -18,6 +18,14 @@ export function drawingChild(
 			continue;
 		}
 		const child = Array.isArray(value) ? value[0] : value;
+		// fast-xml-parser represents self-closing marker elements such as
+		// `<a:noFill/>`, `<a:buNone/>`, and `<a:grpFill/>` as an empty string in
+		// some input modes. Their presence is the value; treating the empty
+		// scalar as absent lets a style-matrix fillRef leak through and can turn
+		// an explicitly transparent shape into a large theme-coloured rectangle.
+		if (child === '' || child === null || child === undefined) {
+			return {};
+		}
 		if (child && typeof child === 'object' && !Array.isArray(child)) {
 			return child as XmlObject;
 		}

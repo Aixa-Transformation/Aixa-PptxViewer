@@ -273,6 +273,11 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 				id: path,
 				rId,
 				slideNumber: slideIndex + 1,
+				// Preserve the authoritative slide -> slideLayout relationship on the
+				// loaded model. The editor uses this identity to mark the current
+				// layout in the gallery and to scope layout choices to the slide's
+				// master. Without it, the gallery cannot reliably reflect PowerPoint.
+				layoutPath: layoutPathForOverride,
 				hidden,
 				sectionId: sectionMeta?.sectionId,
 				sectionName: sectionMeta?.sectionName,

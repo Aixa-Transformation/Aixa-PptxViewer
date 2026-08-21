@@ -9,11 +9,17 @@ import type {
 	PptxCustomerData,
 	PptxSlide,
 } from '../../types';
-import { applySmartArtLayoutDefinition, convertXmlToStrict, decomposeSmartArt } from '../../utils';
+import {
+	applySmartArtLayoutDefinition,
+	convertXmlToStrict,
+	decomposeSmartArt,
+	isTransitionalNamespaceUri,
+} from '../../utils';
 import { writeCustomerDataScopes } from '../../utils/customer-data-package';
 import type { CustomerDataScope } from '../../utils/customer-data-package';
 import { serializeEmbeddedFontList, setEmbeddedFontList } from '../../utils/embedded-font-list';
 import { obfuscateFont, generateFontGuid } from '../../utils/font-deobfuscation';
+import { createEotFromSfnt } from '../../utils/eot-parser';
 import { safeResolveZipPath } from '../../utils/safe-path';
 import { writeTagCollections } from '../../utils/tag-package';
 import type { PptxSaveFormat } from '../types';
@@ -610,9 +616,26 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			return;
 		}
 
+		// Font parts that came from the source package are already valid and are
+		// already connected to presentation.xml by their original relationships.
+		// Rewriting those opaque EOT parts and rebuilding their relationship XML
+		// makes some PowerPoint-authored decks unreadable (notably decks that carry
+		// many embedded font subsets). Preserve them byte-for-byte and only author
+		// package records for genuinely new custom fonts.
+		const newFontsWithData = fontsWithData.filter(
+			(font) => !(font.originalRId && font.partPath),
+		);
+		if (newFontsWithData.length === 0) {
+			// Nothing font-related changed. In particular, do not run the original
+			// embedded-font list through the generic XML builder: PowerPoint embeds
+			// vendor-specific metadata in these nodes and expects it to survive the
+			// round trip exactly.
+			return;
+		}
+
 		// ── 1. Group fonts by typeface name ───────────────────────────
 		const fontsByName = new Map<string, PptxEmbeddedFont[]>();
-		for (const font of fontsWithData) {
+		for (const font of newFontsWithData) {
 			const existing = fontsByName.get(font.name) ?? [];
 			existing.push(font);
 			fontsByName.set(font.name, existing);
@@ -658,6 +681,18 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 			for (const variant of variants) {
 				const fontData = variant.rawFontData!;
+				const isWebFont = variant.format === 'woff' || variant.format === 'woff2';
+				const hasSfntSignature =
+					fontData.length >= 4 &&
+					((fontData[0] === 0x00 && fontData[1] === 0x01 && fontData[2] === 0x00 && fontData[3] === 0x00) ||
+						String.fromCharCode(fontData[0]!, fontData[1]!, fontData[2]!, fontData[3]!) === 'OTTO' ||
+						String.fromCharCode(fontData[0]!, fontData[1]!, fontData[2]!, fontData[3]!) === 'true' ||
+						String.fromCharCode(fontData[0]!, fontData[1]!, fontData[2]!, fontData[3]!) === 'ttcf');
+				if (!variant.originalRId && (isWebFont || !hasSfntSignature)) {
+					throw new Error(
+						`Cannot embed custom font "${variant.name}" in PowerPoint: use a valid .ttf or .otf font file, not WOFF/WOFF2 browser data.`,
+					);
+				}
 
 				// Determine what we can reuse from the load side. A variant
 				// was loaded from an existing part when it has `originalRId`
@@ -699,10 +734,25 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				} else {
 					// New / externally-supplied font: mint a fresh GUID-named part.
 					guid = variant.fontGuid ?? generateFontGuid();
-					const fileName = `{${guid}}.fntdata`;
+					const usedFontNumbers = relationships
+						.map((relationship) => /fonts\/font(?<number>\d+)\.fntdata$/iu.exec(String(relationship?.['@_Target'] || ''))?.groups?.number)
+						.map((number) => Number(number))
+						.filter((number) => Number.isFinite(number));
+					const fileName = `font${Math.max(0, ...usedFontNumbers) + 1}.fntdata`;
 					fontPartPath = `ppt/fonts/${fileName}`;
 					relativeTarget = `fonts/${fileName}`;
-					bytesToWrite = obfuscateFont(fontData, guid);
+					bytesToWrite = createEotFromSfnt(fontData, {
+						familyName: variant.name,
+						styleName: variant.bold
+							? variant.italic
+								? 'Bold Italic'
+								: 'Bold'
+							: variant.italic
+								? 'Italic'
+								: 'Regular',
+						weight: variant.bold ? 700 : 400,
+						italic: variant.italic,
+					});
 
 					// Reuse an existing rel pointing at the same target,
 					// otherwise allocate a new rId.
@@ -751,12 +801,33 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				'p:embeddedFont':
 					embeddedFontEntries.length === 1 ? embeddedFontEntries[0] : embeddedFontEntries,
 			};
-			const metadata = explicitFontList
-				? serializeEmbeddedFontList(explicitFontList)
-				: explicitFonts === undefined && this.loadedEmbeddedFontList
-					? serializeEmbeddedFontList(this.loadedEmbeddedFontList)
-					: generatedList;
-			setEmbeddedFontList(this.presentationData, metadata);
+			const preservedMetadata = explicitFontList ?? this.loadedEmbeddedFontList;
+			let metadata = generatedList;
+			let metadataAppliedInPlace = false;
+			if (preservedMetadata?.rawXml && !explicitFontList) {
+				// parseEmbeddedFontList retains the actual object owned by
+				// presentationData. Mutating only its embeddedFont array keeps every
+				// original descriptor, attribute and unknown extension intact.
+				const rawList = preservedMetadata.rawXml;
+				const embeddedFontKey =
+					Object.keys(rawList).find(
+						(key) => key.replace(/^.*:/u, '') === 'embeddedFont',
+					) ?? 'p:embeddedFont';
+				const preservedEntries = this.ensureArray(rawList[embeddedFontKey]) as XmlObject[];
+				rawList[embeddedFontKey] = [...preservedEntries, ...embeddedFontEntries];
+				metadataAppliedInPlace = true;
+			} else if (preservedMetadata) {
+				metadata = serializeEmbeddedFontList(preservedMetadata);
+				const embeddedFontKey =
+					Object.keys(metadata).find(
+						(key) => key.replace(/^.*:/u, '') === 'embeddedFont',
+					) ?? 'p:embeddedFont';
+				const preservedEntries = this.ensureArray(metadata[embeddedFontKey]) as XmlObject[];
+				metadata[embeddedFontKey] = [...preservedEntries, ...embeddedFontEntries];
+			}
+			if (!metadataAppliedInPlace) {
+				setEmbeddedFontList(this.presentationData, metadata);
+			}
 		}
 
 		// ── 6. Ensure [Content_Types].xml has fntdata extension ──────
@@ -897,6 +968,20 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				continue;
 			}
 
+			const isPresentationXml = path === 'ppt/presentation.xml';
+			// Strict conversion only changes a small, explicit family of OOXML
+			// namespace / relationship URIs. Leave unrelated XML parts byte-for-byte
+			// intact. Rebuilding customXml metadata through fast-xml-parser can turn
+			// boolean-valued attributes such as `xsi:nil="true"` into valueless
+			// attributes, producing malformed XML that Microsoft PowerPoint rejects.
+			const containsConvertibleUri =
+				xmlText
+					.match(/https?:\/\/[^"'<>\s]+/gu)
+					?.some((uri) => isTransitionalNamespaceUri(uri)) ?? false;
+			if (!isPresentationXml && !containsConvertibleUri) {
+				continue;
+			}
+
 			try {
 				const parsed = parse(xmlText) as Record<string, unknown>;
 				if (typeof parsed !== 'object' || parsed === null) {
@@ -904,7 +989,6 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				}
 
 				// presentation.xml gets the conformance="strict" attribute
-				const isPresentationXml = path === 'ppt/presentation.xml';
 				convertXmlToStrict(parsed, isPresentationXml);
 
 				this.zip.file(path, this.builder.build(parsed));

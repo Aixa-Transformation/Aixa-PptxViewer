@@ -3,6 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useSheetDismissDrag } from '../hooks/useSheetDismissDrag';
+import { useToolbarVisibility } from '../hooks/useToolbarVisibility';
 import { cn } from '../utils';
 import { AnimationPanel } from './inspector/AnimationPanel';
 import { ElementInspectorBody } from './inspector/ElementInspectorBody';
@@ -80,9 +81,17 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 		mediaDataUrls,
 		theme,
 		panelWidth,
+		hiddenActions,
 	} = props;
 	const hasSelection = selectedElement !== null;
 	const { t } = useTranslation();
+	const { isHidden } = useToolbarVisibility(hiddenActions);
+	const backgroundOnly = isHidden('inspectorBackgroundOnly');
+	const effectiveActiveTab =
+		(activeTab === 'elements' && isHidden('inspectorElements')) ||
+		(activeTab === 'comments' && isHidden('inspectorComments'))
+			? 'properties'
+			: activeTab;
 
 	// Swipe-down-to-dismiss for the mobile bottom-sheet presentation. The grab
 	// region is `md:hidden`, so `dragY` only ever moves on mobile: the inline
@@ -138,15 +147,16 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 				</div>
 
 				<InspectorPaneHeader
-					activeTab={activeTab}
+					activeTab={effectiveActiveTab}
 					onSetActiveTab={onSetActiveTab}
 					onClose={onClose}
+					hiddenActions={hiddenActions}
 				/>
 
 				{/* Tab content */}
 				<div className='flex-1 overflow-y-auto p-3 space-y-3'>
 					{/* ── Elements ── */}
-					{activeTab === 'elements' && (
+					{effectiveActiveTab === 'elements' && (
 						<div className='space-y-1'>
 							<div className={cn(HEADING, 'mb-2')}>{t('pptx.inspector.layerOrder')}</div>
 							{activeSlide ? (
@@ -179,9 +189,9 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 					)}
 
 					{/* ── Properties ── */}
-					{activeTab === 'properties' && (
+					{effectiveActiveTab === 'properties' && (
 						<div className='space-y-3'>
-							{hasSelection && selectedElement ? (
+							{!backgroundOnly && hasSelection && selectedElement ? (
 								<ElementInspectorBody
 									selectedElement={selectedElement}
 									canEdit={canEdit}
@@ -195,31 +205,33 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 								/>
 							) : (
 								<>
-									<PresentationPropertiesPanel
-										canEdit={canEdit}
-										canvasSize={canvasSize}
-										presentationProperties={presentationProperties}
-										onUpdatePresentationProperties={onUpdatePresentationProperties}
-										notesMaster={notesMaster}
-										handoutMaster={handoutMaster}
-										notesCanvasSize={notesCanvasSize}
-										coreProperties={coreProperties}
-										appProperties={appProperties}
-										customProperties={customProperties}
-										themeOptions={effectiveThemeOptions}
-										selectedThemePath={selectedThemePath}
-										setSelectedThemePath={setSelectedThemePath}
-										onApplyTheme={onApplyTheme}
-										onUpdateCoreProperties={onUpdateCoreProperties}
-										onUpdateAppProperties={onUpdateAppProperties}
-										onUpdateCustomProperties={onUpdateCustomProperties}
-										tagCollections={tagCollections}
-										onUpdateTagCollections={onUpdateTagCollections}
-										onUpdateCanvasSize={onUpdateCanvasSize}
-										activeSlide={activeSlide}
-										theme={theme}
-										onUpdateSlide={onUpdateSlide}
-									/>
+									{!backgroundOnly && (
+										<PresentationPropertiesPanel
+											canEdit={canEdit}
+											canvasSize={canvasSize}
+											presentationProperties={presentationProperties}
+											onUpdatePresentationProperties={onUpdatePresentationProperties}
+											notesMaster={notesMaster}
+											handoutMaster={handoutMaster}
+											notesCanvasSize={notesCanvasSize}
+											coreProperties={coreProperties}
+											appProperties={appProperties}
+											customProperties={customProperties}
+											themeOptions={effectiveThemeOptions}
+											selectedThemePath={selectedThemePath}
+											setSelectedThemePath={setSelectedThemePath}
+											onApplyTheme={onApplyTheme}
+											onUpdateCoreProperties={onUpdateCoreProperties}
+											onUpdateAppProperties={onUpdateAppProperties}
+											onUpdateCustomProperties={onUpdateCustomProperties}
+											tagCollections={tagCollections}
+											onUpdateTagCollections={onUpdateTagCollections}
+											onUpdateCanvasSize={onUpdateCanvasSize}
+											activeSlide={activeSlide}
+											theme={theme}
+											onUpdateSlide={onUpdateSlide}
+										/>
+									)}
 
 									{activeSlide && (
 										<SlideBackgroundPanel
@@ -238,7 +250,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 					)}
 
 					{/* ── Comments ── */}
-					{activeTab === 'comments' && (
+					{effectiveActiveTab === 'comments' && (
 						<InspectorCommentsSection
 							comments={comments}
 							canEdit={canEdit}
@@ -267,7 +279,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 				</div>
 
 				{/* Animation panel: always visible at bottom when element selected */}
-				{hasSelection && selectedElement && activeSlide && (
+				{!backgroundOnly && hasSelection && selectedElement && activeSlide && (
 					<>
 						<ResizeHandle direction='vertical' onResize={onResizeAnimationPanel} />
 						<div

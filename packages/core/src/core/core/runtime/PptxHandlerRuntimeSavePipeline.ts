@@ -143,12 +143,24 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.applySlideMasterChanges(options?.slideMasters);
 		this.applySlideLayoutChanges(options?.slideLayouts);
 
-		// Persist template/master updates
+		// Persist only explicitly edited template/master parts. Slide serialization walks
+		// inherited elements and may enrich their cached objects even though the template
+		// itself was not edited, so object equality is not a reliable dirty signal here.
+		// Clean template parts must remain byte-for-byte unchanged: fast-xml-parser groups
+		// repeated child names and cannot reconstruct interleaved custom-geometry commands
+		// in every valid OOXML document. Rebuilding an untouched layout can therefore
+		// produce schema-invalid XML (PowerPoint reports the whole package as corrupt).
+		const dirtyLayoutPaths = new Set(options?.slideLayouts?.map((layout) => layout.path) ?? []);
 		for (const [layoutPath, layoutXmlObj] of this.layoutXmlMap.entries()) {
-			this.zip.file(layoutPath, this.builder.build(layoutXmlObj));
+			if (dirtyLayoutPaths.has(layoutPath)) {
+				this.zip.file(layoutPath, this.builder.build(layoutXmlObj));
+			}
 		}
+		const dirtyMasterPaths = new Set(options?.slideMasters?.map((master) => master.path) ?? []);
 		for (const [masterPath, masterXmlObj] of this.masterXmlMap.entries()) {
-			this.zip.file(masterPath, this.builder.build(masterXmlObj));
+			if (dirtyMasterPaths.has(masterPath)) {
+				this.zip.file(masterPath, this.builder.build(masterXmlObj));
+			}
 		}
 
 		// Theme parts. Re-emit dirty themes from in-memory state; clean themes
@@ -210,10 +222,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 					}
 				: options?.presentationProperties;
 		await this.applyPresentationPropertiesPart(presentationProperties);
-		// Default the view properties from the model parsed at load time (issue
-		// #90) so an unmodified load -> save round-trips the typed viewProps and
-		// edits still persist when the caller does not override them.
-		await this.applyViewPropertiesPart(options?.viewProperties ?? this.loadedViewProperties);
+		// Preserve an unchanged viewProps part byte-for-byte. Percentage-valued
+		// attributes such as `14.995%` cannot be losslessly represented by the
+		// current numeric typed model; rebuilding them can restore PowerPoint at
+		// an extreme pane split/zoom and make a valid deck appear blank. Only
+		// serialize this part when the caller explicitly supplies edited values.
+		await this.applyViewPropertiesPart(options?.viewProperties);
 		await this.applyTableStylesPart(options?.tableStyles);
 
 		await this.documentPropertiesUpdater.updateOnSave(slides, {

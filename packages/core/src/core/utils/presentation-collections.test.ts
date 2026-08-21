@@ -157,6 +157,43 @@ describe('presentation collections', () => {
 		expect(sectionSlides.map((entry) => entry['@_id'])).toStrictEqual(['256', '259']);
 	});
 
+	it('adds a newly inserted slide to the preceding PowerPoint section in final order', () => {
+		const remap = buildSlideReferenceRemap({
+			slides: [
+				slide('ppt/slides/slide1.xml', 'rId2', 1),
+				slide('ppt/slides/slide3.xml', 'rId9', 2),
+				slide('ppt/slides/slide2.xml', 'rId3', 3),
+			],
+			originalRIdToPath: new Map([
+				['rId2', 'ppt/slides/slide1.xml'],
+				['rId3', 'ppt/slides/slide2.xml'],
+			]),
+			originalSldIdToPath: new Map([
+				['256', 'ppt/slides/slide1.xml'],
+				['257', 'ppt/slides/slide2.xml'],
+			]),
+			rebuiltSlideIds: [
+				{ '@_id': '256', '@_r:id': 'rId2' },
+				{ '@_id': '258', '@_r:id': 'rId9' },
+				{ '@_id': '257', '@_r:id': 'rId3' },
+			],
+		});
+		expect(remap.changed).toBeTruthy();
+		expect(remap.newSldIds).toStrictEqual(new Set(['258']));
+
+		const presentation: XmlObject = { 'p:sldSz': {}, 'p:extLst': { 'p:ext': [] } };
+		applySections(
+			presentation,
+			[{ id: '{S}', name: 'Sec', slideIds: ['256', '257'] }],
+			lookup,
+			remap,
+		);
+		const ext = ((presentation['p:extLst'] as XmlObject)['p:ext'] as XmlObject[])[0];
+		const section = ((ext['p14:sectionLst'] as XmlObject)['p14:section'] as XmlObject[])[0];
+		const entries = (section['p14:sldIdLst'] as XmlObject)['p14:sldId'] as XmlObject[];
+		expect(entries.map((entry) => entry['@_id'])).toStrictEqual(['256', '258', '257']);
+	});
+
 	it('leaves references untouched for an unmodified round-trip (changed=false)', () => {
 		const remap = buildSlideReferenceRemap({
 			slides: [
@@ -177,6 +214,7 @@ describe('presentation collections', () => {
 			],
 		});
 		expect(remap.changed).toBeFalsy();
+		expect(remap.newSldIds.size).toBe(0);
 
 		const presentation: XmlObject = {};
 		applyCustomShows(

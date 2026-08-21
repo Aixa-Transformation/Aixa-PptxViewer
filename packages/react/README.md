@@ -1,16 +1,16 @@
 # pptx-react-viewer
 
 [![npm version](https://img.shields.io/npm/v/pptx-react-viewer.svg)](https://www.npmjs.com/package/pptx-react-viewer)
-[![license](https://img.shields.io/npm/l/pptx-react-viewer.svg)](https://github.com/ChristopherVR/pptx-viewer/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/@aixa-transformation/pptx-viewer.svg)](https://github.com/Aixa-Transformation/Aixa-PptxViewer/blob/main/LICENSE)
 [![types](https://img.shields.io/npm/types/pptx-react-viewer.svg)](https://www.npmjs.com/package/pptx-react-viewer)
 
 > A drop-in **React** component that turns a `.pptx` file into a fully interactive PowerPoint: **view, edit, present, collaborate, and export**, entirely in the browser.
 
-![Selecting, dragging, and resizing a slide element in the React demo](https://raw.githubusercontent.com/ChristopherVR/pptx-viewer/main/.github/assets/packages/react-demo.gif)
+![Selecting, dragging, and resizing a slide element in the React demo](https://raw.githubusercontent.com/Aixa-Transformation/Aixa-PptxViewer/main/.github/assets/packages/react-demo.gif)
 
 Slides render with real **HTML/CSS** (not `<canvas>`), so text stays crisp at any zoom, is selectable and screen-reader accessible, and every element is directly editable. The parsing/editing engine ([`pptx-viewer-core`](https://www.npmjs.com/package/pptx-viewer-core)) is **bundled in**, so you install just one package.
 
-<samp>**[▶️ Try the live demo](https://christophervr.github.io/pptx-viewer/demo/)** · **[📦 npm](https://www.npmjs.com/package/pptx-react-viewer)** · **[📖 Full docs](https://christophervr.github.io/pptx-viewer/)** · **[🧩 Core SDK](https://www.npmjs.com/package/pptx-viewer-core)**</samp>
+<samp>**[📦 npm](https://www.npmjs.com/package/@aixa-transformation/pptx-viewer)** · **[Source](https://github.com/Aixa-Transformation/Aixa-PptxViewer)** · **[🧩 Core SDK](https://www.npmjs.com/package/pptx-viewer-core)**</samp>
 
 ---
 
@@ -218,9 +218,9 @@ Override specific values with the `theme` prop:
 />
 ```
 
-All `ViewerTheme.colors` keys are optional; override only what you need. Helpers `defaultThemeColors`, `defaultRadius`, `themeToCssVars`, `defaultCssVars`, `ViewerThemeProvider`, and `useViewerTheme` are exported for advanced use. See the [full docs](https://christophervr.github.io/pptx-viewer/) for the complete token list.
+All `ViewerTheme.colors` keys are optional; override only what you need. Helpers `defaultThemeColors`, `defaultRadius`, `themeToCssVars`, `defaultCssVars`, `ViewerThemeProvider`, and `useViewerTheme` are exported for advanced use.
 
-Two ready-made presets ship with the package: `vermilionLightTheme` (warm paper canvas) and `vermilionDarkTheme` (dimmed presenter room), the same vermilion brand look as the [documentation site](https://christophervr.github.io/pptx-viewer/):
+Two ready-made presets ship with the package: `vermilionLightTheme` (warm paper canvas) and `vermilionDarkTheme` (dimmed presenter room):
 
 ```tsx
 import { PowerPointViewer, vermilionLightTheme } from 'pptx-react-viewer';
@@ -232,17 +232,17 @@ The underlying palettes (`vermilionLightColors`, `vermilionDarkColors`) and radi
 
 ## Localization (i18n)
 
-UI labels go through [i18next](https://www.i18next.com/) / [react-i18next](https://react.i18next.com/) with dotted keys such as `pptx.statusBar.allSaved`. Initialise an i18next instance and wrap your app in `I18nextProvider` (the demo's `demo/i18n.ts` shows a minimal config, including a `parseMissingKeyHandler` that derives Title Case labels for any key you don't explicitly translate). `pptx-react-viewer/i18n` exports `translationsEn` (the English dictionary), `keyToLabel` (the fallback), and a `TranslationKey` type you can use to type-check a new locale dictionary (`Record<TranslationKey, string>`) at compile time. Add a new language by supplying a resource bundle under its language code. See the [Localization guide](https://christophervr.github.io/pptx-viewer/guide/localization) for full wiring examples and how to contribute a translation upstream; the live demo's language picker is a working reference.
+UI labels go through [i18next](https://www.i18next.com/) / [react-i18next](https://react.i18next.com/) with dotted keys such as `pptx.statusBar.allSaved`. Initialise an i18next instance and wrap your app in `I18nextProvider` (the demo's `demo/i18n.ts` shows a minimal config, including a `parseMissingKeyHandler` that derives Title Case labels for any key you don't explicitly translate). `@aixa-transformation/pptx-viewer/i18n` exports `translationsEn` (the English dictionary), `keyToLabel` (the fallback), and a `TranslationKey` type you can use to type-check a new locale dictionary (`Record<TranslationKey, string>`) at compile time. Add a new language by supplying a resource bundle under its language code.
 
 ## How it's built
 
-You only need the `<PowerPointViewer>` component; everything else is internal. Behind it, the logic lives in many small, focused React hooks, and the components themselves just draw what those hooks produce. Slides are rendered as ordinary HTML and CSS (charts as inline SVG, tables as real `<table>` elements), which is why text stays sharp, selectable, and accessible. For the full component tree, the rendering pipeline, the animation and transition engine, connector routing, collaboration, and a file-by-file map, see the [full documentation](https://christophervr.github.io/pptx-viewer/).
+You only need the `<PowerPointViewer>` component; everything else is internal. Behind it, the logic lives in many small, focused React hooks, and the components themselves just draw what those hooks produce. Slides are rendered as ordinary HTML and CSS (charts as inline SVG, tables as real `<table>` elements), which is why text stays sharp, selectable, and accessible.
 
-A small curated set of those hooks is exported from `pptx-react-viewer/viewer` with a stable API; the complete set (67+) is also importable from `pptx-react-viewer/internals` for advanced integrations. The `internals` subpath is **not covered by semver**: prefer the stable root exports. See the [Hooks reference](https://christophervr.github.io/pptx-viewer/react/hooks-reference) for the full list.
+A small curated set of those hooks is exported from `@aixa-transformation/pptx-viewer/viewer` with a stable API; the complete set (67+) is also importable from `@aixa-transformation/pptx-viewer/internals` for advanced integrations. The `internals` subpath is **not covered by semver**: prefer the stable root exports.
 
 ## Limitations
 
-CSS-based rendering trades a few visual effects for crisp text, accessibility, and DOM interactivity: `backdrop-filter` becomes semi-transparent backgrounds and path gradients approximate as elliptical radials, while `mix-blend-mode` and CSS 3D transforms render natively on screen but flatten in raster export. Text uses fonts available in the browser (embedded fonts are injected when present). Media playback depends on browser codec support. SmartArt is decomposed into editable shapes with a live reflow engine for structural edits, and charts edit via the inspector data grid rather than the chart surface. 3D models need the optional Three.js peer. See the [full docs](https://christophervr.github.io/pptx-viewer/) for the complete list.
+CSS-based rendering trades a few visual effects for crisp text, accessibility, and DOM interactivity: `backdrop-filter` becomes semi-transparent backgrounds and path gradients approximate as elliptical radials, while `mix-blend-mode` and CSS 3D transforms render natively on screen but flatten in raster export. Text uses fonts available in the browser (embedded fonts are injected when present). Media playback depends on browser codec support. SmartArt is decomposed into editable shapes with a live reflow engine for structural edits, and charts edit via the inspector data grid rather than the chart surface. 3D models need the optional Three.js peer.
 
 ## License
 

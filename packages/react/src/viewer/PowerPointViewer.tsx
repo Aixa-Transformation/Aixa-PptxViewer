@@ -23,6 +23,7 @@ import type { ViewerSettings } from 'pptx-viewer-shared';
 import {
 	applyPreferenceToOptions,
 	buildUserFontFaceStyles,
+	createBackstagePresentation,
 	deleteAutosaveSnapshot,
 	listAutosaveSnapshots,
 	openPptxFile,
@@ -73,6 +74,7 @@ import { useDerivedSlideState } from './hooks/useDerivedSlideState';
 import { useEditorHistory } from './hooks/useEditorHistory';
 import { useEditorOperations } from './hooks/useEditorOperations';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useLayoutSwitching } from './hooks/useLayoutSwitching';
 import { usePresentationSetup } from './hooks/usePresentationSetup';
 import { useReducedMotion } from './hooks/useReducedMotion';
 import { useResizablePanels } from './hooks/useResizablePanels';
@@ -83,6 +85,7 @@ import { useViewerOptions } from './hooks/useViewerOptions';
 // Hooks
 import { useViewerState } from './hooks/useViewerState';
 import { useZoomViewport } from './hooks/useZoomViewport';
+import oasisTemplateDataUrl from '../templates/oasis.pptx';
 import type { PowerPointViewerProps, PowerPointViewerHandle } from './types';
 
 export type { PowerPointViewerProps, PowerPointViewerHandle } from './types';
@@ -107,7 +110,9 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 		const {
 			content: incomingContent,
 			singleSlideOnly = false,
+			activeSlideIndex: controlledActiveSlideIndex,
 			fonts = [],
+			onUploadCustomFontPackage,
 			filePath,
 			fileName,
 			canEdit = false,
@@ -138,15 +143,28 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 		} = props;
 
 		useEffect(() => {
+			const fontFamilies = Array.from(
+				new Set(fonts.map((font) => font.family.trim()).filter(Boolean)),
+			);
+			const fontWindow = window as Window & {
+				__AIXA_PPTX_CUSTOM_FONT_FAMILIES__?: string[];
+			};
+			fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = fontFamilies;
+			window.dispatchEvent(new CustomEvent('aixa:pptx-custom-fonts', { detail: fontFamilies }));
 			const css = buildUserFontFaceStyles(fonts);
 			if (!css) {
-				return;
+				return () => {
+					fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = [];
+				};
 			}
 			const style = document.createElement('style');
 			style.dataset.pptxUserFonts = 'true';
 			style.textContent = css;
 			document.head.appendChild(style);
-			return () => style.remove();
+			return () => {
+				style.remove();
+				fontWindow.__AIXA_PPTX_CUSTOM_FONT_FAMILIES__ = [];
+			};
 		}, [fonts]);
 
 		// ── Theme catalog (File > Options > Appearance) ────────────────
@@ -291,6 +309,24 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			activeSlide,
 			selectedElement,
 		} = state;
+
+		// Keep host-owned slide selection authoritative across async PPTX parsing,
+		// theme hydration, and content replacement. Those operations can reset the
+		// viewer's internal selection to slide zero. A declarative prop lets an
+		// embedding application select its slide without repeatedly calling both
+		// setActiveSlideIndex() and goTo() from timers.
+		useEffect(() => {
+			if (controlledActiveSlideIndex == null || slides.length === 0) {
+				return;
+			}
+			const requestedIndex = Number.isFinite(controlledActiveSlideIndex)
+				? Math.trunc(controlledActiveSlideIndex)
+				: 0;
+			const nextIndex = Math.min(Math.max(0, requestedIndex), slides.length - 1);
+			if (activeSlideIndex !== nextIndex) {
+				state.setActiveSlideIndex(nextIndex);
+			}
+		}, [controlledActiveSlideIndex, slides.length, activeSlideIndex, state.setActiveSlideIndex]);
 
 		// ── Settings dialog (General tab) ────────────────────────────
 		// A single `ViewerSettings` bag + change callback, mapped over the
@@ -645,6 +681,37 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			onSlideCountChange,
 		});
 
+		const layoutSwitching = useLayoutSwitching({
+			handler: handlerRef.current,
+			slides,
+			activeSlideIndex,
+			ops: editorOps.ops,
+			history,
+			setTemplateElementsBySlideId: state.setTemplateElementsBySlideId,
+		});
+
+		const handleCreatePresentation = useCallback(
+			async (templateId: string) => {
+				state.setActiveSlideIndex(0);
+				state.setSelectedElementId(null);
+				state.setSelectedElementIds([]);
+				state.setTemplateElementsBySlideId({});
+
+				if (templateId === 'oasis') {
+					const response = await fetch(oasisTemplateDataUrl);
+					if (!response.ok) {
+						throw new Error(`Unable to load the built-in Oasis template (${response.status})`);
+					}
+					setContent(new Uint8Array(await response.arrayBuffer()));
+					return;
+				}
+
+				state.setSlides(createBackstagePresentation(templateId));
+				state.setIsDirty(true);
+			},
+			[state, setContent],
+		);
+
 		// ── AI assistant bridge ─────────────────────────────────────
 		// Built unconditionally (cheap, type-only SDK deps) but only consumed
 		// when the host passes the `ai` prop. Its three write choke points route
@@ -734,6 +801,8 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 									dialogs={dialogs}
 									slideOps={editorOps.slideOps}
 									ops={editorOps.ops}
+									onApplyLayout={layoutSwitching.applyLayout}
+									onCreatePresentation={handleCreatePresentation}
 									onSetMode={handleSetMode}
 									onEnterPresenterView={handleEnterPresenterView}
 									onEnterRehearsalMode={handleEnterRehearsalMode}
@@ -750,6 +819,21 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 									aiEnabled={Boolean(ai)}
 									isAiPanelOpen={aiPanel.isOpen}
 									onToggleAiPanel={aiPanel.toggle}
+									onUploadCustomFontPackage={onUploadCustomFontPackage}
+									onEmbedCustomFonts={(fonts) => {
+										state.setEmbeddedFonts((current) => {
+											const merged = [...current];
+											for (const font of fonts) {
+												const index = merged.findIndex(
+													(existing) => existing.name === font.name && Boolean(existing.bold) === Boolean(font.bold) && Boolean(existing.italic) === Boolean(font.italic),
+												);
+												if (index >= 0) merged[index] = font;
+												else merged.push(font);
+											}
+											return merged;
+										});
+										state.setIsDirty(true);
+									}}
 								/>
 							)}
 

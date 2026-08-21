@@ -1,6 +1,7 @@
 import { XmlObject, TextSegment, TextStyle } from '../../types';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeShapeTextParsing';
 import type { ShapeTextParsingContext, ParagraphContentResult } from './PptxHandlerRuntimeTypes';
+import { orderedSmartArtTextEntries } from './smartart-text-order';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	/**
@@ -45,7 +46,36 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				bulletText = `${paragraphBulletInfo.char} `;
 			} else if (paragraphBulletInfo.autoNumType) {
 				const startAt = paragraphBulletInfo.autoNumStartAt ?? 1;
-				bulletText = this.formatAutoNumber(paragraphBulletInfo.autoNumType, startAt + pIdx);
+				// Number only the contiguous auto-numbered list. The absolute paragraph
+				// index includes headings and prose before the list, which incorrectly
+				// turned the first authored item into 3., 4., etc.
+				const paragraphs = this.ensureArray(
+					(ctx.txBody as XmlObject | undefined)?.['a:p'],
+				) as XmlObject[];
+				let sequenceOffset = 0;
+				for (let priorIndex = pIdx - 1; priorIndex >= 0; priorIndex--) {
+					const priorBullet = this.resolveParagraphBulletInfo(
+						paragraphs[priorIndex],
+						priorIndex,
+						ctx.txBody as XmlObject,
+						ctx.inheritedTxBody,
+						isBodyPlaceholder,
+						ctx.slidePath,
+						ctx.effectiveLevelStyles,
+					);
+					if (
+						priorBullet?.none ||
+						priorBullet?.autoNumType !== paragraphBulletInfo.autoNumType
+					) {
+						break;
+					}
+					sequenceOffset++;
+				}
+				bulletText = this.formatAutoNumber(
+					paragraphBulletInfo.autoNumType,
+					startAt + sequenceOffset,
+				);
+				paragraphBulletInfo.paragraphIndex = sequenceOffset;
 			} else if (paragraphBulletInfo.imageRelId) {
 				bulletText = '\u{1F4CE} ';
 			} else {
@@ -205,31 +235,18 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			'a:br',
 		]);
 
-		for (const key of Object.keys(p)) {
+		// The shared XML parser annotates txBody paragraphs with their original
+		// direct-child order. Use that order here too: the collapsed object view
+		// groups all a:r and a:br children by tag, which previously moved leading
+		// and trailing soft breaks between runs and caused visible title wrapping.
+		for (const [key, item] of orderedSmartArtTextEntries(p)) {
 			if (!contentTagSet.has(key)) {
 				continue;
 			}
 
-			const items = this.ensureArray(p[key]);
-			const rawBreaks = p['a:br'];
-			const breakCount = Array.isArray(rawBreaks)
-				? rawBreaks.length
-				: rawBreaks === undefined
-					? 0
-					: 1;
-			const insertCollapsedBreaks = key === 'a:r' && items.length > 1 && breakCount > 0;
-			for (const [itemIndex, item] of items.entries()) {
-				switch (key) {
+			switch (key) {
 					case 'a:r': {
 						processRun(item);
-						if (insertCollapsedBreaks && itemIndex < Math.min(items.length - 1, breakCount)) {
-							parts.push('\n');
-							segments.push({
-								text: '\n',
-								style: { ...mergedDefaultRunStyle },
-								isLineBreak: true,
-							});
-						}
 						break;
 					}
 					case 'a:fld':
@@ -250,9 +267,6 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						processAlternateContent(item);
 						break;
 					case 'a:br': {
-						if (insertCollapsedBreaks) {
-							break;
-						}
 						const brNode = (item ?? {}) as XmlObject;
 						const brRunProps = brNode['a:rPr'] as XmlObject | undefined;
 						const brStyle = {
@@ -272,8 +286,20 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						segments.push(brSegment);
 						break;
 					}
-				}
 			}
+		}
+
+		// Bullet/number markers are created before the paragraph's concrete runs
+		// are parsed. Their typography must follow the first visible run, not the
+		// inherited list-level default (which can be much larger, e.g. 28pt marker
+		// beside 14pt Aptos text).
+		const markerSegment = segments.find((segment) => segment.bulletInfo);
+		const firstVisibleRun = segments.find(
+			(segment) => !segment.bulletInfo && segment.text !== '\n' && segment.text.length > 0,
+		);
+		if (markerSegment && firstVisibleRun) {
+			markerSegment.style = { ...firstVisibleRun.style };
+			seedStyle = { ...firstVisibleRun.style };
 		}
 
 		if (pIdx < paraCount - 1) {

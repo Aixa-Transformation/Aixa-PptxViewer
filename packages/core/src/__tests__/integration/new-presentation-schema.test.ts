@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { describe, it, expect } from 'vitest';
 
 import { PresentationBuilder } from '../../core/builders/sdk/PresentationBuilder';
+import { PptxHandler } from '../../core/PptxHandler';
 
 /**
  * Regression tests for the blank-presentation template in PresentationBuilder.
@@ -54,6 +55,24 @@ describe('new-presentation template schema conformance', () => {
 		if (defaultTextStyleIdx >= 0) {
 			expect(defaultTextStyleIdx).toBeGreaterThan(sldIdLstIdx);
 		}
+	});
+
+	it('adds a slide after reloading an empty deck with a self-closing slide list', async () => {
+		const initial = await PresentationBuilder.create();
+		const emptyBytes = await initial.handler.save(initial.data.slides);
+
+		const handler = new PptxHandler();
+		const reloaded = await handler.load(emptyBytes.buffer as ArrayBuffer);
+		reloaded.slides.push(
+			initial
+				.createSlide('Blank')
+				.addText('created after reload', { x: 10, y: 10, width: 240, height: 50 })
+				.build(),
+		);
+
+		const savedBytes = await handler.save(reloaded.slides);
+		const final = await new PptxHandler().load(savedBytes.buffer as ArrayBuffer);
+		expect(final.slides).toHaveLength(1);
 	});
 
 	it('docProps/app.xml Override uses the openxmlformats namespace', async () => {

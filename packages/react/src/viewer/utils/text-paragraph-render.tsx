@@ -41,7 +41,31 @@ function groupSegmentsIntoParagraphs(
 	for (let i = 0; i < segments.length; i++) {
 		const seg = segments[i];
 		if (seg.text === '\n') {
-			paragraphs.push(current);
+			const currentHasVisibleContent = current.some(({ segment }) =>
+				Boolean(segment.text && segment.text.trim().length > 0),
+			);
+			// Preserve an authored empty DrawingML paragraph. PowerPoint gives it
+			// a full line box (often deliberately used as spacing between a
+			// centered subheading and body bullets); dropping all of its segments
+			// collapses the following content upward. Leading empty paragraphs are
+			// different: PowerPoint collapses those instead of shifting the whole
+			// text body down.
+			if (!currentHasVisibleContent && paragraphs.length === 0) {
+				// A leading a:r with an empty a:t followed by a:br is another
+				// common PowerPoint representation of a collapsed leading line.
+				// Discard both instead of letting the empty run create a line box.
+				current = [];
+				continue;
+			}
+			if (current.length === 0 && paragraphs.length > 0) {
+				current.push({
+					segment: { ...seg, text: '' },
+					globalIndex: i,
+				});
+			}
+			if (current.length > 0) {
+				paragraphs.push(current);
+			}
 			current = [];
 		} else {
 			current.push({ segment: seg, globalIndex: i });
@@ -49,6 +73,22 @@ function groupSegmentsIntoParagraphs(
 	}
 	if (current.length > 0 || paragraphs.length === 0) {
 		paragraphs.push(current);
+	}
+
+	// PowerPoint frequently leaves a final empty a:p in placeholders. It is a
+	// paragraph terminator, not an authored spacer, and does not consume a line
+	// in slide-show rendering. An inherited bullet may have already produced a
+	// marker-only segment for that paragraph, so test visible non-marker content
+	// rather than merely checking whether the segment array is empty. Keep empty
+	// paragraphs between visible paragraphs: those are intentional spacing.
+	while (
+		paragraphs.length > 1 &&
+		!paragraphs[paragraphs.length - 1].some(
+			({ segment }) =>
+				!segment.bulletInfo && Boolean(segment.text && segment.text.trim().length > 0),
+		)
+	) {
+		paragraphs.pop();
 	}
 
 	return paragraphs;
@@ -111,9 +151,9 @@ export function renderTextSegments(
 
 	const elementAlign = hasTextProperties(element) ? element.textStyle?.align : undefined;
 	const bodyStyle = hasTextProperties(element) ? element.textStyle : undefined;
-	// `spcFirstLastPara`: only suppress first/last edge spacing when explicitly
-	// disabled; default to applying it so single-level text keeps its spacing.
-	const spaceFirstLast = bodyStyle?.spaceFirstLastParagraph !== false;
+	// `spcFirstLastPara` is false by default in DrawingML. Edge paragraph
+	// spacing applies only when the body explicitly opts in.
+	const spaceFirstLast = bodyStyle?.spaceFirstLastParagraph === true;
 
 	return paragraphs.map((paraSegments, paraIndex) => {
 		const paraIndent = paragraphIndents?.[paraIndex];
@@ -183,21 +223,79 @@ export function renderTextSegments(
 		// (a:spcBef / a:spcAft), sourced from this paragraph's own geometry with
 		// a body-level fallback for inherited/single-level text.
 		const paraProps = effectiveSegments[firstSeg?.globalIndex ?? -1]?.paragraphProperties;
+		// The first concrete run carries the fully resolved list-level paragraph
+		// spacing even when `paragraphProperties` only contains locally authored
+		// indent fields. Merge both so level-1/level-2 spacing is not replaced by
+		// the body-level spacing from level 0.
+		const effectiveParaProps = {
+			...firstSeg?.segment.style,
+			...paraProps,
+		};
+		const paragraphAutoFitScale =
+			typeof element.textStyle?.autoFitFontScale === 'number' &&
+			element.textStyle.autoFitFontScale > 0 &&
+			element.textStyle.autoFitFontScale < 1
+				? element.textStyle.autoFitFontScale
+				: 1;
 		const spacing = resolveParagraphSpacing({
-			paraProps,
+			paraProps: effectiveParaProps,
 			bodyStyle,
 			isFirst: paraIndex === 0,
 			isLast: paraIndex === paragraphs.length - 1,
 			spaceFirstLast,
 		});
+		// PowerPoint's normAutofit scales point-based paragraph spacing together
+		// with the text. Keeping authored spcBef/spcAft at their original size
+		// accumulates excessive gaps in long bullet lists even though the glyphs
+		// themselves have been reduced.
+		const hasAuthoredParagraphLineSpacing =
+			paraProps?.lineSpacing !== undefined || paraProps?.lineSpacingExactPt !== undefined;
+		if (!hasAuthoredParagraphLineSpacing) {
+			if (typeof spacing.marginTop === 'number') {
+				spacing.marginTop *= paragraphAutoFitScale;
+			}
+			if (typeof spacing.marginBottom === 'number') {
+				spacing.marginBottom *= paragraphAutoFitScale;
+			}
+		}
+		// `normAutofit/@lnSpcReduction` reduces the resolved paragraph line
+		// multiplier in addition to scaling the run font. Paragraph wrappers own
+		// their line-height, so the body-level auto-fit style cannot apply this for
+		// them. Merge it here to avoid progressively over-spacing dense bullet
+		// lists and clipping their final paragraphs.
+		const autoFitLineSpacingReduction = element.textStyle?.autoFitLineSpacingReduction;
+		if (
+			typeof spacing.lineHeight === 'number' &&
+			typeof autoFitLineSpacingReduction === 'number' &&
+			autoFitLineSpacingReduction > 0
+		) {
+			spacing.lineHeight = Math.max(1, spacing.lineHeight - autoFitLineSpacingReduction);
+		}
 		const hasParaSpacing =
 			spacing.marginTop !== undefined ||
 			spacing.marginBottom !== undefined ||
 			spacing.lineHeight !== undefined;
 
-		const paraStyle: React.CSSProperties = {
+		const paraStyle: React.CSSProperties & { '--pptx-paragraph-align'?: string } = {
 			...paraKinsokuStyle,
 		};
+		// A CSS line box contains an invisible "strut" derived from the wrapper's
+		// inherited font size. When a PowerPoint paragraph overrides the body font
+		// (for example 22pt runs inside a 24pt body placeholder), leaving the
+		// wrapper at the body size makes every line several pixels too tall and
+		// eventually clips the last paragraph. Size the paragraph strut from its
+		// resolved first run, matching DrawingML's per-paragraph line metrics.
+		const paragraphFontSize =
+			typeof effectiveParaProps.fontSize === 'number'
+				? effectiveParaProps.fontSize * paragraphAutoFitScale
+				: undefined;
+		if (
+			typeof paragraphFontSize === 'number' &&
+			Number.isFinite(paragraphFontSize) &&
+			paragraphFontSize > 0
+		) {
+			paraStyle.fontSize = paragraphFontSize;
+		}
 		if (spacing.marginTop !== undefined) {
 			paraStyle.marginTop = spacing.marginTop;
 		}
@@ -226,6 +324,11 @@ export function renderTextSegments(
 		}
 		if (cssTextAlign !== undefined) {
 			paraStyle.textAlign = cssTextAlign;
+			// Also expose the authored alignment as a custom property. The package
+			// stylesheet consumes it with `!important` so host applications cannot
+			// accidentally replace PowerPoint paragraph alignment with a global
+			// `text-align` rule (common in presentation/player shells).
+			paraStyle['--pptx-paragraph-align'] = cssTextAlign;
 		}
 
 		const needsWrapper =
@@ -258,13 +361,19 @@ export function renderTextSegments(
 					fieldContext,
 					paraRtl,
 					requireCtrlClick,
+					hasBullet && globalIndex === firstSeg.globalIndex
+						? Math.max(0, -(rawTextIndent ?? 0))
+						: undefined,
 				),
 			);
+		const isAuthoredEmptyParagraph =
+			paraSegments.length > 0 &&
+			paraSegments.every(({ segment }) => !segment.text || segment.text.trim().length === 0);
 
 		const wrappedContent = wrapWithTextBuildAnimation(
 			element.id,
 			paraIndex,
-			renderedSegments,
+			isAuthoredEmptyParagraph ? [<br key={`${element.id}-empty-${paraIndex}`} />] : renderedSegments,
 			paraSegments,
 			subElementAnimStates,
 		);
@@ -279,7 +388,7 @@ export function renderTextSegments(
 		}
 
 		return (
-			<div key={`${element.id}-para-${paraIndex}`} style={paraStyle}>
+			<div key={`${element.id}-para-${paraIndex}`} data-pptx-paragraph style={paraStyle}>
 				{wrappedContent}
 			</div>
 		);

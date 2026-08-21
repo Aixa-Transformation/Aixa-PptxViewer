@@ -6,6 +6,7 @@ import type {
 	TextStyle,
 	XmlObject,
 } from '../types';
+import { normalizeDrawingmlPresetShape } from '../geometry/preset-shape-values';
 import { PptxXmlFactoryProvider } from './factories/PptxXmlFactoryProvider';
 import type {
 	IConnectorXmlFactory,
@@ -101,16 +102,7 @@ export class PptxElementXmlBuilder {
 	 * @returns A valid `a:prstGeom/@prst` value.
 	 */
 	public normalizePresetGeometry(shapeType: string | undefined): string {
-		if (!shapeType) {
-			return 'rect';
-		}
-		if (shapeType === 'cylinder') {
-			return 'can';
-		}
-		if (/^[A-Za-z][A-Za-z0-9_]*$/.test(shapeType)) {
-			return shapeType;
-		}
-		return 'rect';
+		return normalizeDrawingmlPresetShape(shapeType);
 	}
 
 	/**

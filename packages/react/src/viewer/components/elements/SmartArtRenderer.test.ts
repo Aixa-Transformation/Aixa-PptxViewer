@@ -5,9 +5,13 @@ import type {
 	PptxSmartArtDrawingShape,
 	SmartArtPptxElement,
 } from 'pptx-viewer-core';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, expectTypeOf } from 'vitest';
 
 import { fitFontSize, chevronPoints } from './SmartArtRenderer';
+import { DrawingShapeRenderer } from './smartart-drawing-shape-renderer';
+import { wrapSmartArtText } from './smartart-renderer-utils';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -229,6 +233,108 @@ describe('smartArt element structure', () => {
 // ---------------------------------------------------------------------------
 
 describe('drawing shape bounds', () => {
+	it('preserves full cached text and derives contrast when run colour is implicit', () => {
+		const bodyText =
+			'Located in urban areas, far from rural villages.\nRequires reliable local access.';
+		const html = renderToStaticMarkup(
+			React.createElement(DrawingShapeRenderer, {
+				elementId: 'smartart-1',
+				shapes: [
+					makeDrawingShape({
+						fillColor: '#FFFFFF',
+						fontColor: undefined,
+						text: bodyText,
+					}),
+				],
+				style: 'flat',
+				palette: ['#4F81BD'],
+			}),
+		);
+
+		expect(html).toContain('fill="#000000"');
+		expect(html).toContain('Located in urban areas, far from rural villages.');
+		expect(html).toContain('Requires reliable local access.');
+		expect(html).not.toContain('…');
+	});
+
+	it('renders cached picture fills as images instead of solid rectangles', () => {
+		const html = renderToStaticMarkup(
+			React.createElement(DrawingShapeRenderer, {
+				elementId: 'smartart-icons',
+				shapes: [
+					makeDrawingShape({
+						text: undefined,
+						fillColor: undefined,
+						fillImageUrl: 'data:image/svg+xml;base64,PHN2Zy8+',
+					}),
+				],
+				style: 'flat',
+				palette: ['#4F81BD'],
+			}),
+		);
+
+		expect(html).toContain('<image');
+		expect(html).toContain('data:image/svg+xml;base64,PHN2Zy8+');
+	});
+
+	it('keeps no-fill text overlays transparent', () => {
+		const html = renderToStaticMarkup(
+			React.createElement(DrawingShapeRenderer, {
+				elementId: 'smartart-overlay',
+				shapes: [makeDrawingShape({ fillColor: undefined, fillNone: true })],
+				style: 'flat',
+				palette: ['#4F81BD'],
+			}),
+		);
+
+		expect(html).toContain('fill="none"');
+	});
+
+	it('renders up-arrow callouts with polygon geometry', () => {
+		const html = renderToStaticMarkup(
+			React.createElement(DrawingShapeRenderer, {
+				elementId: 'smartart-process',
+				shapes: [makeDrawingShape({ shapeType: 'upArrowCallout' })],
+				style: 'flat',
+				palette: ['#4F81BD'],
+			}),
+		);
+
+		expect(html).toContain('<polygon');
+		expect(html).not.toContain('rotate(180');
+	});
+
+	it('renders zero-height cached timeline lines with their arrowhead and dash style', () => {
+		const html = renderToStaticMarkup(
+			React.createElement(DrawingShapeRenderer, {
+				elementId: 'smartart-timeline',
+				shapes: [
+					makeDrawingShape({
+						shapeType: 'line',
+						x: 0,
+						y: 50,
+						width: 400,
+						height: 0,
+						strokeColor: '#E3B09A',
+						strokeWidth: 1,
+						strokeDash: 'solid',
+						endArrow: 'triangle',
+						endArrowWidth: 'lg',
+						endArrowLength: 'lg',
+					}),
+				],
+				style: 'flat',
+				palette: ['#4F81BD'],
+			}),
+		);
+
+		expect(html).toContain('<line');
+		expect(html).toContain('x2="400"');
+		expect(html).toContain('stroke="#E3B09A"');
+		expect(html).toContain('marker-end="url(#smartart-timeline-');
+		expect(html).toContain('<polygon points="0,0 10,5 0,10"');
+	});
+
 	it('computes correct bounding box for single shape', () => {
 		const shape = makeDrawingShape({ x: 10, y: 20, width: 100, height: 50 });
 		const minX = shape.x;
@@ -269,6 +375,16 @@ describe('drawing shape bounds', () => {
 		expect(minY).toBe(5);
 		expect(maxX).toBe(280);
 		expect(maxY).toBe(140);
+	});
+});
+
+describe('wrapSmartArtText', () => {
+	it('wraps long cached text without dropping words', () => {
+		const text = 'Limited access to digital infrastructure in Indian villages';
+		const lines = wrapSmartArtText(text, 180, 18);
+
+		expect(lines.length).toBeGreaterThan(1);
+		expect(lines.join(' ')).toBe(text);
 	});
 });
 

@@ -87,6 +87,18 @@ export function renderMediaElement(
 	if (element.mediaMissing) {
 		// Show poster frame if available even for missing media
 		if (posterUrl) {
+			// A linked/online video can be unavailable while its embedded poster is
+			// perfectly valid. PowerPoint slide show/export renders that poster at
+			// full fidelity rather than applying the editor's missing-media warning.
+			if (isPresentationMode) {
+				return (
+					<img
+						src={posterUrl}
+						alt={translationsEn['pptx.media.posterAlt']}
+						className='w-full h-full object-contain pointer-events-none'
+					/>
+				);
+			}
 			return (
 				<div className='w-full h-full relative pointer-events-none'>
 					<img

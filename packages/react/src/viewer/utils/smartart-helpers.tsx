@@ -26,6 +26,32 @@ export function colour(index: number, palette: string[] = DEFAULT_PALETTE): stri
 	return palette[index % palette.length];
 }
 
+/**
+ * Resolve readable text when cached DiagramML shapes omit an explicit run colour.
+ * PowerPoint commonly leaves the colour implicit: dark text on light content
+ * panels and light text on saturated heading panels.
+ */
+export function contrastingTextColor(background: string | undefined): '#000000' | '#FFFFFF' {
+	if (!background) {
+		return '#000000';
+	}
+	const match = /^#([\da-f]{3}|[\da-f]{6})$/iu.exec(background.trim());
+	if (!match) {
+		return '#000000';
+	}
+	const hex =
+		match[1].length === 3
+			? [...match[1]].map((component) => component + component).join('')
+			: match[1];
+	const red = Number.parseInt(hex.slice(0, 2), 16);
+	const green = Number.parseInt(hex.slice(2, 4), 16);
+	const blue = Number.parseInt(hex.slice(4, 6), 16);
+	// WCAG relative-luminance components are unnecessary for this binary
+	// fallback; the YIQ threshold matches Office's light/dark text choice well.
+	const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+	return luminance >= 160 ? '#000000' : '#FFFFFF';
+}
+
 /** Compute an opacity that fades slightly for later nodes. */
 export function nodeOpacity(index: number, total: number, style?: SmartArtStyle): number {
 	const base = style === 'intense' ? 1.0 : style === 'moderate' ? 0.92 : 0.85;

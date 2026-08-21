@@ -299,11 +299,11 @@ describe('getImageRenderStyle', () => {
 		expect(style.objectFit).toBe('cover');
 	});
 
-	it('returns basic cover style for image without crop', () => {
+	it('stretches the complete bitmap into an uncropped DrawingML picture frame', () => {
 		const style = getImageRenderStyle(makeImageElement());
 		expect(style.width).toBe('100%');
 		expect(style.height).toBe('100%');
-		expect(style.objectFit).toBe('cover');
+		expect(style.objectFit).toBe('fill');
 	});
 
 	it('applies crop transform when crop values are set', () => {
@@ -327,7 +327,7 @@ describe('getImageRenderStyle', () => {
 			cropBottom: 0,
 		} as Partial<PptxElement>);
 		const style = getImageRenderStyle(el);
-		expect(style.objectFit).toBe('cover');
+		expect(style.objectFit).toBe('fill');
 	});
 
 	it('handles extreme crop values safely', () => {

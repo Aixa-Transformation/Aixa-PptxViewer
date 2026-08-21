@@ -12,6 +12,18 @@ export interface ParagraphSpacingConfig {
 	lineSpacingExactPt: number | undefined;
 }
 
+/** Return true only for the metadata-only marker segment created by the loader. */
+export function isSyntheticBulletMarkerSegment(segment: TextSegment): boolean {
+	const markerText = String(segment.text ?? '').trim();
+	return Boolean(
+		segment.bulletInfo &&
+		((segment.bulletInfo.char && markerText === segment.bulletInfo.char) ||
+			(segment.bulletInfo.autoNumType && /^\S+[.)]$/u.test(markerText)) ||
+			((segment.bulletInfo.imageDataUrl || segment.bulletInfo.imageRelId) &&
+				markerText === '\u{1F4CE}')),
+	);
+}
+
 /** Build the `a:pPr` (paragraph properties) XML object. */
 export function buildParagraphPropertiesXml(
 	textStyle: TextStyle | undefined,

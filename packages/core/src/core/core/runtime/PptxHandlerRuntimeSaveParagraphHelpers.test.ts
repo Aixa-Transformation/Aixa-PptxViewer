@@ -7,7 +7,37 @@ import {
 	applyBulletProperties,
 	assembleParagraphXml,
 	computeUniformSegmentOverrides,
+	isSyntheticBulletMarkerSegment,
 } from './PptxHandlerRuntimeSaveParagraphHelpers';
+
+describe('isSyntheticBulletMarkerSegment', () => {
+	it('identifies loader-created character and number marker segments', () => {
+		expect(
+			isSyntheticBulletMarkerSegment({
+				text: '\u2022 ',
+				style: {},
+				bulletInfo: { char: '\u2022' },
+			}),
+		).toBeTruthy();
+		expect(
+			isSyntheticBulletMarkerSegment({
+				text: '1. ',
+				style: {},
+				bulletInfo: { autoNumType: 'arabicPeriod' },
+			}),
+		).toBeTruthy();
+	});
+
+	it('keeps editor-authored item text that carries bullet metadata', () => {
+		expect(
+			isSyntheticBulletMarkerSegment({
+				text: 'Implement personalized engagement strategies',
+				style: {},
+				bulletInfo: { char: '\u2022' },
+			}),
+		).toBeFalsy();
+	});
+});
 import type { ParagraphSpacingConfig } from './PptxHandlerRuntimeSaveParagraphHelpers';
 
 // ---------------------------------------------------------------------------

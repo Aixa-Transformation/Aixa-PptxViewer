@@ -139,6 +139,17 @@ export function getTextStyleForElement(
 	const bodyBottom = element.textStyle?.bodyInsetBottom ?? DEFAULT_BODY_INSET_TB_PX;
 	const bodyLeft = element.textStyle?.bodyInsetLeft ?? DEFAULT_BODY_INSET_LR_PX;
 	const bodyRight = element.textStyle?.bodyInsetRight ?? DEFAULT_BODY_INSET_LR_PX;
+	const hasParagraphIndents = Boolean(element.paragraphIndents?.length);
+	// Paragraph geometry wins over the inherited body/list geometry. Applying
+	// both creates a hanging indent even when the slide explicitly authors
+	// marL="0" and indent="0" on each paragraph.
+	const bodyParagraphMarginLeft = hasParagraphIndents
+		? 0
+		: (element.textStyle?.paragraphMarginLeft ?? 0);
+	const bodyParagraphMarginRight = hasParagraphIndents
+		? 0
+		: (element.textStyle?.paragraphMarginRight ?? 0);
+	const bodyParagraphIndent = hasParagraphIndents ? 0 : (element.textStyle?.paragraphIndent ?? 0);
 
 	// Vertical text direction
 	const writingMode = toCssWritingMode(element.textStyle?.textDirection);
@@ -178,9 +189,9 @@ export function getTextStyleForElement(
 		lineHeight: resolveLineHeight(element.textStyle, hasItalicRuns),
 		paddingTop: bodyTop + (hasItalicRuns ? 1 : 0),
 		paddingBottom: bodyBottom + (hasItalicRuns ? 1 : 0),
-		paddingLeft: bodyLeft + (element.textStyle?.paragraphMarginLeft || 0),
-		paddingRight: bodyRight + (element.textStyle?.paragraphMarginRight || 0),
-		textIndent: element.textStyle?.paragraphIndent || 0,
+		paddingLeft: bodyLeft + bodyParagraphMarginLeft,
+		paddingRight: bodyRight + bodyParagraphMarginRight,
+		textIndent: bodyParagraphIndent,
 		overflow: 'visible',
 		writingMode,
 		textOrientation,

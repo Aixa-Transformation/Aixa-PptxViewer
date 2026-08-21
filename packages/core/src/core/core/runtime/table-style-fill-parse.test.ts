@@ -20,6 +20,18 @@ describe('parseTableStyleSectionFill', () => {
 		expect(fill?.color).toBeUndefined();
 	});
 
+	it('normalises Strict percentage tint syntax', () => {
+		const fill = parseTableStyleSectionFill(
+			section({
+				'a:solidFill': {
+					'a:schemeClr': { '@_val': 'accent2', 'a:tint': { '@_val': '20%' } },
+				},
+			}),
+		);
+		expect(fill?.schemeColor).toBe('accent2');
+		expect(fill?.tint).toBe(20000);
+	});
+
 	it('parses an explicit sRGB solid fill (issue #95)', () => {
 		const fill = parseTableStyleSectionFill(
 			section({ 'a:solidFill': { 'a:srgbClr': { '@_val': 'FF8800' } } }),
@@ -122,6 +134,15 @@ describe('parseTableStyleSectionText', () => {
 		expect(text?.fontSchemeColor).toBe('accent2');
 		expect(text?.fontTint).toBe(40000);
 		expect(text?.fontColor).toBeUndefined();
+	});
+
+	it('normalises Strict percentage syntax for font colours', () => {
+		const text = parseTableStyleSectionText({
+			'a:tcTxStyle': {
+				'a:schemeClr': { '@_val': 'accent2', 'a:tint': { '@_val': '40%' } },
+			},
+		} as XmlObject);
+		expect(text?.fontTint).toBe(40000);
 	});
 
 	it('ignores u="none"', () => {

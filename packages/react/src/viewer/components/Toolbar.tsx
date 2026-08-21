@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { LuPanelRight } from 'react-icons/lu';
 
 import { TOOLBAR_SECTIONS } from '../constants';
 import { useToolbarVisibility } from '../hooks/useToolbarVisibility';
@@ -29,7 +30,8 @@ export type { ToolbarProps } from './toolbar/toolbar-types';
 export function Toolbar(p: ToolbarProps): React.ReactElement {
 	const { mode, isNarrowViewport, isCompactToolbarOpen, toolbarSection, onSetToolbarSection } = p;
 	const { t } = useTranslation();
-	const { isTabVisible } = useToolbarVisibility(p.hiddenActions);
+	const { isHidden, isTabVisible } = useToolbarVisibility(p.hiddenActions);
+	const compactPrimaryRow = isHidden('compactPrimaryRow');
 
 	// Mobile-first: at <768px we swap the entire desktop ribbon for a compact
 	// top bar plus a slide-up sheet exposing every section. The bottom action
@@ -38,7 +40,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 		return <MobileToolbar {...p} />;
 	}
 
-	const sFil = toolbarSection === 'file';
+	const sFil = toolbarSection === 'file' && isTabVisible('file');
 	const sHome = toolbarSection === 'home';
 	const sIns = toolbarSection === 'insert';
 	const sTxt = sHome || toolbarSection === 'text';
@@ -62,7 +64,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 			className='relative z-20 border-b border-border bg-secondary/50 overflow-visible'
 		>
 			{/* Quick Access Row: undo/redo + spacer + mode/toggles */}
-			<ToolbarPrimaryRow {...p} />
+			{!compactPrimaryRow && <ToolbarPrimaryRow {...p} />}
 
 			{/* Ribbon Tab Bar */}
 			{showRibbon && (
@@ -98,6 +100,20 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 						onPackageForSharing={p.onPackageForSharing}
 						hiddenActions={p.hiddenActions}
 					/>
+					{compactPrimaryRow && (mode === 'edit' || mode === 'master') && (
+						<button
+							type='button'
+							onClick={p.onToggleInspector}
+							className={cn(
+								'mr-1 rounded-sm p-1.5 transition-colors hover:bg-accent/60',
+								p.isInspectorPaneOpen ? 'text-foreground' : 'text-muted-foreground',
+							)}
+							title={t('pptx.toolbar.toggleInspector')}
+							aria-label={t('pptx.toolbar.toggleInspector')}
+						>
+							<LuPanelRight className='h-4 w-4' />
+						</button>
+					)}
 					{isNarrowViewport && (
 						<button
 							type='button'
@@ -165,9 +181,16 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onPaste={p.onPaste}
 							onToggleFormatPainter={p.onToggleFormatPainter}
 							layoutOptions={p.layoutOptions}
+							currentLayoutPath={p.currentLayoutPath}
 							onInsertSlideFromLayout={p.onInsertSlideFromLayout}
+							onApplyLayout={p.onApplyLayout}
 							selectedElement={p.selectedElement}
 							onUpdateTextStyle={p.onUpdateTextStyle}
+							themeFonts={p.themeFonts}
+							embeddedFontFamilies={p.embeddedFontFamilies}
+							onEmbedCustomFonts={p.onEmbedCustomFonts}
+							onUploadCustomFontPackage={p.onUploadCustomFontPackage}
+							hiddenActions={p.hiddenActions}
 						/>
 					)}
 

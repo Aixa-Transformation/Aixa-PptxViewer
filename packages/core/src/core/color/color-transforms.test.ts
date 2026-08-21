@@ -71,11 +71,18 @@ describe('applyDrawingColorTransforms', () => {
 		expect(result).toBe('#808080');
 	});
 
-	it('tint at 100% produces pure white', () => {
+	it('tint at 100% retains the source colour', () => {
 		const result = applyDrawingColorTransforms('#000000', {
 			'a:tint': { '@_val': '100000' },
 		});
-		expect(result).toBe('#FFFFFF');
+		expect(result).toBe('#000000');
+	});
+
+	it('supports Strict OOXML lexical percentages for tint', () => {
+		const result = applyDrawingColorTransforms('#C43E1C', {
+			'a:tint': { '@_val': '20%' },
+		});
+		expect(result).toBe('#F3D8D2');
 	});
 
 	// ── HSL transforms ────────────────────────────────────────────────────

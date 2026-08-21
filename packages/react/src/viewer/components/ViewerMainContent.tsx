@@ -298,6 +298,7 @@ export function ViewerMainContent(props: ViewerMainContentProps) {
 				)}
 
 				<ViewerSidePanels
+					hiddenActions={hiddenActions}
 					mode={mode}
 					canEdit={canEdit}
 					activeSlide={activeSlide}

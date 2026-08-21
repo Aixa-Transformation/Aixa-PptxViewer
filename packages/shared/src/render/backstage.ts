@@ -88,6 +88,13 @@ export const BACKSTAGE_TEMPLATES: readonly BackstageTemplate[] = [
 		description: 'Clean technology storytelling',
 		preview: 'repeating-radial-gradient(ellipse at bottom, #111 0 3px, #fff 4px 13px)',
 	},
+	{
+		id: 'oasis',
+		name: 'Oasis',
+		description: '56 editorial layouts with marble imagery',
+		preview:
+			'linear-gradient(90deg, #111111 0 48%, transparent 48%), radial-gradient(ellipse at 78% 38%, #e8c7b4 0 18%, #91b9b4 42%, #c8a38f 67%, #eee6df 100%)',
+	},
 ];
 
 const TEMPLATE_BACKGROUNDS: Readonly<

@@ -11,6 +11,7 @@ import type {
 	PptxHandoutMaster,
 	PptxSection,
 	PptxTagCollection,
+	PptxEmbeddedFont,
 } from 'pptx-viewer-core';
 import { guidePxToEmu, hasTextProperties } from 'pptx-viewer-core';
 /**
@@ -44,6 +45,7 @@ export interface UseSerializeInput {
 	tagCollections: PptxTagCollection[];
 	notesMaster: PptxNotesMaster | undefined;
 	handoutMaster: PptxHandoutMaster | undefined;
+	embeddedFonts: PptxEmbeddedFont[];
 	handlerRef: React.RefObject<PptxHandler | null>;
 	inlineEditingElementIdRef: React.MutableRefObject<string | null>;
 	inlineEditingTextRef: React.MutableRefObject<string>;
@@ -70,6 +72,7 @@ export function useSerialize(input: UseSerializeInput): () => Promise<Uint8Array
 		tagCollections,
 		notesMaster,
 		handoutMaster,
+		embeddedFonts,
 		handlerRef,
 		inlineEditingElementIdRef,
 		inlineEditingTextRef,
@@ -136,6 +139,7 @@ export function useSerialize(input: UseSerializeInput): () => Promise<Uint8Array
 			tags: tagCollections.length > 0 ? tagCollections : undefined,
 			notesMaster,
 			handoutMaster,
+			embeddedFonts: embeddedFonts.length > 0 ? embeddedFonts : undefined,
 		};
 
 		if (password) {
@@ -155,6 +159,7 @@ export function useSerialize(input: UseSerializeInput): () => Promise<Uint8Array
 		tagCollections,
 		notesMaster,
 		handoutMaster,
+		embeddedFonts,
 		guides,
 		activeSlideIndex,
 		handlerRef,

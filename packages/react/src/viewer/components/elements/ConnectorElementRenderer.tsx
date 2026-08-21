@@ -2,7 +2,7 @@ import { hasShapeProperties, hasTextProperties } from 'pptx-viewer-core';
 import { svgLineCap } from 'pptx-viewer-shared';
 import React from 'react';
 
-import { DEFAULT_STROKE_COLOR, MIN_ELEMENT_SIZE } from '../../constants';
+import { DEFAULT_STROKE_COLOR } from '../../constants';
 import {
 	colorWithOpacity,
 	getElementTransform,
@@ -91,8 +91,14 @@ export const ConnectorElementRenderer: React.FC<ConnectorRendererProps> = React.
 				style={{
 					left: el.x,
 					top: el.y,
-					width: Math.max(el.width, MIN_ELEMENT_SIZE),
-					height: Math.max(el.height, MIN_ELEMENT_SIZE),
+					// Do not apply the editor's minimum resize-box size to the visual
+					// connector canvas. A horizontal OOXML connector commonly has a
+					// zero (or sub-pixel) height; expanding that canvas to 12px changes
+					// the SVG aspect ratio and makes a straight PowerPoint line appear
+					// diagonal and displaced. The transparent SVG stroke below already
+					// provides a comfortably large interaction target.
+					width: viewWidth,
+					height: viewHeight,
 					transform: getElementTransform(el),
 					transformOrigin: 'center',
 					background: 'transparent',

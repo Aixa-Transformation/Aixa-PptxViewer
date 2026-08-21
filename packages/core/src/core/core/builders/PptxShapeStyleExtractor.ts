@@ -167,6 +167,17 @@ export class PptxShapeStyleExtractor implements IPptxShapeStyleExtractor {
 			if (earlyReturn) {
 				return style;
 			}
+			// PowerPoint combines directly-authored line geometry (for example
+			// `a:ln/@w`) with colour/dash inherited through `a:lnRef`.
+			// Resolve the reference when the explicit line supplied no colour,
+			// while retaining its authored width.
+			if (!style.strokeColor && styleNode?.['a:lnRef']) {
+				const explicitWidth = style.strokeWidth;
+				this.context.resolveThemeLineRef(styleNode['a:lnRef'] as XmlObject, style);
+				if (explicitWidth !== undefined) {
+					style.strokeWidth = explicitWidth;
+				}
+			}
 		} else if (styleNode?.['a:lnRef']) {
 			this.context.resolveThemeLineRef(styleNode['a:lnRef'] as XmlObject, style);
 		}

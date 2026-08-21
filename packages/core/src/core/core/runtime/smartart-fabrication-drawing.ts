@@ -18,6 +18,7 @@ import { XMLBuilder } from 'fast-xml-parser';
 import { EMU_PER_PX } from '../../constants';
 import { customGeometryPathsToXml } from '../../geometry/custom-geometry';
 import { stripXmlOrderMarkers } from '../../geometry/custom-geometry-command-order';
+import { normalizeDrawingmlPresetShape } from '../../geometry/preset-shape-values';
 import type {
 	PptxElement,
 	PptxSmartArtDrawingShape,
@@ -134,7 +135,7 @@ function shapePropsXml(shape: PptxSmartArtDrawingShape): string {
 		`<a:off x="${toEmu(shape.x)}" y="${toEmu(shape.y)}"/>` +
 		`<a:ext cx="${toEmu(Math.max(shape.width, 1))}" cy="${toEmu(Math.max(shape.height, 1))}"/>` +
 		`</a:xfrm>`;
-	const prst = shape.shapeType && shape.shapeType !== 'custom' ? shape.shapeType : 'rect';
+	const prst = normalizeDrawingmlPresetShape(shape.shapeType);
 	const geom =
 		shape.customGeometryPaths && shape.customGeometryPaths.length > 0
 			? stripXmlOrderMarkers(

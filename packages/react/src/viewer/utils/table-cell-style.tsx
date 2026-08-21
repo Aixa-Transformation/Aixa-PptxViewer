@@ -71,8 +71,9 @@ export function extractTableCellStyle(
 	cellXml: XmlObject,
 	fallbackStyle: React.CSSProperties,
 	schemeColorOverrides?: Record<string, string | undefined>,
+	includeFallback: boolean = true,
 ): React.CSSProperties {
-	const cellStyle: React.CSSProperties = { ...fallbackStyle };
+	const cellStyle: React.CSSProperties = includeFallback ? { ...fallbackStyle } : {};
 	const txBody = cellXml['a:txBody'] as XmlObject | undefined;
 	const paragraphs = ensureArrayValue(txBody?.['a:p'] as XmlObject | XmlObject[] | undefined);
 	const firstParagraph = paragraphs[0] as XmlObject | undefined;

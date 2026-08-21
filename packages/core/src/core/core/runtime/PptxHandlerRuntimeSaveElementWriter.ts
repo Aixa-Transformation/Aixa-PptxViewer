@@ -306,7 +306,20 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		if (el.type === 'group') {
 			const grpXml = this.buildGroupShapeXml(el as GroupPptxElement);
 			if (grpXml) {
-				collectors.groups.push(grpXml);
+				// Inherited layout/master groups must be updated in their template
+				// part, never appended to the active slide's p:spTree.  Groups return
+				// early from this method, so the generic template branch below was
+				// previously bypassed.  Each save/reopen cycle therefore copied the
+				// same artwork onto the slide again, progressively distorting Strict
+				// decks when users navigated away and back.
+				if (this.isTemplateElementId(el.id)) {
+					const templateSpTree = this.getTemplateSpTree(ctx.slide.id, el.id);
+					if (templateSpTree) {
+						el.rawXml = this.ensureTemplateShapeAttached(templateSpTree, el.type, grpXml);
+					}
+				} else {
+					collectors.groups.push(grpXml);
+				}
 			}
 			return;
 		}

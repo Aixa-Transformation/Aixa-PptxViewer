@@ -55,4 +55,8 @@ export default defineConfig((options) => ({
 	noExternal: ['pptx-viewer-core', 'pptx-viewer-shared'],
 	treeshake: true,
 	platform: 'browser',
+	// Built-in presentation templates must work in any consuming app without
+	// requiring that host to copy package assets into its public directory.
+	// A data URL keeps the real PPTX master/layout package self-contained.
+	loader: { '.pptx': 'dataurl' },
 }));

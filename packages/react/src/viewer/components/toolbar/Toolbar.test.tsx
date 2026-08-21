@@ -1509,9 +1509,57 @@ describe('toolbar - Quick Access Bar (ToolbarPrimaryRow)', () => {
 		expect(html).toContain('aria-label="Toggle slides panel"');
 	});
 
+	it('hides the sidebar toggle when requested by the host', () => {
+		const html = render(
+			React.createElement(
+				ToolbarPrimaryRow,
+				createMockToolbarProps({ hiddenActions: ['slidesPaneToggle'] }),
+			),
+		);
+		expect(html).not.toContain('aria-label="Toggle slides panel"');
+	});
+
 	it('renders inspector toggle button', () => {
 		const html = render(React.createElement(ToolbarPrimaryRow, createMockToolbarProps()));
 		expect(html).toContain('aria-label="Toggle inspector panel"');
+	});
+
+	it('hides the comments toggle when requested by the host', () => {
+		const html = render(
+			React.createElement(
+				ToolbarPrimaryRow,
+				createMockToolbarProps({ hiddenActions: ['commentsToggle'] }),
+			),
+		);
+		expect(html).not.toContain('aria-label="Comments"');
+	});
+
+	it('moves the inspector toggle into the tab row in compact header mode', () => {
+		const html = render(
+			React.createElement(
+				Toolbar,
+				createMockToolbarProps({ hiddenActions: ['compactPrimaryRow', 'design'] }),
+			),
+		);
+		expect(html).toContain('aria-label="Toggle inspector panel"');
+		expect(html).not.toContain('>Design</button>');
+		expect(html).not.toContain('aria-label="Comments"');
+	});
+
+	it('can keep the inspector toggle while hiding the adjacent host controls', () => {
+		const html = render(
+			React.createElement(
+				ToolbarPrimaryRow,
+				createMockToolbarProps({
+					hiddenActions: ['present', 'customShows', 'settings', 'overflow'],
+				}),
+			),
+		);
+		expect(html).toContain('aria-label="Toggle inspector panel"');
+		expect(html).not.toContain('aria-label="Settings"');
+		expect(html).not.toContain('aria-label="More actions"');
+		expect(html).not.toContain('>Present<');
+		expect(html).not.toContain('>+ Show<');
 	});
 
 	it('omits the AI assistant toggle when the ai prop is absent', () => {
@@ -1540,6 +1588,13 @@ describe('toolbar - Quick Access Bar (ToolbarPrimaryRow)', () => {
 		const html = render(React.createElement(TitleBar, createTitleBarProps()));
 		expect(html).toContain('aria-label="Search"');
 		expect(html).toContain('placeholder="');
+	});
+
+	it('hides the command search box when requested by the host', () => {
+		const html = render(
+			React.createElement(TitleBar, createTitleBarProps({ hiddenActions: ['commandSearch'] })),
+		);
+		expect(html).not.toContain('aria-label="Search"');
 	});
 
 	it('search box has foreground text when Find and Replace is open', () => {
@@ -1961,5 +2016,38 @@ describe('toolbar - hiddenActions', () => {
 		const html = render(React.createElement(TitleBar, createTitleBarProps()));
 		expect(html).toContain('aria-label="Undo"');
 		expect(html).toContain('aria-label="Redo"');
+	});
+
+	it('independently hides New Slide, Reset, and Section while keeping Layout', () => {
+		const html = render(
+			React.createElement(
+				Toolbar,
+				createMockToolbarProps({
+					hiddenActions: ['newSlide', 'resetSlide', 'section'],
+				}),
+			),
+		);
+		expect(html).not.toContain('>New Slide<');
+		expect(html).not.toContain('title="Reset slide to its layout defaults"');
+		expect(html).not.toContain('>Section<');
+		expect(html).toContain('>Layout<');
+	});
+
+	it('hides package-owned file persistence controls when the File tab is hidden', () => {
+		const titleBar = render(
+			React.createElement(TitleBar, createTitleBarProps({ hiddenActions: ['file'] })),
+		);
+		expect(titleBar).not.toContain('aria-label="Toggle AutoSave"');
+		expect(titleBar).not.toContain('aria-label="Save"');
+		expect(titleBar).toContain('aria-label="Undo"');
+
+		const toolbar = render(
+			React.createElement(
+				Toolbar,
+				createMockToolbarProps({ toolbarSection: 'file', hiddenActions: ['file'] }),
+			),
+		);
+		expect(toolbar).not.toContain('>File</button>');
+		expect(toolbar).not.toContain('data-testid="file-section"');
 	});
 });

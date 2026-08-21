@@ -64,7 +64,9 @@ function shadeColor(hex: string, shadeFactor: number): string {
 function applyTintShade(base: string, fill: ParsedTableStyleFill): string {
 	let color = base;
 	if (fill.tint !== undefined && fill.tint > 0) {
-		color = tintColor(color, fill.tint / 100_000);
+		// DrawingML stores the retained source-colour component.  For example,
+		// 20 000 produces 20% source colour blended with 80% white.
+		color = tintColor(color, 1 - fill.tint / 100_000);
 	}
 	if (fill.shade !== undefined && fill.shade > 0) {
 		color = shadeColor(color, 1 - fill.shade / 100_000);
@@ -247,7 +249,7 @@ export function applyStyleText(
 		if (base) {
 			let color = base;
 			if (text.fontTint !== undefined && text.fontTint > 0) {
-				color = tintColor(color, text.fontTint / 100_000);
+				color = tintColor(color, 1 - text.fontTint / 100_000);
 			}
 			if (text.fontShade !== undefined && text.fontShade > 0) {
 				color = shadeColor(color, 1 - text.fontShade / 100_000);
