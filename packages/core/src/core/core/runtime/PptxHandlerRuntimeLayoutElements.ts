@@ -3,6 +3,7 @@ import { stripParentDirSegments } from '../../utils/strip-parent-dir-segments';
 import { xmlAttr, xmlChild, xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeAuxiliaryMasterElements';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
+import { fingerprintTemplateElement } from './template-element-fingerprint';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	protected async getLayoutElements(slidePath: string): Promise<PptxElement[]> {
@@ -230,6 +231,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			this.currentSlideClrMapOverride = prevClrMapOverride;
 
 			const allElements = [...masterElements, ...elements];
+			for (const element of elements) {
+				this.templateElementBaselines.set(
+					element,
+					fingerprintTemplateElement(element),
+				);
+			}
 
 			this.layoutCache.set(layoutPath, allElements);
 			return allElements;

@@ -25,6 +25,9 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	}
 
 	async save(slides: PptxSlide[], options?: PptxHandlerSaveOptions): Promise<Uint8Array> {
+		this.dirtyTemplateLayoutPaths.clear();
+		this.dirtyTemplateMasterPaths.clear();
+		this.pendingTemplateElementBaselines.clear();
 		const effectiveConformance = this.resolveEffectiveConformance(options?.conformance);
 		const saveConstants = createPptxSaveConstants(effectiveConformance);
 		const {
@@ -150,13 +153,19 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// repeated child names and cannot reconstruct interleaved custom-geometry commands
 		// in every valid OOXML document. Rebuilding an untouched layout can therefore
 		// produce schema-invalid XML (PowerPoint reports the whole package as corrupt).
-		const dirtyLayoutPaths = new Set(options?.slideLayouts?.map((layout) => layout.path) ?? []);
+		const dirtyLayoutPaths = new Set([
+			...(options?.slideLayouts?.map((layout) => layout.path) ?? []),
+			...this.dirtyTemplateLayoutPaths,
+		]);
 		for (const [layoutPath, layoutXmlObj] of this.layoutXmlMap.entries()) {
 			if (dirtyLayoutPaths.has(layoutPath)) {
 				this.zip.file(layoutPath, this.builder.build(layoutXmlObj));
 			}
 		}
-		const dirtyMasterPaths = new Set(options?.slideMasters?.map((master) => master.path) ?? []);
+		const dirtyMasterPaths = new Set([
+			...(options?.slideMasters?.map((master) => master.path) ?? []),
+			...this.dirtyTemplateMasterPaths,
+		]);
 		for (const [masterPath, masterXmlObj] of this.masterXmlMap.entries()) {
 			if (dirtyMasterPaths.has(masterPath)) {
 				this.zip.file(masterPath, this.builder.build(masterXmlObj));
@@ -297,7 +306,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			}
 		}
 
-		return await this.zip.generateAsync({ type: 'uint8array' });
+		const output = await this.zip.generateAsync({ type: 'uint8array' });
+		for (const [element, fingerprint] of this.pendingTemplateElementBaselines) {
+			this.templateElementBaselines.set(element, fingerprint);
+		}
+		this.pendingTemplateElementBaselines.clear();
+		return output;
 	}
 
 	/**

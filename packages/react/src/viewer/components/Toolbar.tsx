@@ -223,7 +223,12 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 						/>
 					)}
 
-					{sHome && <EditingSection onToggleFindReplace={p.onToggleFindReplace} />}
+					{sHome && (
+						<EditingSection
+							onToggleFindReplace={p.onToggleFindReplace}
+							onSelectAll={p.onSelectAll}
+						/>
+					)}
 
 					{sHome && (
 						<DrawingGroup
@@ -234,6 +239,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onAddShape={p.onAddShape}
 							onMoveLayer={p.onMoveLayer}
 							onMoveLayerToEdge={p.onMoveLayerToEdge}
+							onUpdateElementStyle={p.onUpdateElementStyle}
 						/>
 					)}
 
@@ -285,6 +291,10 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 
 					{sTrn && (
 						<TransitionsSection
+							canEdit={p.canEdit}
+							activeSlide={p.activeSlide}
+							onTransitionChange={p.onTransitionChange}
+							onApplyTransitionToAll={p.onApplyTransitionToAll}
 							isInspectorPaneOpen={p.isInspectorPaneOpen}
 							onToggleInspector={p.onToggleInspector}
 						/>

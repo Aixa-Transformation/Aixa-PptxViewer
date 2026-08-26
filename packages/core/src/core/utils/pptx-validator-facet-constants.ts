@@ -1,17 +1,25 @@
-export const POSITIVE_PERCENT = new Set([
+/** DrawingML ST_PositiveFixedPercentage values are limited to 0–100%. */
+export const POSITIVE_FIXED_PERCENT = new Set([
 	'alpha',
-	'alphaMod',
 	'tint',
 	'shade',
 	'sat',
-	'satMod',
 	'lum',
-	'lumMod',
 	'red',
-	'redMod',
 	'green',
-	'greenMod',
 	'blue',
+]);
+
+/**
+ * DrawingML ST_PositivePercentage values have a lower bound of zero but no
+ * 100% upper bound. Office themes commonly use modulation values above 100%.
+ */
+export const POSITIVE_PERCENT = new Set([
+	'alphaMod',
+	'satMod',
+	'lumMod',
+	'redMod',
+	'greenMod',
 	'blueMod',
 	'hueMod',
 ]);

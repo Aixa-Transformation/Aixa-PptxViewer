@@ -175,26 +175,32 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	}
 
 	protected getTemplateSpTree(slidePath: string, elementId: string): XmlObject | undefined {
-		const layoutPath = this.resolveLayoutPathForSlide(slidePath);
-		if (!layoutPath) {
+		const templatePartPath = this.getTemplatePartPath(slidePath, elementId);
+		if (!templatePartPath) {
 			return undefined;
 		}
 
 		if (elementId.startsWith('master-')) {
-			const masterPath = this.resolveMasterPathForLayout(layoutPath);
-			if (!masterPath) {
-				return undefined;
-			}
-			const masterXml = this.masterXmlMap.get(masterPath);
+			const masterXml = this.masterXmlMap.get(templatePartPath);
 			return (
 				(masterXml?.['p:sldMaster'] as XmlObject | undefined)?.['p:cSld'] as XmlObject | undefined
 			)?.['p:spTree'] as XmlObject | undefined;
 		}
 
-		const layoutXml = this.layoutXmlMap.get(layoutPath);
+		const layoutXml = this.layoutXmlMap.get(templatePartPath);
 		return (
 			(layoutXml?.['p:sldLayout'] as XmlObject | undefined)?.['p:cSld'] as XmlObject | undefined
 		)?.['p:spTree'] as XmlObject | undefined;
+	}
+
+	protected getTemplatePartPath(slidePath: string, elementId: string): string | undefined {
+		const layoutPath = this.resolveLayoutPathForSlide(slidePath);
+		if (!layoutPath) {
+			return undefined;
+		}
+		return elementId.startsWith('master-')
+			? this.resolveMasterPathForLayout(layoutPath)
+			: layoutPath;
 	}
 
 	protected isSameShapeIdentity(key: string, left: XmlObject, right: XmlObject): boolean {
@@ -228,8 +234,14 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	): XmlObject {
 		const key = this.getTreeBucketKeyForElementType(elementType);
 		const existingBucket = this.ensureArray(spTree[key]) as XmlObject[];
-		for (const candidate of existingBucket) {
+		for (let index = 0; index < existingBucket.length; index += 1) {
+			const candidate = existingBucket[index];
 			if (this.isSameShapeIdentity(key, candidate, shape)) {
+				if (candidate !== shape) {
+					existingBucket[index] = shape;
+					spTree[key] = existingBucket;
+					return shape;
+				}
 				return candidate;
 			}
 		}

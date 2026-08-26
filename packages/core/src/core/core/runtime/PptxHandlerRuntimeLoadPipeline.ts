@@ -286,6 +286,10 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.masterCache.clear();
 		this.layoutXmlMap.clear();
 		this.masterXmlMap.clear();
+		this.templateElementBaselines = new WeakMap();
+		this.dirtyTemplateLayoutPaths.clear();
+		this.dirtyTemplateMasterPaths.clear();
+		this.pendingTemplateElementBaselines.clear();
 		this.masterTxStylesCache.clear();
 		this.layoutPlaceholderDefaultsCache.clear();
 		this.masterPlaceholderDefaultsCache.clear();

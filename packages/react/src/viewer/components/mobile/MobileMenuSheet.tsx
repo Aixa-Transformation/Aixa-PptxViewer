@@ -237,6 +237,10 @@ function MobileSectionBody({
 			return (
 				<div className={wrap}>
 					<TransitionsSection
+						canEdit={p.canEdit}
+						activeSlide={p.activeSlide}
+						onTransitionChange={p.onTransitionChange}
+						onApplyTransitionToAll={p.onApplyTransitionToAll}
 						isInspectorPaneOpen={p.isInspectorPaneOpen}
 						onToggleInspector={p.onToggleInspector}
 					/>

@@ -37,11 +37,19 @@ async function facetIssues(themeBody: string, presentationBody = '') {
 describe('selected ECMA-376 simple-type facets', () => {
 	it('validates fixed and positive percentage ranges and lexical forms', async () => {
 		const issues = await facetIssues(
-			'<a:alpha val="-1"/><a:alphaMod val="100.1%"/><a:alphaOff val="-100001"/><a:lumOff val="25%"/>',
+			'<a:alpha val="-1"/><a:alpha val="100.1%"/><a:alphaMod val="-1"/><a:alphaOff val="-100001"/><a:lumOff val="25%"/>',
 		);
 
-		expect(issues).toHaveLength(3);
+		expect(issues).toHaveLength(4);
 		expect(issues.every((issue) => issue.message.includes('percentage'))).toBeTruthy();
+	});
+
+	it('accepts positive modulation percentages above 100 percent', async () => {
+		const issues = await facetIssues(
+			'<a:alphaMod val="105000"/><a:satMod val="170000"/><a:lumMod val="120%"/><a:hueMod val="250000"/>',
+		);
+
+		expect(issues).toHaveLength(0);
 	});
 
 	it('validates angle and coordinate facets including universal measures', async () => {

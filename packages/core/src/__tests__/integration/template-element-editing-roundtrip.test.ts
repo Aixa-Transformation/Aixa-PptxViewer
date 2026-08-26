@@ -123,6 +123,20 @@ function spOffsetX(sp: XmlObject | undefined): string | undefined {
 }
 
 describe('template element editing round-trip', () => {
+	it('preserves untouched layout and master XML byte-for-byte', async () => {
+		const buffer = await buildDeckWithTemplateShapes();
+		const sourceZip = await JSZip.loadAsync(buffer);
+		const originalLayoutXml = await sourceZip.file(LAYOUT_PATH)!.async('string');
+		const originalMasterXml = await sourceZip.file(MASTER_PATH)!.async('string');
+
+		const handler = new PptxHandler();
+		const data = await handler.load(buffer);
+		const saved = await handler.save(data.slides);
+
+		expect(await loadSavedPart(saved, LAYOUT_PATH)).toBe(originalLayoutXml);
+		expect(await loadSavedPart(saved, MASTER_PATH)).toBe(originalMasterXml);
+	});
+
 	it('exposes inherited master + layout shapes with prefixed ids', async () => {
 		const buffer = await buildDeckWithTemplateShapes();
 		const handler = new PptxHandler();
@@ -234,6 +248,21 @@ describe('template element editing round-trip', () => {
 		expect('text' in reLayoutEl ? reLayoutEl.text : undefined).toBe('LAYOUT-RELOADED');
 		expect(reLayoutEl.x).toBeCloseTo(555, 0);
 		expect(reLayoutEl.y).toBeCloseTo(666, 0);
+
+		// A second independent save must keep the template edit and must not
+		// duplicate the inherited object.
+		const resaved = await handler2.save(reloaded.slides);
+		const resavedLayoutXml = await loadSavedPart(resaved, LAYOUT_PATH);
+		const resavedLayoutTree = (
+			(parser.parse(resavedLayoutXml!)['p:sldLayout'] as XmlObject)['p:cSld'] as XmlObject
+		)['p:spTree'] as XmlObject;
+		expect(spText(findSpByName(resavedLayoutTree, 'LayoutLogo'))).toBe('LAYOUT-RELOADED');
+		const layoutShapes = Array.isArray(resavedLayoutTree['p:sp'])
+			? (resavedLayoutTree['p:sp'] as XmlObject[])
+			: [resavedLayoutTree['p:sp'] as XmlObject];
+		expect(
+			layoutShapes.filter((shape) => findSpByName({ 'p:sp': shape }, 'LayoutLogo')),
+		).toHaveLength(1);
 	});
 
 	it('does not disturb slide-authored content or unmutated template parts', async () => {
