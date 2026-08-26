@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import { MOBILE_BREAKPOINT, TABLET_BREAKPOINT, MIN_TOUCH_TARGET } from './useIsMobile';
+import {
+	MOBILE_BREAKPOINT,
+	TABLET_BREAKPOINT,
+	MIN_TOUCH_TARGET,
+	deriveViewerBreakpoints,
+	isMobileRuntimePlatform,
+} from './useIsMobile';
 
 // ---------------------------------------------------------------------------
 // Since useIsMobile is a React hook, we test the pure helper constants and
@@ -23,13 +29,8 @@ describe('useIsMobile constants', () => {
 });
 
 describe('breakpoint derivation logic', () => {
-	// Extracted logic from the hook for unit testing
-	function deriveBreakpoints(containerWidth: number) {
-		const isMobile = containerWidth < MOBILE_BREAKPOINT;
-		const isTablet = containerWidth >= MOBILE_BREAKPOINT && containerWidth < TABLET_BREAKPOINT;
-		const isDesktop = containerWidth >= TABLET_BREAKPOINT;
-		return { isMobile, isTablet, isDesktop };
-	}
+	const deriveBreakpoints = (viewportWidth: number) =>
+		deriveViewerBreakpoints(viewportWidth, 800, false);
 
 	it('classifies 320px as mobile', () => {
 		const result = deriveBreakpoints(320);
@@ -119,6 +120,58 @@ describe('breakpoint derivation logic', () => {
 			const trueCount = [result.isMobile, result.isTablet, result.isDesktop].filter(Boolean).length;
 			expect(trueCount).toBe(1);
 		}
+	});
+
+	it('keeps desktop chrome when an embedded host container becomes narrow', () => {
+		// Breakpoints intentionally use the 1440px browser viewport. A host
+		// sidebar may leave only 640px for the editor, but that container resize
+		// must not replace the desktop ribbon with the mobile toolbar.
+		const narrowContainerWidth = 640;
+		expect(narrowContainerWidth).toBeLessThan(MOBILE_BREAKPOINT);
+		expect(deriveViewerBreakpoints(1440, 900, false)).toStrictEqual({
+			isMobile: false,
+			isTablet: false,
+			isDesktop: true,
+		});
+	});
+
+	it('still selects mobile chrome for a real phone viewport', () => {
+		expect(deriveViewerBreakpoints(390, 844, true, true)).toStrictEqual({
+			isMobile: true,
+			isTablet: false,
+			isDesktop: false,
+		});
+	});
+
+	it('keeps desktop chrome in a narrow Windows desktop browser', () => {
+		expect(deriveViewerBreakpoints(700, 800, true, false)).toStrictEqual({
+			isMobile: false,
+			isTablet: false,
+			isDesktop: true,
+		});
+	});
+});
+
+describe('mobile runtime platform detection', () => {
+	it('does not treat a Windows touch desktop as mobile', () => {
+		expect(
+			isMobileRuntimePlatform(
+				'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+				'Win32',
+				10,
+			),
+		).toBeFalsy();
+	});
+
+	it('recognizes Android, iPhone, and modern iPadOS runtimes', () => {
+		expect(isMobileRuntimePlatform('Mozilla/5.0 (Linux; Android 15)', 'Linux armv8l', 5)).toBeTruthy();
+		expect(isMobileRuntimePlatform('Mozilla/5.0 (iPhone)', 'iPhone', 5)).toBeTruthy();
+		expect(isMobileRuntimePlatform('Mozilla/5.0 (Macintosh)', 'MacIntel', 5)).toBeTruthy();
+	});
+
+	it('prefers the user-agent client hint when it is available', () => {
+		expect(isMobileRuntimePlatform('Desktop UA', 'Win32', 0, true)).toBeTruthy();
+		expect(isMobileRuntimePlatform('Android', 'Linux armv8l', 5, false)).toBeFalsy();
 	});
 });
 

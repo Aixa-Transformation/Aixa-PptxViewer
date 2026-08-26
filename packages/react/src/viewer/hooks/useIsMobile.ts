@@ -11,14 +11,15 @@ import type { DeviceOrientation } from 'pptx-viewer-shared';
  * useIsMobile: Detects viewport size and touch capability for responsive layout.
  *
  * Provides reactive breakpoint flags (`isMobile`, `isTablet`, `isDesktop`) and
- * a `isTouchDevice` flag. Uses `ResizeObserver` on the container element (if
- * provided) or the viewport width as a fallback, so the detection adapts when
- * the viewer is embedded inside a narrow host container.
+ * a `isTouchDevice` flag. Chrome breakpoints follow the browser viewport, not
+ * the embedded viewer container. This keeps a desktop editor in desktop mode
+ * when host sidebars, inspectors, or split panes temporarily narrow the
+ * container. The container is still measured for canvas fitting.
  *
  * Also detects virtual keyboard visibility on mobile devices and reports
  * device orientation.
  *
- * Breakpoints (container-width based):
+ * Breakpoints (mobile-runtime viewport based):
  *   mobile:  < 768px
  *   tablet:  768px .. 1023px
  *   desktop: >= 1024px
@@ -78,8 +79,65 @@ export interface UseIsMobileResult {
 }
 
 export interface UseIsMobileInput {
-	/** Optional ref to the container element for container-based breakpoints. */
+	/** Optional ref to the container element used for canvas/layout measurements. */
 	containerRef?: React.RefObject<HTMLElement | null>;
+}
+
+/**
+ * Detect whether the browser is running on a phone/tablet rather than merely
+ * inside a narrow desktop window. Windows touch laptops commonly report touch
+ * support, so touch capability alone cannot safely select the mobile chrome.
+ */
+export function isMobileRuntimePlatform(
+	userAgent: string,
+	platform: string,
+	maxTouchPoints: number,
+	mobileHint?: boolean,
+): boolean {
+	if (typeof mobileHint === 'boolean') {
+		return mobileHint;
+	}
+	if (/Android|iPhone|iPad|iPod|Windows Phone|IEMobile|Opera Mini|Mobile/i.test(userAgent)) {
+		return true;
+	}
+	// iPadOS 13+ identifies itself as MacIntel but exposes multiple touch points.
+	return platform === 'MacIntel' && maxTouchPoints > 1;
+}
+
+/** Runtime wrapper kept separate so the platform rule remains unit-testable. */
+export function detectMobileRuntime(): boolean {
+	if (typeof navigator === 'undefined') {
+		return false;
+	}
+	const userAgentData = (
+		navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+	).userAgentData;
+	return isMobileRuntimePlatform(
+		navigator.userAgent,
+		navigator.platform,
+		navigator.maxTouchPoints,
+		userAgentData?.mobile,
+	);
+}
+
+/** Pure viewport classification shared with other viewer hooks and tests. */
+export function deriveViewerBreakpoints(
+	viewportWidth: number,
+	viewportHeight: number,
+	isTouchDevice: boolean,
+	isMobileRuntime = true,
+): Pick<UseIsMobileResult, 'isMobile' | 'isTablet' | 'isDesktop'> {
+	if (!isMobileRuntime) {
+		return { isMobile: false, isTablet: false, isDesktop: true };
+	}
+	const isMobile = isMobileViewport(viewportWidth, viewportHeight, isTouchDevice);
+	const isTablet =
+		!isMobile && viewportWidth >= MOBILE_BREAKPOINT && viewportWidth < TABLET_BREAKPOINT;
+	return {
+		isMobile,
+		isTablet,
+		isDesktop: !isMobile && !isTablet,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +169,15 @@ export function useIsMobile(input?: UseIsMobileInput): UseIsMobileResult {
 		}
 		return containerRef?.current?.clientHeight ?? window.innerHeight;
 	});
+	const [viewportSize, setViewportSize] = useState(() => ({
+		width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+		height: typeof window !== 'undefined' ? window.innerHeight : 768,
+	}));
+	// Device class is stable for the lifetime of a browser tab. Keeping it
+	// separate from touch capability prevents Windows touch PCs from receiving
+	// the mobile bottom-sheet UI when DevTools or a split view narrows the page.
+	// eslint-disable-next-line react/hook-use-state
+	const [isMobileRuntime] = useState(detectMobileRuntime);
 
 	// Orientation
 	const [orientation, setOrientation] = useState<DeviceOrientation>(detectOrientation);
@@ -151,9 +218,10 @@ export function useIsMobile(input?: UseIsMobileInput): UseIsMobileResult {
 		};
 		attach();
 
-		// Fallback: also track window resize for when the container is not
-		// provided (containerRef is undefined/null).
+		// Browser viewport controls desktop/tablet/mobile chrome. Container
+		// resizes must not switch a desktop host into the mobile ribbon.
 		const handleResize = () => {
+			setViewportSize({ width: window.innerWidth, height: window.innerHeight });
 			if (!containerRef?.current) {
 				setContainerWidth(window.innerWidth);
 				setContainerHeight(window.innerHeight);
@@ -214,13 +282,15 @@ export function useIsMobile(input?: UseIsMobileInput): UseIsMobileResult {
 		return () => window.removeEventListener('resize', handleResize);
 	}, [isTouchDevice, initialViewportHeight]);
 
-	// Derived breakpoint flags. A narrow viewport is mobile; so is a short
+	// Derived breakpoint flags. A narrow browser viewport is mobile; so is a short
 	// touch viewport below the tablet width (a landscape phone), which would
 	// otherwise be mis-classified as a tablet and shown the desktop ribbon.
-	const isMobile = isMobileViewport(containerWidth, containerHeight, isTouchDevice);
-	const isTablet =
-		!isMobile && containerWidth >= MOBILE_BREAKPOINT && containerWidth < TABLET_BREAKPOINT;
-	const isDesktop = !isMobile && containerWidth >= TABLET_BREAKPOINT;
+	const { isMobile, isTablet, isDesktop } = deriveViewerBreakpoints(
+		viewportSize.width,
+		viewportSize.height,
+		isTouchDevice,
+		isMobileRuntime,
+	);
 
 	return {
 		isMobile,
