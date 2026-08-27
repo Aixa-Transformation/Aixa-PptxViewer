@@ -1,4 +1,5 @@
 import { XmlObject, PlaceholderDefaults, PlaceholderTextLevelStyle } from '../../types';
+import { inheritCustomGeometryCommandOrder } from '../../geometry/custom-geometry-command-order';
 import { xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeSummaryZoomParsing';
 import type { PlaceholderInfo, PlaceholderLookupContext } from './PptxHandlerRuntimeTypes';
@@ -87,6 +88,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// to prevent stack-overflow DoS. 64 is well above any plausible
 		// placeholder property nesting (typical depth < 10).
 		const MAX_MERGE_DEPTH = 64;
+		const preserveCommandOrder = (
+			merged: XmlObject,
+			...sources: Array<XmlObject | undefined>
+		): XmlObject => {
+			inheritCustomGeometryCommandOrder(merged, ...sources);
+			return merged;
+		};
 		if (depth > MAX_MERGE_DEPTH) {
 			// Beyond cap: shallow-merge override onto base without further
 			// recursion, preserving as much data as possible while bounding
@@ -95,22 +103,22 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				return undefined;
 			}
 			if (!base) {
-				return override ? { ...override } : undefined;
+				return override ? preserveCommandOrder({ ...override }, override) : undefined;
 			}
 			if (!override) {
-				return { ...base };
+				return preserveCommandOrder({ ...base }, base);
 			}
-			return { ...base, ...override };
+			return preserveCommandOrder({ ...base, ...override }, override, base);
 		}
 
 		if (!base && !override) {
 			return undefined;
 		}
 		if (!base) {
-			return override ? { ...override } : undefined;
+			return override ? preserveCommandOrder({ ...override }, override) : undefined;
 		}
 		if (!override) {
-			return { ...base };
+			return preserveCommandOrder({ ...base }, base);
 		}
 
 		const merged: XmlObject = { ...base };
@@ -142,7 +150,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				merged[key] = value;
 			}
 		}
-		return merged;
+		return preserveCommandOrder(merged, override, base);
 	}
 
 	protected readFlipState(xfrm: XmlObject | undefined): {
