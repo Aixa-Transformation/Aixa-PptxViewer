@@ -112,15 +112,15 @@ export function StatusBar({
 					: t('pptx.statusBar.noSlides')}
 			</span>
 
-			<div className='w-px h-3 bg-border/40 mx-1 max-md:hidden' />
+			<div className='w-px h-3 bg-border/40 mx-1 ' />
 
-			<span className='shrink-0 max-md:hidden text-[10px]'>{t('pptx.statusBar.language')}</span>
+			<span className='shrink-0  text-[10px]'>{t('pptx.statusBar.language')}</span>
 
-			<div className='w-px h-3 bg-border/60 mx-1 max-md:hidden' />
+			<div className='w-px h-3 bg-border/60 mx-1 ' />
 
 			<span
 				className={cn(
-					'shrink-0 max-md:hidden',
+					'shrink-0 ',
 					autosaveStatus?.state === 'error'
 						? 'text-red-400'
 						: autosaveStatus?.state === 'saving'
@@ -148,7 +148,7 @@ export function StatusBar({
 					aria-label={t('pptx.statusBar.toggleNotes')}
 				>
 					<LuStickyNote className='w-3 h-3' />
-					<span className='max-md:hidden'>{t('pptx.notes.title')}</span>
+					<span className=''>{t('pptx.notes.title')}</span>
 				</button>
 			)}
 

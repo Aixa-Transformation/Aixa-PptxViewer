@@ -30,6 +30,7 @@ import { BUILT_IN_THEMES, ThemeGallery } from './toolbar/ThemeGallery';
 // ---------------------------------------------------------------------------
 
 export interface ViewerSidePanelsProps {
+	isMobile: boolean;
 	hiddenActions?: readonly ToolbarActionId[];
 	mode: ViewerMode;
 	canEdit: boolean;
@@ -64,6 +65,7 @@ export interface ViewerSidePanelsProps {
 
 export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 	const {
+		isMobile,
 		mode,
 		canEdit,
 		activeSlide,
@@ -95,10 +97,14 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 
 	return (
 		<>
-			{(mode === 'edit' || mode === 'master') && s.isInspectorPaneOpen && onResizeRight && (
+			{!isMobile &&
+				(mode === 'edit' || mode === 'master') &&
+				s.isInspectorPaneOpen &&
+				onResizeRight && (
 				<ResizeHandle direction='horizontal' onResize={onResizeRight} />
 			)}
 			<ViewerInspector
+				isMobile={isMobile}
 				hiddenActions={hiddenActions}
 				isOpen={(mode === 'edit' || mode === 'master') && s.isInspectorPaneOpen}
 				canEdit={canEdit}
@@ -150,7 +156,7 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 			{s.isSelectionPaneOpen && (mode === 'edit' || mode === 'master') && (
 				<MobileDismissSheet
 					onClose={() => s.setIsSelectionPaneOpen(false)}
-					className='absolute right-0 top-0 z-30 h-full max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-auto max-md:max-h-[50vh] max-md:rounded-t-xl max-md:border-t max-md:border-border max-md:shadow-2xl max-md:bg-background'
+					className='absolute right-0 top-0 z-30 h-full          '
 				>
 					<SelectionPane
 						slides={slides}
@@ -170,7 +176,7 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 			{s.isThemeEditorOpen && mode === 'edit' && (
 				<MobileDismissSheet
 					onClose={() => s.setIsThemeEditorOpen(false)}
-					className='absolute right-0 top-0 z-30 h-full w-72 overflow-y-auto border-l border-border bg-card p-2.5 shadow-xl max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:w-full max-md:h-auto max-md:max-h-[60vh] max-md:rounded-t-xl max-md:border-t max-md:border-l-0'
+					className='absolute right-0 top-0 z-30 h-full w-72 overflow-y-auto border-l border-border bg-card p-2.5 shadow-xl         '
 				>
 					<ThemeEditorPanel
 						theme={s.theme}

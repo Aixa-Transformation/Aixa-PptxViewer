@@ -381,11 +381,27 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			// Ink loaded from real files always carries the original
 			// `<aink:ink>`-bearing graphicFrame on `rawXml`. We preserve it
 			// verbatim because re-encoding it would lose
-			// pressure, tool metadata, and per-stroke style. Only SDK-created ink
-			// elements (no rawXml) use the editable aink writer, which also carries
-			// a custGeom fallback for consumers that do not support Office 2010 ink.
+			// pressure, tool metadata, and per-stroke style. New Draw-tab ink has
+			// no rawXml and is authored as a standards-shaped p:contentPart plus a
+			// related InkML part. Keeping it out of an inline graphicFrame avoids
+			// PowerPoint's repair/corruption path for newly drawn strokes.
 			if (!shape) {
-				shape = this.createInkGraphicFrameXml(el as InkPptxElement);
+				const contentPart = this.createContentPartInkFromInkElement(
+					el as InkPptxElement,
+					ctx,
+				);
+				if (contentPart) {
+					collectors.contentParts.push(contentPart);
+				} else {
+					this.compatibilityService.reportWarning({
+						code: 'SAVE_ELEMENT_SKIPPED',
+						message: `Ink element '${el.id}' contains no valid stroke and was skipped during save.`,
+						scope: 'save',
+						slideId: ctx.slide.id,
+						elementId: el.id,
+					});
+				}
+				return;
 			}
 		}
 		if (el.type === 'zoom') {

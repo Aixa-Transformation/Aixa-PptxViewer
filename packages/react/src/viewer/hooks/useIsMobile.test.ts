@@ -4,6 +4,7 @@ import {
 	MOBILE_BREAKPOINT,
 	TABLET_BREAKPOINT,
 	MIN_TOUCH_TARGET,
+	DESKTOP_ONLY_VIEWER_LAYOUT,
 	deriveViewerBreakpoints,
 	isMobileRuntimePlatform,
 } from './useIsMobile';
@@ -25,6 +26,10 @@ describe('useIsMobile constants', () => {
 
 	it('mIN_TOUCH_TARGET is 44px per WCAG guidelines', () => {
 		expect(MIN_TOUCH_TARGET).toBe(44);
+	});
+
+	it('keeps the full desktop editor layout enabled on every device', () => {
+		expect(DESKTOP_ONLY_VIEWER_LAYOUT).toBe(true);
 	});
 });
 

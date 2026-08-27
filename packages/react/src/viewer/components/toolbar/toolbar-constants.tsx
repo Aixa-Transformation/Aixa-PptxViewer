@@ -39,15 +39,15 @@ import type { DrawingTool, ViewerMode } from '../../types';
 /* Style tokens: touch-friendly variants use min-h/min-w of 44px (WCAG 2.5.8)
  * via the `touch:` variant which maps to `@media (pointer: coarse)`.
  * Since Tailwind CSS 4 doesn't include a built-in `touch:` variant, we use
- * responsive `max-md:` prefixes as a proxy (mobile viewports are touch). */
+ * touch feedback remains available even though the editor layout is desktop-only. */
 export const _b =
-	'inline-flex items-center justify-center px-2.5 py-1.5 max-md:min-h-[44px] max-md:min-w-[44px] active:scale-95 active:opacity-80';
+	'inline-flex items-center justify-center px-2.5 py-1.5   active:scale-95 active:opacity-80';
 export const gB = `${_b} border-r border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed`;
 export const gL = `${_b} hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed`;
 export const grp = 'inline-flex items-center rounded bg-muted text-xs overflow-hidden';
 export const pill =
-	'inline-flex items-center gap-1.5 px-2.5 py-1.5 max-md:min-h-[44px] rounded bg-muted hover:bg-accent text-xs transition-colors active:scale-95 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed';
-export const sep = <div className='w-px self-stretch bg-border/40 mx-1 max-md:hidden' />;
+	'inline-flex items-center gap-1.5 px-2.5 py-1.5  rounded bg-muted hover:bg-accent text-xs transition-colors active:scale-95 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed';
+export const sep = <div className='w-px self-stretch bg-border/40 mx-1 ' />;
 export const ic = 'w-4 h-4';
 export const ics = 'w-3.5 h-3.5';
 

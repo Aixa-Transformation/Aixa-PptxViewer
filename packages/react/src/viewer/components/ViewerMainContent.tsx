@@ -108,7 +108,7 @@ export function ViewerMainContent(props: ViewerMainContentProps) {
 		history,
 		comments,
 		zoom,
-		isMobile: _isMobile = false,
+		isMobile = false,
 		isTouchDevice: _isTouchDevice = false,
 		onEndPresentation,
 		leftPanelWidth,
@@ -298,6 +298,7 @@ export function ViewerMainContent(props: ViewerMainContentProps) {
 				)}
 
 				<ViewerSidePanels
+					isMobile={isMobile}
 					hiddenActions={hiddenActions}
 					mode={mode}
 					canEdit={canEdit}

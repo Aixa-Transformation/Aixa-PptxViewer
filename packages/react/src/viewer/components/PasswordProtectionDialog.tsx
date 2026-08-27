@@ -145,7 +145,7 @@ export function PasswordProtectionDialog({
 					aria-modal='true'
 					aria-labelledby='pptx-password-title'
 					tabIndex={-1}
-					className='pointer-events-auto w-[420px] overscroll-contain rounded-xl border border-border bg-popover backdrop-blur-xl shadow-2xl max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:w-full max-md:max-h-[88dvh] max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:border-x-0 max-md:border-b-0 max-md:pb-[max(env(safe-area-inset-bottom),0px)]'
+					className='pointer-events-auto w-[420px] overscroll-contain rounded-xl border border-border bg-popover backdrop-blur-xl shadow-2xl            '
 				>
 					{/* Header */}
 					<div className='flex items-center justify-between px-5 py-4 border-b border-border/60'>

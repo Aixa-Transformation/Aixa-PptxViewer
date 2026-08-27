@@ -46,7 +46,7 @@ export function InspectorPaneHeader({
 						onClick={() => onSetActiveTab(key)}
 					>
 						<Icon className='w-3.5 h-3.5' />
-						<span className='hidden sm:inline'>{label}</span>
+						<span className='inline'>{label}</span>
 					</button>
 				))}
 			</div>

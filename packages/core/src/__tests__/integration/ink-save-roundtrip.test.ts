@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 
 import { PresentationBuilder } from '../../core/builders/sdk/PresentationBuilder';
 import { PptxHandler } from '../../core/PptxHandler';
-import type { InkPptxElement } from '../../core/types/elements';
+import type { ContentPartPptxElement, InkPptxElement } from '../../core/types/elements';
+import { validatePptx } from '../../core/utils/pptx-validator';
 
 /**
  * Phase 3 Stream A — CH-H2 / CH-H3 regression test.
@@ -20,7 +21,7 @@ import type { InkPptxElement } from '../../core/types/elements';
  * accident; on a dirty save it was rewritten as a plain freeform shape.
  */
 describe('ink graphicFrame round-trip (CH-H2 / CH-H3)', () => {
-	it('authors editable ink as aink with a fallback and reloads its strokes', async () => {
+	it('authors Draw-tab ink as a content part with InkML and reloads its strokes', async () => {
 		const { handler, data, createSlide } = await PresentationBuilder.create();
 		const ink: InkPptxElement = {
 			id: 'authored-ink',
@@ -38,21 +39,49 @@ describe('ink graphicFrame round-trip (CH-H2 / CH-H3)', () => {
 		const saved = await handler.save(data.slides);
 		const zip = await JSZip.loadAsync(saved);
 		const slideXml = await zip.file('ppt/slides/slide1.xml')!.async('string');
-		expect(slideXml).toContain('drawing/2010/ink');
-		expect(slideXml).toContain(
-			'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"',
-		);
-		expect(slideXml).toContain('<aink:trace');
+		const relsXml = await zip.file('ppt/slides/_rels/slide1.xml.rels')!.async('string');
+		const contentTypesXml = await zip.file('[Content_Types].xml')!.async('string');
+		const inkPath = Object.keys(zip.files).find((path) => /^ppt\/ink\/ink\d+\.xml$/u.test(path));
+		expect(inkPath).toBeTruthy();
+		const inkXml = await zip.file(inkPath!)!.async('string');
+
+		expect(slideXml).toContain('<mc:Choice Requires="a14"');
+		expect(slideXml).toContain('<p:contentPart r:id="');
 		expect(slideXml).toContain('<mc:Fallback>');
+		expect(slideXml).not.toContain('drawing/2010/ink');
+		expect(relsXml).toContain(
+			'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml"',
+		);
+		expect(contentTypesXml).toContain(
+			`PartName="/${inkPath}" ContentType="application/inkml+xml"`,
+		);
+		expect(inkXml).toContain('<ink:trace');
+		expect(inkXml).toContain('value="#112233"');
+		expect(inkXml).toContain('value="#AABBCC"');
+		const validation = await validatePptx(saved.buffer as ArrayBuffer);
+		expect(validation.valid, validation.issues.map((issue) => issue.message).join('\n')).toBeTruthy();
 
 		const reloader = new PptxHandler();
 		const reloaded = await reloader.load(saved.buffer as ArrayBuffer);
 		const reloadedInk = reloaded.slides[0].elements.find(
-			(element): element is InkPptxElement => element.type === 'ink',
+			(element): element is ContentPartPptxElement => element.type === 'contentPart',
 		);
-		expect(reloadedInk?.inkPaths).toStrictEqual(['M0,0 L50,25 L100,10', 'M10,90 L80,40']);
-		expect(reloadedInk?.inkColors).toStrictEqual(ink.inkColors);
-		expect(reloadedInk?.inkWidths).toStrictEqual(ink.inkWidths);
+		expect(reloadedInk?.inkStrokes?.map((stroke) => stroke.path)).toStrictEqual([
+			'M0,0 L50,25 L100,10',
+			'M10,90 L80,40',
+		]);
+		expect(reloadedInk?.inkStrokes?.map((stroke) => stroke.color)).toStrictEqual(ink.inkColors);
+		expect(reloadedInk?.inkStrokes?.map((stroke) => stroke.width)).toStrictEqual(ink.inkWidths);
+
+		// A second editor save must remain healthy; relationship and fallback
+		// reconstruction bugs often surface only after the first reload.
+		reloaded.slides[0].isDirty = true;
+		const secondSaved = await reloader.save(reloaded.slides);
+		const secondValidation = await validatePptx(secondSaved.buffer as ArrayBuffer);
+		expect(
+			secondValidation.valid,
+			secondValidation.issues.map((issue) => issue.message).join('\n'),
+		).toBeTruthy();
 	});
 
 	it('ink element loaded from rawXml survives a dirty round-trip via passthrough', async () => {

@@ -30,6 +30,7 @@ export type InspectorTab = 'elements' | 'properties' | 'comments';
 // ---------------------------------------------------------------------------
 
 export interface InspectorPaneProps {
+	isMobile: boolean;
 	hiddenActions?: readonly ToolbarActionId[];
 	isOpen: boolean;
 	canEdit: boolean;

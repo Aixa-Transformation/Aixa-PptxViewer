@@ -222,7 +222,7 @@ export function TransitionsSection(p: TransitionsSectionProps): React.ReactEleme
 						}
 						disabled={editsDisabled}
 						className={cn(
-							'flex-shrink-0 px-2 py-1 max-md:min-h-[44px] rounded border text-[11px] leading-tight transition-colors',
+							'flex-shrink-0 px-2 py-1  rounded border text-[11px] leading-tight transition-colors',
 							selected === preset.value
 								? 'border-primary bg-primary/10 text-primary font-medium'
 								: 'border-border bg-muted hover:bg-accent text-foreground',

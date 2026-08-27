@@ -87,7 +87,7 @@ export function ThemeGallery({
 
 					{/* Content */}
 					<div className='flex-1 overflow-auto p-6'>
-						<div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4'>
+						<div className='grid grid-cols-5 gap-4'>
 							{BUILT_IN_THEMES.map((theme) => (
 								<ThemeThumbnail
 									key={theme.id}

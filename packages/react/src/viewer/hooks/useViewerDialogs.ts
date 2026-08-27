@@ -7,7 +7,11 @@ import type { PptxPresentationProperties } from 'pptx-viewer-core';
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 import { useDialogCustomShows } from './useDialogCustomShows';
-import { deriveViewerBreakpoints, detectMobileRuntime } from './useIsMobile';
+import {
+	DESKTOP_ONLY_VIEWER_LAYOUT,
+	deriveViewerBreakpoints,
+	detectMobileRuntime,
+} from './useIsMobile';
 import type { UseViewerDialogsInput, ViewerDialogsResult } from './viewer-dialog-types';
 
 /** Coarse-pointer (touch) check, mirroring useIsMobile. */
@@ -70,7 +74,7 @@ export function useViewerDialogs(input: UseViewerDialogsInput): ViewerDialogsRes
 	// Host sidebars and split panes can narrow that box on desktop and must not
 	// make the viewer jump to its mobile toolbar.
 	const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
-		typeof window !== 'undefined'
+		!DESKTOP_ONLY_VIEWER_LAYOUT && typeof window !== 'undefined'
 			? deriveViewerBreakpoints(
 					window.innerWidth,
 					window.innerHeight,
@@ -83,13 +87,13 @@ export function useViewerDialogs(input: UseViewerDialogsInput): ViewerDialogsRes
 	useEffect(() => {
 		const handleWindow = () =>
 			setIsNarrowViewport(
-				deriveViewerBreakpoints(
-					window.innerWidth,
-					window.innerHeight,
-					viewportIsTouch(),
-					detectMobileRuntime(),
-				)
-					.isMobile,
+				!DESKTOP_ONLY_VIEWER_LAYOUT &&
+					deriveViewerBreakpoints(
+						window.innerWidth,
+						window.innerHeight,
+						viewportIsTouch(),
+						detectMobileRuntime(),
+					).isMobile,
 			);
 
 		window.addEventListener('resize', handleWindow);

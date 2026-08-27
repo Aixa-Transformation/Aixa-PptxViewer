@@ -2,8 +2,6 @@ import type { PptxSlide, TextSegment } from 'pptx-viewer-core';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useSheetDismissDrag } from '../hooks/useSheetDismissDrag';
-import { cn } from '../utils';
 import { renderRichNotesSegments } from './notes/notes-html';
 import { EXPANDED_MAX_HEIGHT } from './notes/notes-utils';
 import { NotesPrintDialog } from './notes/NotesPrintDialog';
@@ -79,50 +77,13 @@ export const SlideNotesPanel: React.FC<SlideNotesPanelProps> = ({
 		? t('pptx.notes.slideN', { n: activeSlide.slideNumber })
 		: t('pptx.notes.noSlide');
 
-	// Swipe-down-to-dismiss for the mobile bottom-sheet presentation. The grab
-	// region and backdrop are `md:hidden`, so `dragY` only ever moves on mobile;
-	// on desktop this stays an inline flow strip below the canvas.
-	const { dragY, handlers: dragHandlers } = useSheetDismissDrag(onToggle);
-
 	return (
 		<>
-			{/* Mobile backdrop: tap to dismiss the bottom sheet. */}
-			{isExpanded && (
-				<button
-					type='button'
-					aria-label={t('common.close')}
-					onClick={onToggle}
-					className='md:hidden fixed inset-0 z-20 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-150'
-				/>
-			)}
-			<div
-				className={cn(
-					'flex flex-col border-t border-border/60 bg-background select-none',
-					// On mobile, hide the entire notes strip when collapsed: the
-					// MobileBottomBar's Notes button is the entry point instead.
-					!isExpanded && 'max-md:hidden',
-					// On mobile, expanded notes render as a swipe-dismissable bottom
-					// sheet (mirrors the Format/Comments sheets), not an inline strip.
-					'max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-30 max-md:max-h-[75dvh] max-md:rounded-t-2xl max-md:border max-md:border-border max-md:shadow-2xl max-md:pb-[max(env(safe-area-inset-bottom),0px)]',
-				)}
-				style={dragY > 0 ? { transform: `translateY(${dragY}px)`, transition: 'none' } : undefined}
-			>
-				{/* Mobile drag handle: swipe down past the threshold to dismiss. */}
-				{isExpanded && (
-					<div
-						className='md:hidden flex items-center justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none'
-						onPointerDown={dragHandlers.onPointerDown}
-						onPointerMove={dragHandlers.onPointerMove}
-						onPointerUp={dragHandlers.onPointerUp}
-						onPointerCancel={dragHandlers.onPointerCancel}
-					>
-						<div className='h-1 w-10 rounded-full bg-muted-foreground/40' />
-					</div>
-				)}
+			<div className='flex flex-col border-t border-border/60 bg-background select-none'>
 				<button
 					type='button'
 					onClick={onToggle}
-					className='flex items-center gap-1.5 px-3 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors w-full text-left shrink-0 max-md:hidden'
+					className='flex items-center gap-1.5 px-3 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors w-full text-left shrink-0'
 					aria-expanded={isExpanded}
 					aria-controls='slide-notes-content'
 				>

@@ -7,7 +7,7 @@ import {
 } from '../../core/builders/sdk/ElementFactory';
 import { PresentationBuilder } from '../../core/builders/sdk/PresentationBuilder';
 import { PptxHandler } from '../../core/PptxHandler';
-import type { PptxElement, PptxSlide } from '../../core/types';
+import type { InkPptxElement, PptxElement, PptxSlide, ShapePptxElement } from '../../core/types';
 import { validatePptx } from '../../core/utils/pptx-validator';
 
 const TINY_PNG =
@@ -355,5 +355,92 @@ describe('toolbar mutations remain save-safe', () => {
 		expect(roundTrip.slides[0].notes).toContain('Updated presenter notes');
 		expect(roundTrip.slides[0].hidden).toBeFalsy();
 		expect(roundTrip.slides[0].comments?.[0].text).toBe('Resolved after review.');
+	});
+
+	it('survives Draw pen, highlighter, freeform sketch and eraser operations', async () => {
+		const created = await PresentationBuilder.create();
+		const baseSlide = created
+			.createSlide('Blank')
+			.addText('Original slide content', { x: 40, y: 35, width: 300, height: 50 })
+			.build();
+		let roundTrip = await saveAndReload(created.handler, [baseSlide]);
+
+		const pen: InkPptxElement = {
+			id: 'draw-pen',
+			type: 'ink',
+			x: 100,
+			y: 120,
+			width: 180,
+			height: 80,
+			inkPaths: ['M 0 5 L 35 25 L 80 10 L 140 65'],
+			inkColors: ['#111111'],
+			inkWidths: [3],
+			inkOpacities: [1],
+			inkPointPressures: [[0.2, 0.5, 0.8, 1]],
+			inkTool: 'pen',
+		};
+		const highlighter: InkPptxElement = {
+			id: 'draw-highlighter',
+			type: 'ink',
+			x: 90,
+			y: 235,
+			width: 240,
+			height: 30,
+			inkPaths: ['M 0 15 L 220 15'],
+			inkColors: ['#FFF200'],
+			inkWidths: [14],
+			inkOpacities: [0.4],
+			inkTool: 'highlighter',
+		};
+		const freeform: ShapePptxElement = {
+			id: 'draw-freeform',
+			type: 'shape',
+			x: 380,
+			y: 115,
+			width: 190,
+			height: 150,
+			shapeType: 'custom',
+			shapeStyle: {
+				fillMode: 'none',
+				strokeColor: '#C62828',
+				strokeWidth: 4,
+			},
+			customGeometryPaths: [{
+				width: 19000,
+				height: 15000,
+				fillMode: 'none',
+				segments: [
+					{ type: 'moveTo', pt: { x: 0, y: 3000 } },
+					{ type: 'lineTo', pt: { x: 5000, y: 0 } },
+					{ type: 'lineTo', pt: { x: 12000, y: 12000 } },
+					{ type: 'lineTo', pt: { x: 19000, y: 4000 } },
+				],
+			}],
+		};
+
+		roundTrip.slides[0].elements.push(pen, highlighter, freeform);
+		roundTrip.slides[0].isDirty = true;
+		roundTrip = await saveAndReload(roundTrip.handler, roundTrip.slides);
+
+		expect(roundTrip.slides[0].elements.filter((element) => element.type === 'contentPart')).toHaveLength(2);
+		expect(roundTrip.slides[0].elements.some((element) => element.type === 'shape' && element.shapeType === 'custom')).toBeTruthy();
+		const zip = await JSZip.loadAsync(roundTrip.bytes);
+		const slideXml = await zip.file('ppt/slides/slide1.xml')!.async('string');
+		expect(slideXml).toContain('<p:contentPart');
+		expect(slideXml).toContain('<a:custGeom>');
+		expect(slideXml).not.toContain('drawing/2010/ink');
+		expect(slideXml).not.toMatch(/<a:prstGeom\b[^>]*\bprst="custom"/u);
+
+		// Simulate the Draw eraser: remove one complete ink element and verify
+		// that its relationship/InkML part disappears without harming the deck.
+		const firstInk = roundTrip.slides[0].elements.find((element) => element.type === 'contentPart');
+		expect(firstInk).toBeDefined();
+		roundTrip.slides[0].elements = roundTrip.slides[0].elements.filter(
+			(element) => element.id !== firstInk?.id,
+		);
+		roundTrip.slides[0].isDirty = true;
+		roundTrip = await saveAndReload(roundTrip.handler, roundTrip.slides);
+		expect(roundTrip.slides[0].elements.filter((element) => element.type === 'contentPart')).toHaveLength(1);
+		expect(firstTextElement(roundTrip.slides[0]).text).toBe('Original slide content');
 	});
 });

@@ -42,6 +42,12 @@ export type { DeviceOrientation };
 /** Minimum touch target size (px) per WCAG accessibility guidelines. */
 export const MIN_TOUCH_TARGET = 44;
 
+/**
+ * Product layout policy: keep the full desktop editor chrome on every device.
+ * Touch capability is still detected so canvas interactions continue to work.
+ */
+export const DESKTOP_ONLY_VIEWER_LAYOUT = true;
+
 // ---------------------------------------------------------------------------
 // Touch capability detection
 // ---------------------------------------------------------------------------
