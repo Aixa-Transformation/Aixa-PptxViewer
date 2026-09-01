@@ -1,5 +1,6 @@
 import { hasShapeProperties, hasTextProperties } from 'pptx-viewer-core';
 import type { PptxElement, PptxSlide, ShapeStyle, TextStyle } from 'pptx-viewer-core';
+import { applyParagraphListType } from 'pptx-viewer-shared';
 /**
  * useElementOperations: Element update callbacks for PowerPointViewer.
  *
@@ -38,6 +39,8 @@ export interface UseElementOperationsInput {
 	setSelectedElementId: React.Dispatch<React.SetStateAction<string | null>>;
 	setSelectedElementIds: React.Dispatch<React.SetStateAction<string[]>>;
 	setInlineEditingElementId: React.Dispatch<React.SetStateAction<string | null>>;
+	inlineEditingElementId: string | null;
+	setInlineEditingText: React.Dispatch<React.SetStateAction<string>>;
 	setContextMenuState: React.Dispatch<
 		React.SetStateAction<import('../types').ElementContextMenuState | null>
 	>;
@@ -84,6 +87,8 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 		setSelectedElementId,
 		setSelectedElementIds,
 		setInlineEditingElementId,
+		inlineEditingElementId,
+		setInlineEditingText,
 		setContextMenuState,
 	} = input;
 
@@ -174,6 +179,27 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 
 			// Check if there's an active text selection in the inline editor
 			const inlineSel = getInlineEditorSelection(selectedElement.textSegments);
+			if (updates.listType !== undefined) {
+				const listResult = applyParagraphListType({
+					text: selectedElement.text,
+					textSegments: selectedElement.textSegments,
+					fallbackStyle: selectedElement.textStyle,
+					listType: updates.listType,
+					selection: inlineSel,
+				});
+				if (listResult.selection) {
+					setPendingSelectionRestore(listResult.selection);
+				}
+				if (inlineEditingElementId === selectedElement.id) {
+					setInlineEditingText(listResult.text);
+				}
+				updateSelectedElement({
+					text: listResult.text,
+					textSegments: listResult.textSegments,
+					textStyle: { ...selectedElement.textStyle, listType: updates.listType },
+				} as Partial<PptxElement>);
+				return;
+			}
 			if (inlineSel && selectedElement.textSegments) {
 				// Apply formatting only to the selected segment range
 				const { newSegments, newSelection } = applyStyleToSelectedSegments(
@@ -200,7 +226,7 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 				textSegments: newSegments,
 			} as Partial<PptxElement>);
 		},
-		[selectedElement, updateSelectedElement],
+		[inlineEditingElementId, selectedElement, setInlineEditingText, updateSelectedElement],
 	);
 
 	const updateSelectedTextCase = useCallback(

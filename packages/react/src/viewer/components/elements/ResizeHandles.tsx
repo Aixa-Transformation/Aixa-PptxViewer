@@ -170,6 +170,7 @@ export function ResizeHandles({
 				<button
 					key={handle}
 					type='button'
+					data-resize-handle={handle}
 					className={cn('absolute z-10 group', posClass, cursor)}
 					style={peStyle}
 					onPointerDown={(e) => handleResizePointer(e, handle)}
@@ -190,6 +191,7 @@ export function ResizeHandles({
 				<button
 					key={handle}
 					type='button'
+					data-resize-handle={handle}
 					className={cn('absolute z-10', posClass, cursor)}
 					style={peStyle}
 					onPointerDown={(e) => handleResizePointer(e, handle)}
@@ -212,6 +214,7 @@ export function ResizeHandles({
 			{onRotate ? (
 				<button
 					type='button'
+					data-rotate-handle='true'
 					aria-label={t('pptx.resizeHandles.rotateAria')}
 					data-pptx-compact
 					className='absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-5 h-5   rounded-full border border-white bg-primary text-white shadow cursor-grab active:cursor-grabbing'

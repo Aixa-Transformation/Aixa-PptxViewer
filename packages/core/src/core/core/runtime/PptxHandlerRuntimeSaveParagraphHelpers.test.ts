@@ -26,6 +26,13 @@ describe('isSyntheticBulletMarkerSegment', () => {
 				bulletInfo: { autoNumType: 'arabicPeriod' },
 			}),
 		).toBeTruthy();
+		expect(
+			isSyntheticBulletMarkerSegment({
+				text: '',
+				style: { listType: 'none' },
+				bulletInfo: { none: true },
+			}),
+		).toBeTruthy();
 	});
 
 	it('keeps editor-authored item text that carries bullet metadata', () => {

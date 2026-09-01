@@ -1,5 +1,6 @@
 import { hasTextProperties } from 'pptx-viewer-core';
 import type { PptxElement, TextStyle } from 'pptx-viewer-core';
+import { getElementListType } from 'pptx-viewer-shared';
 import React, { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -92,6 +93,9 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 	// Enable formatting for text elements AND table cells
 	const canFormat = isTextEl || isTable;
 	const effectiveTs = getEffectiveTextStyle(p.selectedElement, p.tableEditorState);
+	const effectiveListType = isTextEl
+		? getElementListType(p.selectedElement)
+		: (effectiveTs?.listType ?? 'none');
 
 	const currentColor =
 		isTextEl && p.selectedElement && hasTextProperties(p.selectedElement)
@@ -555,7 +559,7 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 									return;
 								}
 								p.onUpdateTextStyle({
-									listType: effectiveTs?.listType === 'bullet' ? 'none' : 'bullet',
+									listType: effectiveListType === 'bullet' ? 'none' : 'bullet',
 								});
 							}}
 							className={gB}
@@ -572,7 +576,7 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 									return;
 								}
 								p.onUpdateTextStyle({
-									listType: effectiveTs?.listType === 'numbered' ? 'none' : 'numbered',
+									listType: effectiveListType === 'numbered' ? 'none' : 'numbered',
 								});
 							}}
 							className={gL}

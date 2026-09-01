@@ -24,6 +24,8 @@ export interface ConnectorRendererProps {
 
 export interface ElementRendererProps {
 	element: PptxElement;
+	/** Slide height in canvas coordinates. */
+	slideHeight?: number;
 	activeSlide?: PptxSlide | undefined;
 	isSelected: boolean;
 	isInlineEditing: boolean;
@@ -53,7 +55,11 @@ export interface ElementRendererProps {
 	/** Commit a new rotation (degrees) when the on-canvas rotate handle is dragged. */
 	onRotate?: (elementId: string, rotationDeg: number) => void;
 	onInlineEditChange: (text: string) => void;
-	onInlineEditCommit: () => void;
+	onInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	onInlineEditCancel: () => void;
 	onTableCellSelect?: (cell: TableCellEditorState | null, elementId: string) => void;
 	onCommitCellEdit?: (elementId: string, rowIndex: number, colIndex: number, text: string) => void;

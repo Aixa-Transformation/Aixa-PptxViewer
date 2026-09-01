@@ -91,7 +91,11 @@ export interface SlideCanvasProps {
 	/** Commit a new rotation (degrees) when the on-canvas rotate handle is dragged. */
 	onRotate?: (elementId: string, rotationDeg: number) => void;
 	onInlineEditChange: (text: string) => void;
-	onInlineEditCommit: () => void;
+	onInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	onInlineEditCancel: () => void;
 	onTableCellSelect: (
 		cell: Omit<TableCellEditorState, 'elementId'> | null,

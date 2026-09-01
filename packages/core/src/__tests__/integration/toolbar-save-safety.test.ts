@@ -74,6 +74,82 @@ function firstTextElement(slide: PptxSlide): PptxElement & Record<string, any> {
 }
 
 describe('toolbar mutations remain save-safe', () => {
+	it('survives bullet, numbered, and list-removal edits across two independent saves', async () => {
+		const created = await PresentationBuilder.create();
+		const slide = created
+			.createSlide('Blank')
+			.addText('Bullet one\nBullet two', { x: 40, y: 35, width: 320, height: 100 })
+			.addText('Number one\nNumber two\nNumber three', {
+				x: 40,
+				y: 160,
+				width: 320,
+				height: 130,
+			})
+			.addText('No longer a list', { x: 40, y: 315, width: 320, height: 60 })
+			.build();
+		const textElements = slide.elements.filter((element) => 'textSegments' in element) as Array<
+			PptxElement & Record<string, any>
+		>;
+		expect(textElements).toHaveLength(3);
+
+		textElements[0].text = '• Bullet one\n• Bullet two';
+		textElements[0].textStyle = { ...(textElements[0].textStyle ?? {}), listType: 'bullet' };
+		textElements[0].textSegments = [
+			{ text: '• ', style: { listType: 'bullet' }, bulletInfo: { char: '•' } },
+			{ text: 'Bullet one', style: {} },
+			{ text: '\n', style: {}, isParagraphBreak: true },
+			{ text: '• ', style: { listType: 'bullet' }, bulletInfo: { char: '•' } },
+			{ text: 'Bullet two', style: {} },
+		];
+
+		textElements[1].text = '1. Number one\n2. Number two\n3. Number three';
+		textElements[1].textStyle = { ...(textElements[1].textStyle ?? {}), listType: 'numbered' };
+		textElements[1].textSegments = ['Number one', 'Number two', 'Number three'].flatMap(
+			(item, paragraphIndex) => [
+				{
+					text: `${paragraphIndex + 1}. `,
+					style: { listType: 'numbered' },
+					bulletInfo: {
+						autoNumType: 'arabicPeriod',
+						...(paragraphIndex === 0 ? { autoNumStartAt: 1 } : {}),
+						paragraphIndex,
+					},
+				},
+				{ text: item, style: {} },
+				...(paragraphIndex < 2
+					? [{ text: '\n', style: {}, isParagraphBreak: true as const }]
+					: []),
+			],
+		);
+
+		textElements[2].text = 'No longer a list';
+		textElements[2].textStyle = { ...(textElements[2].textStyle ?? {}), listType: 'none' };
+		textElements[2].textSegments = [
+			{ text: '', style: { listType: 'none' }, bulletInfo: { none: true } },
+			{ text: 'No longer a list', style: {} },
+		];
+		slide.isDirty = true;
+
+		const roundTrip = await saveAndReload(created.handler, [slide]);
+		const reloadedText = roundTrip.slides[0].elements.filter(
+			(element) => 'textSegments' in element,
+		) as Array<PptxElement & Record<string, any>>;
+		expect(
+			reloadedText[0].textSegments.filter((segment: any) => segment.bulletInfo?.char),
+		).toHaveLength(2);
+		expect(
+			reloadedText[1].textSegments.filter((segment: any) => segment.bulletInfo?.autoNumType),
+		).toHaveLength(3);
+		expect(reloadedText[2].textSegments[0].bulletInfo).toMatchObject({ none: true });
+
+		const zip = await JSZip.loadAsync(roundTrip.bytes);
+		const slideXml = await zip.file('ppt/slides/slide1.xml')!.async('string');
+		expect(slideXml).toContain('<a:buChar');
+		expect(slideXml).toContain('<a:buAutoNum');
+		expect(slideXml).toContain('<a:buNone');
+		expect(slideXml).not.toMatch(/<a:t>\s*(?:•|[123]\.)\s/u);
+	});
+
 	it('survives formatting, insert, arrange, animation and slide CRUD saves', async () => {
 		const created = await PresentationBuilder.create();
 		const slides = [

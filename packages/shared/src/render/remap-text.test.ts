@@ -1,7 +1,7 @@
 import type { TextSegment, TextStyle } from 'pptx-viewer-core';
 import { describe, it, expect } from 'vitest';
 
-import { remapTextToSegments } from './remap-text';
+import { remapParagraphIndents, remapTextToSegments } from './remap-text';
 
 function seg(text: string, style: TextStyle = {}): TextSegment {
 	return { text, style };
@@ -115,6 +115,179 @@ describe('remapTextToSegments', () => {
 			const original: TextSegment[] = [{ text: 'Item 1', style: { bold: true }, bulletInfo }];
 			const result = remapTextToSegments('New item', original, {});
 			expect(result[0].bulletInfo).toStrictEqual(bulletInfo);
+		});
+
+		it('preserves a structural bullet marker without duplicating its visible text', () => {
+			const original: TextSegment[] = [
+				{
+					text: '• ',
+					style: { listType: 'bullet' },
+					bulletInfo: { char: '•' },
+					paragraphLevel: 1,
+					paragraphProperties: { align: 'left' },
+				},
+				seg('Original', { bold: true }),
+			];
+			const result = remapTextToSegments('• Updated', original, {});
+
+			expect(result.map((segment) => segment.text).join('')).toBe('• Updated');
+			expect(result.filter((segment) => segment.bulletInfo?.char === '•')).toHaveLength(1);
+			expect(result[0]).toMatchObject({
+				text: '• ',
+				bulletInfo: { char: '•' },
+				paragraphLevel: 1,
+				paragraphProperties: { align: 'left' },
+			});
+			expect(result[1]).toMatchObject({ text: 'Updated', style: { bold: true } });
+			expect(result[1].paragraphProperties).toBeUndefined();
+		});
+
+		it('continues bullets when Enter creates a new paragraph', () => {
+			const original: TextSegment[] = [
+				{ text: '• ', style: {}, bulletInfo: { char: '•' } },
+				seg('First'),
+			];
+			const result = remapTextToSegments('• First\nSecond', original, {});
+
+			expect(result.map((segment) => segment.text).join('')).toBe('• First\n• Second');
+			expect(result.filter((segment) => segment.bulletInfo?.char === '•')).toHaveLength(2);
+			expect(result.filter((segment) => segment.isParagraphBreak)).toHaveLength(1);
+		});
+
+		it('continues the last bullet with exactly one paragraph break', () => {
+			const original: TextSegment[] = [
+				{ text: '\u2022 ', style: {}, bulletInfo: { char: '\u2022' } },
+				seg('First'),
+				breakSeg(),
+				{ text: '\u2022 ', style: {}, bulletInfo: { char: '\u2022' } },
+				seg('Second'),
+			];
+			const result = remapTextToSegments('\u2022 First\n\u2022 Second\n\u2022 Third', original, {});
+
+			expect(result.map((segment) => segment.text).join('')).toBe(
+				'\u2022 First\n\u2022 Second\n\u2022 Third',
+			);
+			expect(result.filter((segment) => segment.bulletInfo?.char === '\u2022')).toHaveLength(3);
+			expect(result.filter((segment) => segment.isParagraphBreak)).toHaveLength(2);
+		});
+
+		it('continues and renumbers numbered paragraphs after inline editing', () => {
+			const original: TextSegment[] = [
+				{
+					text: '1. ',
+					style: {},
+					bulletInfo: {
+						autoNumType: 'arabicPeriod',
+						autoNumStartAt: 1,
+						paragraphIndex: 0,
+					},
+				},
+				seg('First'),
+			];
+			const result = remapTextToSegments('1. First\nSecond\nThird', original, {});
+			const markers = result.filter((segment) => segment.bulletInfo?.autoNumType);
+
+			expect(markers.map((segment) => segment.text)).toStrictEqual(['1. ', '2. ', '3. ']);
+			expect(markers.map((segment) => segment.bulletInfo?.paragraphIndex)).toStrictEqual([0, 1, 2]);
+			expect(result.map((segment) => segment.text).join('')).toBe('1. First\n2. Second\n3. Third');
+		});
+
+		it('renumbers and preserves paragraph alignment after inserting item two', () => {
+			const original: TextSegment[] = [
+				{
+					text: '1. ',
+					style: {},
+					bulletInfo: {
+						autoNumType: 'arabicPeriod',
+						autoNumStartAt: 1,
+						paragraphIndex: 0,
+					},
+				},
+				seg('First'),
+				seg(''),
+				breakSeg(),
+				{
+					text: '2. ',
+					style: {},
+					bulletInfo: {
+						autoNumType: 'arabicPeriod',
+						autoNumStartAt: 1,
+						paragraphIndex: 1,
+					},
+				},
+				seg(''),
+				seg('Second'),
+				seg(''),
+				breakSeg(),
+				{
+					text: '3. ',
+					style: {},
+					bulletInfo: {
+						autoNumType: 'arabicPeriod',
+						autoNumStartAt: 1,
+						paragraphIndex: 2,
+					},
+				},
+				seg(''),
+				seg('Third'),
+			];
+			const edited = '1. First\n2. Inserted item\n3. Second\n4. Third';
+			const result = remapTextToSegments(edited, original, {});
+			const markers = result.filter((segment) => segment.bulletInfo?.autoNumType);
+
+			expect(result.map((segment) => segment.text).join('')).toBe(edited);
+			expect(markers.map((segment) => segment.text)).toStrictEqual([
+				'1. ',
+				'2. ',
+				'3. ',
+				'4. ',
+			]);
+			expect(markers.map((segment) => segment.bulletInfo?.paragraphIndex)).toStrictEqual([
+				0, 1, 2, 3,
+			]);
+
+			const indents = remapParagraphIndents(edited, original, [
+				{ marginLeft: 10, indent: -10 },
+				{ marginLeft: 20, indent: -20 },
+				{ marginLeft: 30, indent: -30 },
+			]);
+			expect(indents).toStrictEqual([
+				{ marginLeft: 10, indent: -10 },
+				{ marginLeft: 10, indent: -10 },
+				{ marginLeft: 20, indent: -20 },
+				{ marginLeft: 30, indent: -30 },
+			]);
+		});
+
+		it('continues numbering from a custom PowerPoint start value', () => {
+			const original: TextSegment[] = [
+				{
+					text: '5. ',
+					style: {},
+					bulletInfo: {
+						autoNumType: 'arabicPeriod',
+						autoNumStartAt: 5,
+						paragraphIndex: 0,
+					},
+				},
+				seg('Fifth'),
+			];
+			const result = remapTextToSegments('5. Fifth\nSixth', original, {});
+
+			expect(
+				result.filter((segment) => segment.bulletInfo?.autoNumType).map((segment) => segment.text),
+			).toStrictEqual(['5. ', '6. ']);
+		});
+
+		it('preserves an explicit no-list marker needed for a:buNone', () => {
+			const original: TextSegment[] = [
+				{ text: '', style: { listType: 'none' }, bulletInfo: { none: true } },
+				seg('Plain'),
+			];
+			const result = remapTextToSegments('Changed', original, {});
+
+			expect(result[0]).toMatchObject({ text: '', bulletInfo: { none: true } });
+			expect(result.map((segment) => segment.text).join('')).toBe('Changed');
 		});
 	});
 

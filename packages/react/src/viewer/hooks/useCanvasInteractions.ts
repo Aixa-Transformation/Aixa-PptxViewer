@@ -12,7 +12,8 @@ import type {
 	ElementContextMenuState,
 } from '../types';
 import type { ViewerMode } from '../types-core';
-import { remapTextToSegments } from '../utils/remap-text';
+import { buildNormalAutoFitTextStyle } from '../components/elements/inline-text-autofit';
+import { remapParagraphIndents, remapTextToSegments } from '../utils/remap-text';
 import type { CanvasInteractionHandlers } from './canvas-interaction-types';
 import type { EditorHistoryResult } from './useEditorHistory';
 import type { ElementOperations } from './useElementOperations';
@@ -99,7 +100,11 @@ export function useCanvasInteractions(
 	// on the same click that selected the element (which would hide resize handles).
 	const justSelectedRef = useRef(false);
 
-	const handleInlineEditCommit = () => {
+	const handleInlineEditCommit = (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => {
 		const editId = inlineEditingElementId;
 		if (!editId) {
 			return;
@@ -107,13 +112,26 @@ export function useCanvasInteractions(
 		const el = elementLookup.get(editId);
 		if (el && hasTextProperties(el)) {
 			// AutoCorrect runs on the typed text before it becomes segments.
+			const sourceText = committedTextOverride ?? inlineEditingText;
 			const committedText = transformCommittedText
-				? transformCommittedText(inlineEditingText)
-				: inlineEditingText;
+				? transformCommittedText(sourceText)
+				: sourceText;
 			const newSegments = remapTextToSegments(committedText, el.textSegments, el.textStyle);
+			const newParagraphIndents = remapParagraphIndents(
+				committedText,
+				el.textSegments,
+				el.paragraphIndents,
+			);
+			let autoFitTextStyle: TextStyle | undefined;
+			if (typeof autoFitFontScale === 'number' && Number.isFinite(autoFitFontScale)) {
+				autoFitTextStyle = buildNormalAutoFitTextStyle(el.textStyle, autoFitFontScale);
+			}
 			ops.updateElementById(editId, {
 				text: committedText,
 				textSegments: newSegments,
+				...(newParagraphIndents ? { paragraphIndents: newParagraphIndents } : {}),
+				...(autoFitHeight !== undefined ? { height: autoFitHeight } : {}),
+				...(autoFitTextStyle ? { textStyle: autoFitTextStyle } : {}),
 			} as Partial<PptxElement>);
 			history.markDirty();
 		}

@@ -36,7 +36,11 @@ export interface RenderBodyOptions {
 	/** Optional rich read-only dispatcher for children inside a grouped element. */
 	renderGroupChild?: (child: PptxElement, index: number) => React.ReactNode;
 	onEditChange: (t: string) => void;
-	onCommit: () => void;
+	onCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	onCancel: () => void;
 	onCellSel?: (c: TableCellEditorState | null) => void;
 	onCellCommit?: (rowIndex: number, colIndex: number, text: string) => void;
@@ -61,6 +65,8 @@ export interface RenderBodyOptions {
 	tableStyleContext?: TableStyleContext;
 	/** Callback for inline formatting (Ctrl+B/I/U while editing). */
 	onFormatText?: (updates: Partial<TextStyle>) => void;
+	/** Slide height in canvas coordinates, used to cap inline shape auto-fit. */
+	slideHeight?: number;
 	/** Whether inline SmartArt node editing is permitted for this element. */
 	canEditSmartArt?: boolean;
 	/** Commit a SmartArt node text edit (scoped to this element). */

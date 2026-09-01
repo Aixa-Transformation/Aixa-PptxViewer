@@ -272,6 +272,7 @@ export function SlideCanvas({
 						<ElementRenderer
 							key={`tpl-${element.id}`}
 							element={element}
+							slideHeight={canvasSize.height}
 							activeSlide={activeSlide}
 							isSelected={selectedElementIdSet.has(element.id)}
 							isInlineEditing={inlineEditingElementId === element.id}
@@ -288,8 +289,7 @@ export function SlideCanvas({
 							showResizeHandles={
 								isEditableCanvas &&
 								selectedElementIdSet.has(element.id) &&
-								selectedElementIdSet.size <= 1 &&
-								!inlineEditingElementId
+								selectedElementIdSet.size <= 1
 							}
 							renderInk={false}
 							renderGroups
@@ -323,6 +323,7 @@ export function SlideCanvas({
 						<ElementRenderer
 							key={element.id}
 							element={element}
+							slideHeight={canvasSize.height}
 							activeSlide={activeSlide}
 							isSelected={selectedElementIdSet.has(element.id)}
 							isInlineEditing={inlineEditingElementId === element.id}
@@ -344,8 +345,7 @@ export function SlideCanvas({
 							showResizeHandles={
 								isEditableCanvas &&
 								selectedElementIdSet.has(element.id) &&
-								selectedElementIdSet.size <= 1 &&
-								!inlineEditingElementId
+								selectedElementIdSet.size <= 1
 							}
 							renderInk
 							renderGroups

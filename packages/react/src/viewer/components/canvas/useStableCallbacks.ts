@@ -16,7 +16,11 @@ interface ParentCallbacks {
 	onAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
 	onRotate?: (elementId: string, rotationDeg: number) => void;
 	onInlineEditChange: (text: string) => void;
-	onInlineEditCommit: () => void;
+	onInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	onInlineEditCancel: () => void;
 	onTableCellSelect: (
 		cell: Omit<TableCellEditorState, 'elementId'> | null,
@@ -39,7 +43,11 @@ export interface StableCallbacks {
 	stableAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
 	stableRotate: (elementId: string, rotationDeg: number) => void;
 	stableInlineEditChange: (text: string) => void;
-	stableInlineEditCommit: () => void;
+	stableInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	stableInlineEditCancel: () => void;
 	stableTableCellSelect: (cell: TableCellEditorState | null, elementId: string) => void;
 	stableCommitCellEdit: (
@@ -83,7 +91,19 @@ export function useStableCallbacks(callbacks: ParentCallbacks): StableCallbacks 
 		[],
 	);
 
-	const stableInlineEditCommit = useCallback(() => cbRef.current.onInlineEditCommit(), []);
+	const stableInlineEditCommit = useCallback(
+		(
+			autoFitHeight?: number,
+			committedTextOverride?: string,
+			autoFitFontScale?: number,
+		) =>
+			cbRef.current.onInlineEditCommit(
+				autoFitHeight,
+				committedTextOverride,
+				autoFitFontScale,
+			),
+		[],
+	);
 
 	const stableInlineEditCancel = useCallback(() => cbRef.current.onInlineEditCancel(), []);
 

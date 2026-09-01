@@ -388,7 +388,12 @@ export function renderTextSegments(
 		}
 
 		return (
-			<div key={`${element.id}-para-${paraIndex}`} data-pptx-paragraph style={paraStyle}>
+			<div
+				key={`${element.id}-para-${paraIndex}`}
+				data-pptx-paragraph
+				data-pptx-list-seg-idx={hasBullet ? firstSeg.globalIndex : undefined}
+				style={paraStyle}
+			>
 				{wrappedContent}
 			</div>
 		);
