@@ -176,6 +176,16 @@ describe('InlineTextEditor list Enter', () => {
 		expect(continuedContent.textContent).toBe('\u200B');
 		expect(onEditChange).not.toHaveBeenCalled();
 
+		// Keep the caret anchor until the browser has inserted the first real
+		// character. Removing it during beforeinput leaves an empty flex child,
+		// which Chromium repairs with a block/BR and puts the text below the bullet.
+		act(() => {
+			continuedContent.dispatchEvent(
+				new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText' }),
+			);
+		});
+		expect(continuedContent.textContent).toBe('\u200B');
+
 		// The first real input removes the inline caret placeholder without
 		// introducing a line break or saving the zero-width character.
 		continuedContent.firstChild!.textContent = '\u200BContinued bullet text';
@@ -281,6 +291,98 @@ describe('InlineTextEditor list Enter', () => {
 		});
 		expect(onCommit).toHaveBeenCalledWith(undefined, editor.innerText, expect.any(Number));
 		expect(onCommit.mock.calls[0][2]).toBeCloseTo(18 / 20, 4);
+
+		act(() => root.unmount());
+	});
+
+	it('does not shrink for the temporary horizontal width of a list marker row', () => {
+		const onCommit = vi.fn();
+		const root = createRoot(host);
+		const element = {
+			...bulletElement(),
+			height: 100,
+			textStyle: { fontSize: 20, autoFit: false, autoFitMode: 'none' as const },
+		} as PptxElement;
+
+		act(() => {
+			root.render(
+				<div data-pptx-element='true' style={{ height: element.height }}>
+					<InlineTextEditor
+						initialText={element.text ?? ''}
+						spellCheck={false}
+						textStyle={{ fontSize: 20 }}
+						textStyleRaw={element.textStyle}
+						layoutStyle={{}}
+						element={element}
+						onCommit={onCommit}
+						onCancel={vi.fn()}
+						onEditChange={vi.fn()}
+					/>
+				</div>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 80 });
+		Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+		// Reproduce Chromium temporarily counting the fixed bullet-marker column
+		// on top of the flexible content column.
+		Object.defineProperty(editor, 'scrollWidth', { configurable: true, value: 440 });
+		Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 400 });
+
+		act(() => {
+			editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		});
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
+
+		act(() => {
+			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+		});
+		expect(onCommit.mock.calls[0][2]).toBe(1);
+
+		act(() => root.unmount());
+	});
+
+	it('restores a stale miniature PowerPoint autofit scale when the text has room', () => {
+		const onCommit = vi.fn();
+		const root = createRoot(host);
+		const element = {
+			...bulletElement(),
+			height: 200,
+			textStyle: {
+				fontSize: 20,
+				autoFit: true,
+				autoFitMode: 'normal' as const,
+				autoFitFontScale: 0.5,
+			},
+		} as PptxElement;
+
+		act(() => {
+			root.render(
+				<div data-pptx-element='true' style={{ height: element.height }}>
+					<InlineTextEditor
+						initialText={element.text ?? ''}
+						spellCheck={false}
+						// View mode has already applied the imported 50% normAutofit.
+						textStyle={{ fontSize: 10 }}
+						textStyleRaw={element.textStyle}
+						layoutStyle={{}}
+						element={element}
+						onCommit={onCommit}
+						onCancel={vi.fn()}
+						onEditChange={vi.fn()}
+					/>
+				</div>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
+
+		act(() => {
+			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+		});
+		expect(onCommit.mock.calls[0][2]).toBe(1);
 
 		act(() => root.unmount());
 	});

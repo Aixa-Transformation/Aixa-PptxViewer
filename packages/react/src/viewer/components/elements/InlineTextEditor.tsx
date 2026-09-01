@@ -179,10 +179,14 @@ export function InlineTextEditor({
 		};
 		const fits = (scale: number): boolean => {
 			applyScale(scale);
-			return (
-				editor.scrollHeight <= editor.clientHeight + 1 &&
-				editor.scrollWidth <= editor.clientWidth + 1
-			);
+			// The editor always wraps long words (`overflow-wrap: break-word`).
+			// During an inserted list item Chromium can nevertheless report the
+			// fixed marker column in scrollWidth in addition to the flexible text
+			// column. Treating that transient hanging-indent width as real overflow
+			// shrinks the font by another step on every keystroke even though every
+			// rendered line fits. PowerPoint's Shrink text on overflow is driven by
+			// whether the wrapped text body exceeds the fixed box height here.
+			return editor.scrollHeight <= editor.clientHeight + 1;
 		};
 		const fittedScale = normalizeInlineTextAutoFitScale(
 			findLargestFittingInlineTextScale({
@@ -561,10 +565,13 @@ export function InlineTextEditor({
 		}
 	}, []);
 
-	// Initial fit only. Live edits are measured synchronously by `onInput`;
-	// rerunning after every parent render caused a second scale pass per key.
+	// Initial fit only. Re-evaluate all the way back to 100% when editing starts:
+	// an older session may have saved a miniature normAutofit scale for content
+	// that has since been shortened. PowerPoint restores the largest size that
+	// fits instead of treating that stale scale as a permanent upper bound. Live
+	// edits remain limited to one two-point step by `handleInput`.
 	useLayoutEffect(() => {
-		measureAndScaleText();
+		measureAndScaleText(true);
 	}, [measureAndScaleText]);
 
 	// After a formatting update, React re-renders the contentEditable children
@@ -635,7 +642,6 @@ export function InlineTextEditor({
 			onPointerDown={(e) => e.stopPropagation()}
 			onMouseDown={(e) => e.stopPropagation()}
 			onClick={(e) => e.stopPropagation()}
-			onBeforeInput={removeListContinuationCaretPlaceholder}
 			onInput={handleInput}
 			onBlur={() => {
 				removeEmptyPendingListParagraphs();
