@@ -51,6 +51,8 @@ export interface ViewerSidePanelsProps {
 	panelWidth?: number;
 	/** Callback to resize the right panel. */
 	onResizeRight?: (delta: number) => void;
+	/** Reports an operation that changes the appearance of every slide. */
+	onDeckWideChange?: (change: { type: 'background' }) => void;
 	/** AI assistant config (present only when the host passes the `ai` prop). */
 	aiConfig?: PptxAiConfig;
 	/** Bridge exposing the live deck to the AI core. */
@@ -83,6 +85,7 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 		history,
 		panelWidth,
 		onResizeRight,
+		onDeckWideChange,
 		aiConfig,
 		aiBridge,
 		aiPanel,
@@ -129,6 +132,10 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 				onMoveLayerToEdge={manipulation.handleMoveLayerToEdge}
 				onDeleteElement={manipulation.handleDelete}
 				onUpdateSlide={propertyHandlers.handleUpdateSlide}
+				onUpdateAllSlidesBackground={(updates) => {
+					propertyHandlers.handleUpdateAllSlidesBackground(updates);
+					onDeckWideChange?.({ type: 'background' });
+				}}
 				presentationProperties={s.presentationProperties}
 				onUpdatePresentationProperties={propertyHandlers.handleUpdatePresentationProperties}
 				editTemplateMode={s.editTemplateMode}

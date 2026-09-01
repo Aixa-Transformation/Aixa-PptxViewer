@@ -38,6 +38,7 @@ export class PptxSlideBackgroundBuilder implements IPptxSlideBackgroundBuilder {
 			typeof init.slide.backgroundImage === 'string' ? init.slide.backgroundImage : '';
 		const hasBackgroundImage = rawBackgroundImage.length > 0;
 		const hasDataUrlBackgroundImage = hasBackgroundImage && rawBackgroundImage.startsWith('data:');
+		const explicitlyClearedBackgroundImage = init.slide.backgroundImage === '';
 		const hasBackgroundGradient =
 			typeof init.slide.backgroundGradient === 'string' && init.slide.backgroundGradient.length > 0;
 
@@ -65,7 +66,7 @@ export class PptxSlideBackgroundBuilder implements IPptxSlideBackgroundBuilder {
 		const existingBg = cSld['p:bg'] as XmlObject | undefined;
 		const existingBgPr = existingBg?.['p:bgPr'] as XmlObject | undefined;
 		const existingHasBlipFill = existingBgPr?.['a:blipFill'] !== undefined;
-		if (!hasDataUrlBackgroundImage && existingHasBlipFill) {
+		if (!hasDataUrlBackgroundImage && !explicitlyClearedBackgroundImage && existingHasBlipFill) {
 			// OOXML CT_CommonSlideData requires child order: bg, spTree, ...
 			// Reorder cSld so p:bg comes first while preserving the raw node.
 			this.reorderCSldBgFirst(cSld, existingBg!);

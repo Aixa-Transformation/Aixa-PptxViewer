@@ -15,12 +15,37 @@ interface SlideBackgroundPanelProps {
 	activeSlide: PptxSlide;
 	canEdit: boolean;
 	onUpdateSlide: (patch: Partial<PptxSlide>) => void;
+	onUpdateAllSlidesBackground?: (patch: SlideBackgroundPatch) => void;
 
 	/** Template-mode fields (only needed for master/layout editing) */
 	editTemplateMode?: boolean;
 	slideMasters?: PptxSlideMaster[];
 	onSetTemplateBackground?: (path: string, color: string) => void;
 	onGetTemplateBackgroundColor?: (path: string) => string | undefined;
+}
+
+export type SlideBackgroundPatch = Pick<
+	PptxSlide,
+	'backgroundColor' | 'backgroundImage' | 'backgroundGradient'
+>;
+
+export function getDeckBackgroundPatch(activeSlide: PptxSlide): SlideBackgroundPatch {
+	return {
+		backgroundColor: activeSlide.backgroundColor,
+		// An empty string is an intentional image removal. It lets the PPTX
+		// writer distinguish a requested solid/gradient override from an
+		// inherited colour that should preserve an existing image fill.
+		backgroundImage: activeSlide.backgroundImage || '',
+		backgroundGradient: activeSlide.backgroundGradient,
+	};
+}
+
+export function getMasterBackgroundTargetPaths(
+	slideMasters: ReadonlyArray<Pick<PptxSlideMaster, 'path'>> | undefined,
+	applyToAllMasters: boolean,
+): string[] {
+	const paths = (slideMasters ?? []).map(({ path }) => path).filter(Boolean);
+	return applyToAllMasters ? paths : paths.slice(0, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -31,6 +56,7 @@ export function SlideBackgroundPanel({
 	activeSlide,
 	canEdit,
 	onUpdateSlide,
+	onUpdateAllSlidesBackground,
 	editTemplateMode,
 	slideMasters,
 	onSetTemplateBackground,
@@ -38,6 +64,32 @@ export function SlideBackgroundPanel({
 }: SlideBackgroundPanelProps): React.ReactElement {
 	const { t } = useTranslation();
 	const bgImageInputRef = useRef<HTMLInputElement>(null);
+	const canApplyColorToMasters =
+		canEdit && Boolean(activeSlide.backgroundColor) && Boolean(onSetTemplateBackground);
+	const hasBackground = Boolean(
+		activeSlide.backgroundColor || activeSlide.backgroundImage || activeSlide.backgroundGradient,
+	);
+	const canApplyBackgroundToAllSlides =
+		canEdit && hasBackground && Boolean(onUpdateAllSlidesBackground);
+	const applyColorToMasters = (applyToAllMasters: boolean) => {
+		if (!activeSlide.backgroundColor || !onSetTemplateBackground) {
+			return;
+		}
+		for (const path of getMasterBackgroundTargetPaths(slideMasters, applyToAllMasters)) {
+			onSetTemplateBackground(path, activeSlide.backgroundColor);
+		}
+	};
+	const applyBackgroundToAllMastersAndSlides = () => {
+		if (!onUpdateAllSlidesBackground || !hasBackground) {
+			return;
+		}
+		onUpdateAllSlidesBackground(getDeckBackgroundPatch(activeSlide));
+		if (activeSlide.backgroundColor && onSetTemplateBackground) {
+			for (const path of getMasterBackgroundTargetPaths(slideMasters, true)) {
+				onSetTemplateBackground(path, activeSlide.backgroundColor);
+			}
+		}
+	};
 
 	return (
 		<>
@@ -134,6 +186,30 @@ export function SlideBackgroundPanel({
 						{t('pptx.slideBackground.clearBackground')}
 					</button>
 				)}
+
+				<div className='grid grid-cols-2 gap-1.5'>
+					<button
+						type='button'
+						className={BTN}
+						disabled={
+							!canApplyColorToMasters ||
+							getMasterBackgroundTargetPaths(slideMasters, false).length === 0
+						}
+						title='Applies the current solid background colour to the first slide master'
+						onClick={() => applyColorToMasters(false)}
+					>
+						{t('pptx.documentProperties.applyFirstMaster')}
+					</button>
+					<button
+						type='button'
+						className={BTN}
+						disabled={!canApplyBackgroundToAllSlides}
+						title='Applies the current background colour or image to every slide and updates every slide master colour'
+						onClick={applyBackgroundToAllMastersAndSlides}
+					>
+						{t('pptx.documentProperties.applyAllMasters')}
+					</button>
+				</div>
 			</div>
 
 			{/* Master / Layout Background (template mode) */}

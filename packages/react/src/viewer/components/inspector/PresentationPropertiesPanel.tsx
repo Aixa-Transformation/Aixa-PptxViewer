@@ -10,6 +10,7 @@ import type {
 	PptxHandoutMaster,
 	PptxTagCollection,
 } from 'pptx-viewer-core';
+import { isActionHidden, type ToolbarActionId } from 'pptx-viewer-shared';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -59,6 +60,27 @@ interface PresentationPropertiesPanelProps {
 
 	tagCollections: PptxTagCollection[] | undefined;
 	onUpdateTagCollections: ((tags: PptxTagCollection[]) => void) | undefined;
+	hiddenActions?: readonly ToolbarActionId[];
+}
+
+export interface PresentationPropertiesVisibility {
+	notesHandout: boolean;
+	document: boolean;
+	tags: boolean;
+	slideSize: boolean;
+	slideSummary: boolean;
+}
+
+export function getPresentationPropertiesVisibility(
+	hiddenActions?: readonly ToolbarActionId[],
+): PresentationPropertiesVisibility {
+	return {
+		notesHandout: !isActionHidden('inspectorNotesHandout', hiddenActions),
+		document: !isActionHidden('inspectorDocument', hiddenActions),
+		tags: !isActionHidden('inspectorTags', hiddenActions),
+		slideSize: !isActionHidden('inspectorSlideSize', hiddenActions),
+		slideSummary: !isActionHidden('inspectorSlideSummary', hiddenActions),
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -89,8 +111,10 @@ export function PresentationPropertiesPanel({
 	onUpdateCustomProperties,
 	tagCollections,
 	onUpdateTagCollections,
+	hiddenActions,
 }: PresentationPropertiesPanelProps): React.ReactElement {
 	const { t } = useTranslation();
+	const visibility = getPresentationPropertiesVisibility(hiddenActions);
 
 	return (
 		<div className='space-y-3'>
@@ -118,25 +142,31 @@ export function PresentationPropertiesPanel({
 				/>
 			</div>
 
-			<SlideSizeCard canvasSize={canvasSize} canEdit={canEdit} onUpdate={onUpdateCanvasSize} />
+			{visibility.slideSize && (
+				<SlideSizeCard canvasSize={canvasSize} canEdit={canEdit} onUpdate={onUpdateCanvasSize} />
+			)}
 
-			<NotesHandoutCard
-				notesCanvasSize={notesCanvasSize}
-				notesMaster={notesMaster}
-				handoutMaster={handoutMaster}
-			/>
+			{visibility.notesHandout && (
+				<NotesHandoutCard
+					notesCanvasSize={notesCanvasSize}
+					notesMaster={notesMaster}
+					handoutMaster={handoutMaster}
+				/>
+			)}
 
-			<DocumentPropertiesCard
-				coreProperties={coreProperties}
-				appProperties={appProperties}
-				customProperties={customProperties}
-				canEdit={canEdit}
-				onUpdateCoreProperties={onUpdateCoreProperties}
-				onUpdateAppProperties={onUpdateAppProperties}
-				onUpdateCustomProperties={onUpdateCustomProperties}
-			/>
+			{visibility.document && (
+				<DocumentPropertiesCard
+					coreProperties={coreProperties}
+					appProperties={appProperties}
+					customProperties={customProperties}
+					canEdit={canEdit}
+					onUpdateCoreProperties={onUpdateCoreProperties}
+					onUpdateAppProperties={onUpdateAppProperties}
+					onUpdateCustomProperties={onUpdateCustomProperties}
+				/>
+			)}
 
-			{tagCollections && onUpdateTagCollections && (
+			{visibility.tags && tagCollections && onUpdateTagCollections && (
 				<TagsSection
 					tagCollections={tagCollections}
 					onUpdateTagCollections={onUpdateTagCollections}
@@ -144,7 +174,7 @@ export function PresentationPropertiesPanel({
 				/>
 			)}
 
-			{activeSlide && (
+			{visibility.slideSummary && activeSlide && (
 				<div className={cn(CARD, 'space-y-1')}>
 					<div className={HEADING}>Slide</div>
 					<div className='text-[11px] text-muted-foreground'>

@@ -48,6 +48,9 @@ export interface InspectorPaneProps {
 	onUpdateTextStyle: (updates: Partial<TextStyle>) => void;
 	onUpdateElement: (updates: Partial<PptxElement>) => void;
 	onUpdateSlide: (updates: Partial<PptxSlide>) => void;
+	onUpdateAllSlidesBackground: (
+		updates: Pick<PptxSlide, 'backgroundColor' | 'backgroundImage' | 'backgroundGradient'>,
+	) => void;
 	onSelectElement: (elementId: string | null) => void;
 	onMoveLayer: (direction: string) => void;
 	onMoveLayerToEdge: (direction: string) => void;

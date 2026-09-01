@@ -118,6 +118,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			canEdit = false,
 			onContentChange,
 			onDirtyChange,
+			onDeckWideChange,
 			onActiveSlideChange,
 			onModeChange,
 			onZoomChange,
@@ -871,6 +872,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 								rightPanelWidth={isMobile ? undefined : resizablePanels.rightWidth}
 								onResizeRight={isMobile ? undefined : resizablePanels.onResizeRight}
 								hiddenActions={hiddenActions}
+								onDeckWideChange={onDeckWideChange}
 								aiConfig={ai}
 								aiBridge={ai ? aiBridge : undefined}
 								aiPanel={ai ? aiPanel : undefined}

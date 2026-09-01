@@ -60,6 +60,9 @@ export interface ViewerInspectorProps {
 	onMoveLayerToEdge: (direction: string) => void;
 	onDeleteElement: () => void;
 	onUpdateSlide: (updates: Partial<PptxSlide>) => void;
+	onUpdateAllSlidesBackground: (
+		updates: Pick<PptxSlide, 'backgroundColor' | 'backgroundImage' | 'backgroundGradient'>,
+	) => void;
 	presentationProperties: PptxPresentationProperties;
 	onUpdatePresentationProperties: (updates: Partial<PptxPresentationProperties>) => void;
 	notesMaster?: PptxNotesMaster;
@@ -114,6 +117,7 @@ export function ViewerInspector({
 	onMoveLayerToEdge,
 	onDeleteElement,
 	onUpdateSlide,
+	onUpdateAllSlidesBackground,
 	presentationProperties,
 	onUpdatePresentationProperties,
 	notesMaster,
@@ -190,6 +194,7 @@ export function ViewerInspector({
 				onUpdateTextStyle={onUpdateTextStyle}
 				onUpdateElement={onUpdateElement}
 				onUpdateSlide={onUpdateSlide}
+				onUpdateAllSlidesBackground={onUpdateAllSlidesBackground}
 				onSelectElement={(id) => onApplySelection(id)}
 				onMoveLayer={onMoveLayer}
 				onMoveLayerToEdge={onMoveLayerToEdge}

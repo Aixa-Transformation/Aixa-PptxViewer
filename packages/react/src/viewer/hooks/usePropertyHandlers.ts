@@ -42,6 +42,9 @@ export interface UsePropertyHandlersInput {
 export interface PropertyHandlersResult {
 	handleUpdateNotes: (text: string, segments?: TextSegment[]) => void;
 	handleUpdateSlide: (updates: Partial<PptxSlide>) => void;
+	handleUpdateAllSlidesBackground: (
+		updates: Pick<PptxSlide, 'backgroundColor' | 'backgroundImage' | 'backgroundGradient'>,
+	) => void;
 	handleUpdatePresentationProperties: (updates: Partial<PptxPresentationProperties>) => void;
 	handleUpdateCoreProperties: (updates: Partial<PptxCoreProperties>) => void;
 	handleUpdateAppProperties: (updates: Partial<PptxAppProperties>) => void;
@@ -98,6 +101,13 @@ export function usePropertyHandlers(input: UsePropertyHandlersInput): PropertyHa
 		ops.updateSlides((prev) =>
 			prev.map((s, i) => (i === activeSlideIndex ? { ...s, ...updates } : s)),
 		);
+		history.markDirty();
+	};
+
+	const handleUpdateAllSlidesBackground = (
+		updates: Pick<PptxSlide, 'backgroundColor' | 'backgroundImage' | 'backgroundGradient'>,
+	) => {
+		ops.updateSlides((prev) => prev.map((slide) => ({ ...slide, ...updates })));
 		history.markDirty();
 	};
 
@@ -190,6 +200,7 @@ export function usePropertyHandlers(input: UsePropertyHandlersInput): PropertyHa
 	return {
 		handleUpdateNotes,
 		handleUpdateSlide,
+		handleUpdateAllSlidesBackground,
 		handleUpdatePresentationProperties,
 		handleUpdateCoreProperties,
 		handleUpdateAppProperties,

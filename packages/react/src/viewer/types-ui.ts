@@ -276,6 +276,12 @@ export interface PowerPointViewerProps {
 	/** Callback when content has unsaved changes */
 	onDirtyChange?: (isDirty: boolean) => void;
 	onContentChange?: (content: Uint8Array) => void;
+	/**
+	 * Reports an edit whose visual effect spans the complete deck. Hosts that
+	 * cache one preview per slide can use this to invalidate every preview after
+	 * the next successful save instead of refreshing only the active slide.
+	 */
+	onDeckWideChange?: (change: { type: 'background' }) => void;
 	/** Callback when active slide changes */
 	onActiveSlideChange?: (slideIndex: number) => void;
 	/** Callback when the viewer mode changes (e.g. edit to present). */
@@ -450,8 +456,9 @@ export interface PowerPointViewerProps {
 	 * `undo`, `redo`, `record`, `notes`, `fullscreen`, `zoom`, `navigation`,
 	 * `present`, `customShows`, `settings`, `overflow`, `newSlide`,
 	 * `resetSlide`, `section`, `inspectorElements`, `inspectorComments`,
-	 * `inspectorBackgroundOnly`, `commandSearch`, `slidesPaneToggle`,
-	 * `commentsToggle`, `compactPrimaryRow`)
+	 * `inspectorBackgroundOnly`, `inspectorNotesHandout`, `inspectorDocument`,
+	 * `inspectorTags`, `inspectorSlideSize`, `inspectorSlideSummary`,
+	 * `commandSearch`, `slidesPaneToggle`, `commentsToggle`, `compactPrimaryRow`)
 	 * and ribbon-tab ids (`file`, `home`, `insert`, `draw`, `design`,
 	 * `transitions`, `animations`, `slideShow`, `record`, `review`, `view`,
 	 * `help`). `zoom` and `navigation` each hide their whole control cluster

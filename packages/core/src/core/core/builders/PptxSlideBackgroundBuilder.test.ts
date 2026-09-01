@@ -326,6 +326,34 @@ describe('pptxSlideBackgroundBuilder', () => {
 		);
 	});
 
+	it('replaces an existing image fill when a solid colour explicitly clears the image', async () => {
+		const slideNode: XmlObject = {
+			'p:cSld': {
+				'p:bg': {
+					'p:bgPr': {
+						'a:blipFill': {
+							'a:blip': { '@_r:embed': 'rId7' },
+							'a:stretch': { 'a:fillRect': {} },
+						},
+					},
+				},
+				'p:spTree': { 'p:sp': [] },
+			},
+		};
+		const input = createInput(
+			{ backgroundColor: '#123456', backgroundImage: '' },
+			slideNode,
+		);
+
+		await builder.applyBackground(input);
+
+		const bgPr = ((slideNode['p:cSld'] as XmlObject)['p:bg'] as XmlObject)[
+			'p:bgPr'
+		] as XmlObject;
+		expect(bgPr['a:blipFill']).toBeUndefined();
+		expect(bgPr['a:solidFill']).toEqual({ 'a:srgbClr': { '@_val': '123456' } });
+	});
+
 	// ── Schema child order ────────────────────────────────────────────────
 
 	it('places p:bg before p:spTree in p:cSld when adding a background', async () => {

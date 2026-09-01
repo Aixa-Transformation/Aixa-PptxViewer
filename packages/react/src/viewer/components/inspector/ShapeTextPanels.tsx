@@ -1,4 +1,4 @@
-import type { PptxElement, ShapeStyle, TextStyle } from 'pptx-viewer-core';
+import type { PptxElement, PptxTheme, ShapeStyle, TextStyle } from 'pptx-viewer-core';
 import { hasShapeProperties, hasTextProperties } from 'pptx-viewer-core';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { SHAPE_PRESETS } from '../../constants';
 import { cn, normalizeHexColor } from '../../utils';
 import { DebouncedColorInput } from './DebouncedColorInput';
 import { CARD, HEADING, INPUT } from './inspector-pane-constants';
+import { ShapeOutlinePanel } from './ShapeOutlinePanel';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -18,6 +19,7 @@ interface ShapeTextPanelsProps {
 	onUpdateElement: (updates: Partial<PptxElement>) => void;
 	onUpdateElementStyle: (patch: Partial<ShapeStyle>) => void;
 	onUpdateTextStyle: (patch: Partial<TextStyle>) => void;
+	theme?: PptxTheme;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,6 +32,7 @@ export function ShapeTextPanels({
 	onUpdateElement,
 	onUpdateElementStyle,
 	onUpdateTextStyle,
+	theme,
 }: ShapeTextPanelsProps): React.ReactElement {
 	const { t } = useTranslation();
 
@@ -58,11 +61,11 @@ export function ShapeTextPanels({
 				</div>
 			)}
 
-			{/* Fill & Stroke */}
+			{/* Fill */}
 			{hasShapeProperties(selectedElement) && (
 				<div className={CARD}>
-					<div className={HEADING}>{t('pptx.shape.fillStroke', 'Fill & Stroke')}</div>
-					<div className='grid grid-cols-2 gap-1.5 text-[11px]'>
+					<div className={HEADING}>{t('pptx.fill.fill', 'Fill')}</div>
+					<div className='text-[11px]'>
 						<label className='flex flex-col gap-1'>
 							<span className='text-muted-foreground'>Fill</span>
 							<DebouncedColorInput
@@ -72,31 +75,20 @@ export function ShapeTextPanels({
 								onCommit={(hex) => onUpdateElementStyle({ fillColor: hex, fillMode: 'solid' })}
 							/>
 						</label>
-						<label className='flex flex-col gap-1'>
-							<span className='text-muted-foreground'>Stroke</span>
-							<DebouncedColorInput
-								disabled={!canEdit}
-								value={normalizeHexColor(selectedElement.shapeStyle?.strokeColor, '#1f2937')}
-								className='w-full h-7 rounded border border-border bg-transparent cursor-pointer'
-								onCommit={(hex) => onUpdateElementStyle({ strokeColor: hex })}
-							/>
-						</label>
-						<label className='flex items-center gap-1 col-span-2'>
-							<span className='w-16 text-muted-foreground'>
-								{t('pptx.shapeText.strokeWidthAbbrev')}
-							</span>
-							<input
-								type='number'
-								disabled={!canEdit}
-								className={INPUT}
-								min={0}
-								max={20}
-								value={selectedElement.shapeStyle?.strokeWidth ?? 1}
-								onChange={(e) => onUpdateElementStyle({ strokeWidth: Number(e.target.value) })}
-							/>
-						</label>
 					</div>
 				</div>
+			)}
+
+			{hasShapeProperties(selectedElement) && (
+				<ShapeOutlinePanel
+					style={selectedElement.shapeStyle}
+					theme={theme}
+					canEdit={canEdit}
+					showArrows={
+						selectedElement.type === 'connector' || selectedElement.shapeType === 'line'
+					}
+					onUpdateShapeStyle={onUpdateElementStyle}
+				/>
 			)}
 
 			{/* Text Color & Font Size */}
