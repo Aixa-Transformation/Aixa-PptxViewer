@@ -209,6 +209,38 @@ function isSelectionAtParagraphStart(
 		);
 }
 
+function clampParagraphIndex(index: number, paragraphCount: number): number {
+	return Math.max(0, Math.min(Math.max(0, paragraphCount - 1), index));
+}
+
+function selectionPositionForParagraphOffset(
+	paragraphs: SegmentParagraph[],
+	paragraphIndex: number,
+	paragraphOffset: number,
+): { segIdx: number; offset: number } | undefined {
+	const paragraph = paragraphs[clampParagraphIndex(paragraphIndex, paragraphs.length)];
+	if (!paragraph) {
+		return undefined;
+	}
+	const content = paragraph.items.filter(
+		(item) => !isSyntheticListMarkerSegment(item.segment),
+	);
+	if (content.length === 0) {
+		const marker = paragraph.items[0];
+		return marker ? { segIdx: marker.oldIndex, offset: 0 } : undefined;
+	}
+	let remaining = Math.max(0, paragraphOffset);
+	for (const item of content) {
+		const length = item.segment.text.length;
+		if (remaining <= length) {
+			return { segIdx: item.oldIndex, offset: remaining };
+		}
+		remaining -= length;
+	}
+	const last = content[content.length - 1];
+	return { segIdx: last.oldIndex, offset: last.segment.text.length };
+}
+
 /**
  * Apply a bulleted, numbered, or explicit no-list state to whole paragraphs.
  * The returned segments carry real DrawingML bullet metadata, so React renders
@@ -226,18 +258,31 @@ export function applyParagraphListType({
 			? textSegments
 			: segmentsFromPlainText(text, fallbackStyle);
 	const paragraphs = groupIntoParagraphs(sourceSegments);
-	const startParagraph = selection ? paragraphForOldIndex(paragraphs, selection.startSegIdx, 0) : 0;
+	const hasLiveParagraphSelection = Boolean(
+		selection &&
+			Number.isInteger(selection.startParagraphIndex) &&
+			Number.isInteger(selection.endParagraphIndex),
+	);
+	const startParagraph = selection
+		? hasLiveParagraphSelection
+			? clampParagraphIndex(selection.startParagraphIndex!, paragraphs.length)
+			: paragraphForOldIndex(paragraphs, selection.startSegIdx, 0)
+		: 0;
 	let endParagraph = selection
-		? paragraphForOldIndex(paragraphs, selection.endSegIdx, paragraphs.length - 1)
+		? hasLiveParagraphSelection
+			? clampParagraphIndex(selection.endParagraphIndex!, paragraphs.length)
+			: paragraphForOldIndex(paragraphs, selection.endSegIdx, paragraphs.length - 1)
 		: paragraphs.length - 1;
 	if (
 		selection &&
 		endParagraph > startParagraph &&
-		isSelectionAtParagraphStart(
-			paragraphs[endParagraph],
-			selection.endSegIdx,
-			selection.endOffset,
-		)
+		(hasLiveParagraphSelection
+			? selection.endAtParagraphStart === true
+			: isSelectionAtParagraphStart(
+					paragraphs[endParagraph],
+					selection.endSegIdx,
+					selection.endOffset,
+				))
 	) {
 		endParagraph -= 1;
 	}
@@ -301,13 +346,43 @@ export function applyParagraphListType({
 
 	let mappedSelection: InlineTextSelection | undefined;
 	if (selection) {
-		const newStartSegIdx = oldToNew.get(selection.startSegIdx) ?? 0;
-		const newEndSegIdx = oldToNew.get(selection.endSegIdx) ?? newStartSegIdx;
+		const outputParagraphs = groupIntoParagraphs(output);
+		const liveStart = hasLiveParagraphSelection
+			? selectionPositionForParagraphOffset(
+					outputParagraphs,
+					selection.startParagraphIndex!,
+					selection.startParagraphOffset ?? 0,
+				)
+			: undefined;
+		const liveEnd = hasLiveParagraphSelection
+			? selectionPositionForParagraphOffset(
+					outputParagraphs,
+					selection.endParagraphIndex!,
+					selection.endParagraphOffset ?? 0,
+				)
+			: undefined;
+		const newStartSegIdx = liveStart?.segIdx ?? oldToNew.get(selection.startSegIdx) ?? 0;
+		const newEndSegIdx = liveEnd?.segIdx ?? oldToNew.get(selection.endSegIdx) ?? newStartSegIdx;
 		mappedSelection = {
 			startSegIdx: newStartSegIdx,
-			startOffset: Math.min(selection.startOffset, output[newStartSegIdx]?.text.length ?? 0),
+			startOffset: Math.min(
+				liveStart?.offset ?? selection.startOffset,
+				output[newStartSegIdx]?.text.length ?? 0,
+			),
 			endSegIdx: newEndSegIdx,
-			endOffset: Math.min(selection.endOffset, output[newEndSegIdx]?.text.length ?? 0),
+			endOffset: Math.min(
+				liveEnd?.offset ?? selection.endOffset,
+				output[newEndSegIdx]?.text.length ?? 0,
+			),
+			...(hasLiveParagraphSelection
+				? {
+						startParagraphIndex: selection.startParagraphIndex,
+						startParagraphOffset: selection.startParagraphOffset,
+						endParagraphIndex: selection.endParagraphIndex,
+						endParagraphOffset: selection.endParagraphOffset,
+						endAtParagraphStart: selection.endAtParagraphStart,
+					}
+				: {}),
 		};
 	}
 

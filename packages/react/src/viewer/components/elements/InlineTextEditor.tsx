@@ -17,6 +17,7 @@ import { getListContinuationMarker } from './inline-list-enter';
 
 const INLINE_TEXT_AUTOFIT_STEP = 2;
 const MIN_INLINE_TEXT_FONT_SIZE = 8;
+const VIEW_MODE_FIT_SAFETY_PX = 4;
 const LIST_CONTINUATION_CARET_PLACEHOLDER = '\u200B';
 
 /**
@@ -112,7 +113,7 @@ export function InlineTextEditor({
 		// paragraph shifts both auto-numbering and paragraph-indent indexes.
 		// Serialize the authored paragraph wrappers directly whenever a live list
 		// continuation exists, adding newlines only between real paragraphs.
-		if (el.querySelector('[data-pptx-list-continuation-content="true"]')) {
+		{
 			const readNodeText = (node: Node): string => {
 				if (node.nodeType === Node.TEXT_NODE) {
 					return (node.textContent ?? '').replaceAll(
@@ -138,7 +139,11 @@ export function InlineTextEditor({
 		return el.innerText || '';
 	}, [seed]);
 
-	const measureAndScaleText = useCallback((allowGrowth = false, limitToOneStep = false): number => {
+	const measureAndScaleText = useCallback((
+		allowGrowth = false,
+		limitToOneStep = false,
+		bottomSafetyInset = 0,
+	): number => {
 		const editor = editorRef.current;
 		if (!editor) {
 			return autoFitFontScaleRef.current;
@@ -261,8 +266,11 @@ export function InlineTextEditor({
 			}
 			return inlineTextFitMetricsFit({
 				scrollHeight: editor.scrollHeight,
-				clientHeight: editor.clientHeight,
+				clientHeight: Math.max(0, editor.clientHeight - bottomSafetyInset),
 				...visualBounds,
+				...(typeof visualBounds.boxBottom === 'number'
+					? { boxBottom: visualBounds.boxBottom - bottomSafetyInset }
+					: {}),
 			});
 		};
 		const fittedScale = normalizeInlineTextAutoFitScale(
@@ -369,6 +377,71 @@ export function InlineTextEditor({
 		trimRange.setEnd(startContainer, startOffset);
 		trimRange.deleteContents();
 	}, []);
+
+	// Chromium creates a bare nested <div> when Enter is pressed in an ordinary
+	// contentEditable paragraph. That temporary block does not carry the
+	// DrawingML paragraph's line-height or spacing, so the live editor reports
+	// that the content fits; after blur, remapTextToSegments restores those
+	// paragraph metrics and the final line can be clipped below the fixed box.
+	// Split the authored wrapper ourselves and clone its metrics so live autofit
+	// measures the same paragraph topology that view mode will render.
+	const insertPlainParagraphBreak = useCallback((): boolean => {
+		const editor = editorRef.current;
+		const selection = window.getSelection();
+		if (!editor || !selection || selection.rangeCount === 0) {
+			return false;
+		}
+		const range = selection.getRangeAt(0);
+		const startElement =
+			range.startContainer instanceof Element
+				? range.startContainer
+				: range.startContainer.parentElement;
+		const paragraph = startElement?.closest<HTMLElement>('[data-pptx-paragraph]');
+		if (
+			!paragraph ||
+			!editor.contains(paragraph) ||
+			paragraph.hasAttribute('data-pptx-list-seg-idx') ||
+			(!range.collapsed && !paragraph.contains(range.endContainer))
+		) {
+			return false;
+		}
+
+		if (!range.collapsed) {
+			range.deleteContents();
+		}
+		const trailingRange = document.createRange();
+		trailingRange.selectNodeContents(paragraph);
+		trailingRange.setStart(range.startContainer, range.startOffset);
+		const trailingContent = trailingRange.extractContents();
+		const makeCaretPlaceholder = (): HTMLSpanElement => {
+			const placeholder = document.createElement('span');
+			placeholder.dataset.pptxPlainCaretPlaceholder = 'true';
+			placeholder.textContent = LIST_CONTINUATION_CARET_PLACEHOLDER;
+			return placeholder;
+		};
+		if (!(paragraph.textContent ?? '').replaceAll(LIST_CONTINUATION_CARET_PLACEHOLDER, '')) {
+			paragraph.append(makeCaretPlaceholder());
+		}
+
+		const nextParagraph = paragraph.cloneNode(false) as HTMLElement;
+		nextParagraph.removeAttribute('data-pptx-list-seg-idx');
+		nextParagraph.removeAttribute('data-pptx-list-number');
+		const caretPlaceholder = makeCaretPlaceholder();
+		nextParagraph.append(caretPlaceholder, trailingContent);
+		paragraph.insertAdjacentElement('afterend', nextParagraph);
+
+		const caretText = caretPlaceholder.firstChild;
+		if (!caretText) {
+			return false;
+		}
+		const caretRange = document.createRange();
+		caretRange.setStart(caretText, LIST_CONTINUATION_CARET_PLACEHOLDER.length);
+		caretRange.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(caretRange);
+		measureAndScaleText(false, true);
+		return true;
+	}, [measureAndScaleText]);
 
 	// Native contentEditable Enter creates browser-specific block markup. In a
 	// bullet paragraph Chromium commonly exposes that as two line breaks, which
@@ -748,9 +821,16 @@ export function InlineTextEditor({
 			onBlur={() => {
 				removeEmptyPendingListParagraphs();
 				removeListContinuationCaretPlaceholder();
-				// Keep the live scale stable when focus leaves the editor. Running a
-				// fresh unrestricted fit here caused the visible click-out size jump.
-				const finalAutoFitScale = autoFitFontScaleRef.current;
+				// The final view rebuilds the contentEditable DOM as DrawingML
+				// paragraphs. Its line-box metrics can be a few pixels taller than the
+				// browser's temporary typing DOM. Reserve a small bottom inset and allow
+				// at most one normal two-unit PowerPoint step, preventing the last line
+				// from clipping without reintroducing a dramatic click-out size jump.
+				const finalAutoFitScale = measureAndScaleText(
+					false,
+					true,
+					VIEW_MODE_FIT_SAFETY_PX,
+				);
 				const committedText = extractText();
 				onEditChange(committedText);
 				onCommit(undefined, committedText, finalAutoFitScale);
@@ -787,7 +867,11 @@ export function InlineTextEditor({
 					e.preventDefault();
 					removeEmptyPendingListParagraphs();
 					removeListContinuationCaretPlaceholder();
-					const finalAutoFitScale = autoFitFontScaleRef.current;
+					const finalAutoFitScale = measureAndScaleText(
+						false,
+						true,
+						VIEW_MODE_FIT_SAFETY_PX,
+					);
 					const committedText = extractText();
 					onEditChange(committedText);
 					onCommit(undefined, committedText, finalAutoFitScale);
@@ -795,9 +879,13 @@ export function InlineTextEditor({
 				}
 				if (e.key === 'Enter') {
 					trimTrailingSpaceBeforeCaret();
-					if (!e.shiftKey && insertListParagraphBreak()) {
-						e.preventDefault();
-						e.stopPropagation();
+					if (!e.shiftKey) {
+						const insertedParagraph =
+							insertListParagraphBreak() || insertPlainParagraphBreak();
+						if (insertedParagraph) {
+							e.preventDefault();
+							e.stopPropagation();
+						}
 					}
 				}
 			}}

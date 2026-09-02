@@ -321,6 +321,20 @@ export function renderTextSegments(
 		if (paraTextIndent !== undefined) {
 			paraStyle.textIndent = paraTextIndent;
 		}
+		if (hasBullet) {
+			// `overflow-wrap: break-word` moves an oversized unbroken word to the
+			// next line when an inline marker consumes part of the first line. The
+			// live editor uses a marker column + flexible text column, so the same
+			// word starts beside the marker while editing and jumps below it on blur.
+			// `anywhere` contributes break opportunities to min-content sizing and
+			// keeps the first authored characters on the marker's line, matching
+			// PowerPoint and the editor without changing ordinary word wrapping.
+			paraStyle.overflowWrap = 'anywhere';
+			paraStyle.wordBreak = 'normal';
+			paraStyle.minWidth = 0;
+			paraStyle.maxWidth = '100%';
+			paraStyle.boxSizing = 'border-box';
+		}
 		if (paraRtl !== undefined) {
 			paraStyle.direction = paraRtl ? 'rtl' : 'ltr';
 			// Use 'embed' so the paragraph establishes a BiDi embedding level.

@@ -1,6 +1,8 @@
 import type { PptxElement, PptxSlide } from 'pptx-viewer-core';
 import { describe, it, expect } from 'vitest';
 
+import { buildLiveListEditSource } from './useElementOperations';
+
 // ---------------------------------------------------------------------------
 // Pure logic extracted from useElementOperations for testing.
 // ---------------------------------------------------------------------------
@@ -208,5 +210,38 @@ describe('updateTemplateElementUpdater', () => {
 		};
 		const result = updateTemplateElementUpdater(templates, 'slide-1', 'unknown', { x: 99 });
 		expect(result['slide-1'][0].x).toBe(10);
+	});
+});
+
+describe('buildLiveListEditSource', () => {
+	it('projects newly typed paragraphs before a toolbar list command runs', () => {
+		const element = makeElement({
+			id: 'shape-1',
+			text: '\u2022 First\n\u2022 Second',
+			textStyle: { fontSize: 20 },
+			textSegments: [
+				{ text: '\u2022 ', style: {}, bulletInfo: { char: '\u2022' } },
+				{ text: 'First', style: {} },
+				{ text: '\n', style: {}, isParagraphBreak: true },
+				{ text: '\u2022 ', style: {}, bulletInfo: { char: '\u2022' } },
+				{ text: 'Second', style: {} },
+			],
+			paragraphIndents: [
+				{ marginLeft: 36, indent: -18 },
+				{ marginLeft: 36, indent: -18 },
+			],
+		} as Partial<PptxElement> & { id: string });
+
+		const result = buildLiveListEditSource(
+			element,
+			'shape-1',
+			'\u2022 First\n\u2022 Second\nNewly typed paragraph',
+		);
+
+		expect(result.text).toContain('Newly typed paragraph');
+		expect(result.textSegments?.some((segment) => segment.text === 'Newly typed paragraph')).toBe(
+			true,
+		);
+		expect(result.paragraphIndents).toHaveLength(3);
 	});
 });

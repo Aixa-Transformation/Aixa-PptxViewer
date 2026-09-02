@@ -97,6 +97,27 @@ function suppliedDeckBulletElement(): PptxElement {
 	} as PptxElement;
 }
 
+function spacedPlainElement(): PptxElement {
+	const textSegments: TextSegment[] = [
+		{
+			text: 'First paragraph',
+			style: { fontSize: 20, align: 'left', paragraphSpacingAfter: 18 },
+		},
+		{ text: '\n', style: { fontSize: 20 }, isParagraphBreak: true },
+		{
+			text: 'Second paragraph',
+			style: { fontSize: 20, align: 'left', paragraphSpacingAfter: 18 },
+		},
+	];
+	return {
+		...bulletElement(),
+		text: 'First paragraph\nSecond paragraph',
+		textStyle: { fontSize: 20, align: 'left' },
+		textSegments,
+		paragraphIndents: undefined,
+	} as PptxElement;
+}
+
 describe('InlineTextEditor list Enter', () => {
 	let host: HTMLDivElement;
 
@@ -208,6 +229,66 @@ describe('InlineTextEditor list Enter', () => {
 		expect(onCommit).toHaveBeenCalledWith(undefined, originalText, 1);
 		expect(onEditChange).toHaveBeenLastCalledWith(originalText);
 
+		act(() => root.unmount());
+	});
+
+	it('clones ordinary paragraph metrics so newly typed lines still fit after blur', () => {
+		const onCommit = vi.fn();
+		const root = createRoot(host);
+		const element = spacedPlainElement();
+		act(() => {
+			root.render(
+				<InlineTextEditor
+					initialText={element.text ?? ''}
+					spellCheck={false}
+					textStyle={{ fontSize: 20 }}
+					textStyleRaw={element.textStyle}
+					layoutStyle={{}}
+					element={element}
+					onCommit={onCommit}
+					onCancel={vi.fn()}
+					onEditChange={vi.fn()}
+				/>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		const originalParagraphs = editor.querySelectorAll<HTMLElement>('[data-pptx-paragraph]');
+		const firstText = originalParagraphs[0].querySelector<HTMLElement>('[data-seg-idx="0"]')!;
+		const range = document.createRange();
+		range.setStart(firstText.firstChild!, firstText.textContent?.length ?? 0);
+		range.collapse(true);
+		const selection = window.getSelection()!;
+		selection.removeAllRanges();
+		selection.addRange(range);
+
+		act(() => {
+			editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		});
+
+		const paragraphs = editor.querySelectorAll<HTMLElement>('[data-pptx-paragraph]');
+		expect(paragraphs).toHaveLength(3);
+		const insertedParagraph = paragraphs[1];
+		expect(insertedParagraph.style.lineHeight).toBe(originalParagraphs[0].style.lineHeight);
+		expect(insertedParagraph.style.marginBottom).toBe(
+			originalParagraphs[0].style.marginBottom,
+		);
+		expect(insertedParagraph.textContent).toBe('\u200B');
+
+		const placeholder = insertedParagraph.querySelector<HTMLElement>(
+			'[data-pptx-plain-caret-placeholder="true"]',
+		)!;
+		placeholder.firstChild!.textContent = '\u200BNew paragraph';
+		act(() => {
+			editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+		});
+
+		expect(onCommit).toHaveBeenCalledWith(
+			undefined,
+			'First paragraph\nNew paragraph\nSecond paragraph',
+			expect.any(Number),
+		);
 		act(() => root.unmount());
 	});
 
@@ -340,6 +421,54 @@ describe('InlineTextEditor list Enter', () => {
 		});
 		expect(onCommit.mock.calls[0][2]).toBe(1);
 
+		act(() => root.unmount());
+	});
+
+	it('keeps a small post-blur safety margin so the final view does not clip the last line', () => {
+		const onCommit = vi.fn();
+		const root = createRoot(host);
+		const element = {
+			...bulletElement(),
+			height: 100,
+			textStyle: { fontSize: 20, autoFit: false, autoFitMode: 'none' as const },
+		} as PptxElement;
+
+		act(() => {
+			root.render(
+				<div data-pptx-element='true' style={{ height: element.height }}>
+					<InlineTextEditor
+						initialText={element.text ?? ''}
+						spellCheck={false}
+						textStyle={{ fontSize: 20 }}
+						textStyleRaw={element.textStyle}
+						layoutStyle={{}}
+						element={element}
+						onCommit={onCommit}
+						onCancel={vi.fn()}
+						onEditChange={vi.fn()}
+					/>
+				</div>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+		Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 400 });
+		Object.defineProperty(editor, 'scrollHeight', {
+			configurable: true,
+			get: () => {
+				const currentFontSize = Number.parseFloat(editor.style.fontSize) || 20;
+				return Math.ceil(99 * (currentFontSize / 20));
+			},
+		});
+
+		act(() => {
+			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+		});
+
+		const committedScale = onCommit.mock.calls[0][2] as number;
+		expect(committedScale).toBeLessThan(1);
+		expect(committedScale).toBeGreaterThanOrEqual(18 / 20);
 		act(() => root.unmount());
 	});
 

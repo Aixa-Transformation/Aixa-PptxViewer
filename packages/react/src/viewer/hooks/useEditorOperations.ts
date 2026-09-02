@@ -118,6 +118,7 @@ export function useEditorOperations(input: UseEditorOperationsInput): EditorOper
 		setSelectedElementIds: state.setSelectedElementIds,
 		setInlineEditingElementId: state.setInlineEditingElementId,
 		inlineEditingElementId: state.inlineEditingElementId,
+		inlineEditingText: state.inlineEditingText,
 		setInlineEditingText: state.setInlineEditingText,
 		setContextMenuState: state.setContextMenuState,
 	});

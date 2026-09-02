@@ -150,6 +150,48 @@ describe('applyParagraphListType', () => {
 		});
 		expect(result.textSegments[1].paragraphProperties).toBeUndefined();
 	});
+
+	it('uses live paragraph coordinates when typed DOM segments are stale', () => {
+		const segments: TextSegment[] = [
+			{ text: '\u2022 ', style: {}, bulletInfo: { char: '\u2022' } },
+			{ text: 'First', style: {} },
+			{ text: '\n', style: {}, isParagraphBreak: true },
+			{ text: '\u2022 ', style: {}, bulletInfo: { char: '\u2022' } },
+			{ text: 'Second', style: {} },
+			{ text: '\n', style: {}, isParagraphBreak: true },
+			{ text: 'Newly typed paragraph', style: {} },
+		];
+		const result = applyParagraphListType({
+			textSegments: segments,
+			listType: 'numbered',
+			selection: {
+				// These stale indexes still point to the previous authored item.
+				startSegIdx: 4,
+				startOffset: 0,
+				endSegIdx: 4,
+				endOffset: 6,
+				// The live DOM correctly identifies the newly typed third paragraph.
+				startParagraphIndex: 2,
+				startParagraphOffset: 0,
+				endParagraphIndex: 2,
+				endParagraphOffset: 21,
+				endAtParagraphStart: false,
+			},
+		});
+
+		expect(result.text).toBe('\u2022 First\n\u2022 Second\n1. Newly typed paragraph');
+		expect(result.textSegments[0].bulletInfo?.char).toBe('\u2022');
+		expect(result.textSegments[3].bulletInfo?.char).toBe('\u2022');
+		expect(result.textSegments[6].bulletInfo?.autoNumType).toBe('arabicPeriod');
+		expect(result.selection).toMatchObject({
+			startSegIdx: 7,
+			startOffset: 0,
+			endSegIdx: 7,
+			endOffset: 21,
+			startParagraphIndex: 2,
+			endParagraphIndex: 2,
+		});
+	});
 });
 
 describe('getElementListType', () => {

@@ -519,6 +519,26 @@ describe('renderTextSegments: embedded numbers in RTL text', () => {
 // =======================================================================
 
 describe('bullet alignment in RTL paragraphs', () => {
+	it('keeps an unbroken list word on the marker line after inline editing ends', () => {
+		const el = makeTextElement(
+			{},
+			{
+				textSegments: [
+					{ text: '1. ', style: { fontSize: 20 }, bulletInfo: { autoNumType: 'arabicPeriod' } },
+					{ text: 'averylongunbrokenwordthatmustwrap', style: { fontSize: 20 } },
+				],
+				paragraphIndents: [{ marginLeft: 36, indent: -18 }],
+			},
+		);
+		const result = renderTextSegments(el, '#000') as React.ReactElement[];
+		const para = result[0] as React.ReactElement;
+
+		expect(para.props.style.overflowWrap).toBe('anywhere');
+		expect(para.props.style.wordBreak).toBe('normal');
+		expect(para.props.style.minWidth).toBe(0);
+		expect(para.props.style.maxWidth).toBe('100%');
+	});
+
 	it('uses marginInlineEnd on fallback character bullets (works for both LTR and RTL)', () => {
 		const bulletInfo: BulletInfo = { imageRelId: 'rId5' };
 		const result = renderPictureBullet('el-1', 0, bulletInfo, 16) as React.ReactElement;

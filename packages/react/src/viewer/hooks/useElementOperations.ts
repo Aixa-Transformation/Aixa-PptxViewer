@@ -15,6 +15,7 @@ import {
 	applyStyleToSelectedSegments,
 	setPendingSelectionRestore,
 } from '../utils/inline-selection-utils';
+import { remapParagraphIndents, remapTextToSegments } from '../utils/remap-text';
 import { applyCaseTransformToSegments, transformTextCase } from '../utils/text-case-transform';
 import type { ChangeCaseMode } from '../utils/text-case-transform';
 import type { EditorHistoryResult } from './useEditorHistory';
@@ -40,6 +41,7 @@ export interface UseElementOperationsInput {
 	setSelectedElementIds: React.Dispatch<React.SetStateAction<string[]>>;
 	setInlineEditingElementId: React.Dispatch<React.SetStateAction<string | null>>;
 	inlineEditingElementId: string | null;
+	inlineEditingText: string;
 	setInlineEditingText: React.Dispatch<React.SetStateAction<string>>;
 	setContextMenuState: React.Dispatch<
 		React.SetStateAction<import('../types').ElementContextMenuState | null>
@@ -69,6 +71,33 @@ export interface ElementOperations {
 	serializeSlides: () => Promise<Uint8Array | null>;
 }
 
+export function buildLiveListEditSource(
+	element: PptxElement & {
+		text?: string;
+		textSegments?: import('pptx-viewer-core').TextSegment[];
+		textStyle?: TextStyle;
+		paragraphIndents?: Array<{ marginLeft?: number; indent?: number }>;
+	},
+	inlineEditingElementId: string | null,
+	inlineEditingText: string,
+): {
+	text: string;
+	textSegments: import('pptx-viewer-core').TextSegment[] | undefined;
+	paragraphIndents: Array<{ marginLeft?: number; indent?: number }> | undefined;
+} {
+	const isLiveInlineEdit = inlineEditingElementId === element.id;
+	const text = isLiveInlineEdit ? inlineEditingText : (element.text ?? '');
+	return {
+		text,
+		textSegments: isLiveInlineEdit
+			? remapTextToSegments(text, element.textSegments, element.textStyle)
+			: element.textSegments,
+		paragraphIndents: isLiveInlineEdit
+			? remapParagraphIndents(text, element.textSegments, element.paragraphIndents)
+			: element.paragraphIndents,
+	};
+}
+
 /* ------------------------------------------------------------------ */
 /*  Hook                                                              */
 /* ------------------------------------------------------------------ */
@@ -88,6 +117,7 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 		setSelectedElementIds,
 		setInlineEditingElementId,
 		inlineEditingElementId,
+		inlineEditingText,
 		setInlineEditingText,
 		setContextMenuState,
 	} = input;
@@ -180,9 +210,23 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 			// Check if there's an active text selection in the inline editor
 			const inlineSel = getInlineEditorSelection(selectedElement.textSegments);
 			if (updates.listType !== undefined) {
+				// The contentEditable owns its live DOM while typing, so the selected
+				// element's segment model can be one or more paragraphs behind. Project
+				// the latest authored text onto fresh segments before applying a list;
+				// `inlineSel` carries live paragraph coordinates that remain valid even
+				// when its pre-edit segment indexes are stale.
+				const {
+					text: sourceText,
+					textSegments: sourceSegments,
+					paragraphIndents: sourceParagraphIndents,
+				} = buildLiveListEditSource(
+					selectedElement,
+					inlineEditingElementId,
+					inlineEditingText,
+				);
 				const listResult = applyParagraphListType({
-					text: selectedElement.text,
-					textSegments: selectedElement.textSegments,
+					text: sourceText,
+					textSegments: sourceSegments,
 					fallbackStyle: selectedElement.textStyle,
 					listType: updates.listType,
 					selection: inlineSel,
@@ -211,6 +255,9 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 					text: listResult.text,
 					textSegments: listResult.textSegments,
 					textStyle: nextTextStyle,
+					...(sourceParagraphIndents
+						? { paragraphIndents: sourceParagraphIndents }
+						: {}),
 				} as Partial<PptxElement>);
 				return;
 			}
@@ -240,7 +287,13 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 				textSegments: newSegments,
 			} as Partial<PptxElement>);
 		},
-		[inlineEditingElementId, selectedElement, setInlineEditingText, updateSelectedElement],
+		[
+			inlineEditingElementId,
+			inlineEditingText,
+			selectedElement,
+			setInlineEditingText,
+			updateSelectedElement,
+		],
 	);
 
 	const updateSelectedTextCase = useCallback(
