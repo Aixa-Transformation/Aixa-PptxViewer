@@ -50,6 +50,31 @@ export interface ParagraphSpacingResult {
 }
 
 /**
+ * Scale an absolute CSS line-height together with PowerPoint normAutofit text.
+ * Unitless line heights already follow the font size automatically, but exact
+ * `px`/`pt` values otherwise remain large while the glyphs shrink. That mismatch
+ * can make the fitter drive a perfectly reasonable list down to miniature text.
+ */
+export function scaleAbsoluteParagraphLineHeight(
+	lineHeight: number | string | undefined,
+	scale: number,
+): number | string | undefined {
+	if (typeof lineHeight !== 'string') {
+		return lineHeight;
+	}
+	const match = lineHeight.trim().match(/^(-?(?:\d+\.?\d*|\.\d+))(px|pt)$/i);
+	if (!match) {
+		return lineHeight;
+	}
+	const value = Number(match[1]);
+	if (!Number.isFinite(value)) {
+		return lineHeight;
+	}
+	const safeScale = Number.isFinite(scale) ? Math.max(0.05, Math.min(1, scale)) : 1;
+	return `${Math.round(value * safeScale * 100000) / 100000}${match[2].toLowerCase()}`;
+}
+
+/**
  * Resolve a paragraph's CSS margins and line-height from its own properties,
  * falling back to the body-level style for inherited/single-level text.
  */

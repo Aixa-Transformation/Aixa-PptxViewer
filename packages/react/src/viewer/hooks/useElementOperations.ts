@@ -1,6 +1,6 @@
 import { hasShapeProperties, hasTextProperties } from 'pptx-viewer-core';
 import type { PptxElement, PptxSlide, ShapeStyle, TextStyle } from 'pptx-viewer-core';
-import { applyParagraphListType } from 'pptx-viewer-shared';
+import { applyParagraphListType, getElementListType } from 'pptx-viewer-shared';
 /**
  * useElementOperations: Element update callbacks for PowerPointViewer.
  *
@@ -193,10 +193,24 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 				if (inlineEditingElementId === selectedElement.id) {
 					setInlineEditingText(listResult.text);
 				}
+				const nextTextStyle = { ...selectedElement.textStyle };
+				const structuralListType = getElementListType({
+					...selectedElement,
+					text: listResult.text,
+					textSegments: listResult.textSegments,
+				} as PptxElement);
+				if (structuralListType === 'mixed') {
+					// A body-level list type applies to every paragraph in DrawingML.
+					// Keep mixed/partial formatting solely on the paragraph markers so
+					// surrounding paragraphs do not inherit the toolbar operation.
+					delete nextTextStyle.listType;
+				} else {
+					nextTextStyle.listType = structuralListType;
+				}
 				updateSelectedElement({
 					text: listResult.text,
 					textSegments: listResult.textSegments,
-					textStyle: { ...selectedElement.textStyle, listType: updates.listType },
+					textStyle: nextTextStyle,
 				} as Partial<PptxElement>);
 				return;
 			}

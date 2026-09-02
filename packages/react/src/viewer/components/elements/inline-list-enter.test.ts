@@ -28,6 +28,16 @@ describe('getListContinuationMarker', () => {
 		).toBe('6. ');
 	});
 
+	it('continues from the live provisional number after repeated Enter presses', () => {
+		const source = marker({
+			autoNumType: 'arabicPeriod',
+			autoNumStartAt: 1,
+			paragraphIndex: 0,
+		});
+		expect(getListContinuationMarker(source, 2)).toBe('3. ');
+		expect(getListContinuationMarker(source, 3)).toBe('4. ');
+	});
+
 	it('does not continue an explicit no-list paragraph', () => {
 		expect(getListContinuationMarker(marker({ none: true }))).toBeNull();
 	});

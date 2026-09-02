@@ -26,7 +26,7 @@ interface SlideBackgroundPanelProps {
 
 export type SlideBackgroundPatch = Pick<
 	PptxSlide,
-	'backgroundColor' | 'backgroundImage' | 'backgroundGradient'
+	'backgroundColor' | 'backgroundImage' | 'backgroundGradient' | 'backgroundSource'
 >;
 
 export function getDeckBackgroundPatch(activeSlide: PptxSlide): SlideBackgroundPatch {
@@ -37,6 +37,7 @@ export function getDeckBackgroundPatch(activeSlide: PptxSlide): SlideBackgroundP
 		// inherited colour that should preserve an existing image fill.
 		backgroundImage: activeSlide.backgroundImage || '',
 		backgroundGradient: activeSlide.backgroundGradient,
+		backgroundSource: 'slide',
 	};
 }
 
@@ -104,7 +105,14 @@ export function SlideBackgroundPanel({
 						value={normalizeHexColor(activeSlide.backgroundColor, '#ffffff')}
 						disabled={!canEdit}
 						className='h-6 w-8 rounded border border-border bg-muted cursor-pointer'
-						onCommit={(hex) => onUpdateSlide({ backgroundColor: hex })}
+						onCommit={(hex) =>
+							onUpdateSlide({
+								backgroundColor: hex,
+								backgroundImage: '',
+								backgroundGradient: undefined,
+								backgroundSource: 'slide',
+							})
+						}
 					/>
 					<span className='text-muted-foreground text-[10px] truncate'>
 						{activeSlide.backgroundColor || 'none'}
@@ -129,7 +137,11 @@ export function SlideBackgroundPanel({
 								const reader = new FileReader();
 								reader.onload = () => {
 									if (typeof reader.result === 'string') {
-										onUpdateSlide({ backgroundImage: reader.result });
+										onUpdateSlide({
+											backgroundImage: reader.result,
+											backgroundGradient: undefined,
+											backgroundSource: 'slide',
+										});
 									}
 								};
 								reader.readAsDataURL(file);
@@ -159,7 +171,15 @@ export function SlideBackgroundPanel({
 								className='absolute top-0.5 right-0.5 rounded bg-background/80 hover:bg-red-700 p-0.5 text-[10px] transition-colors'
 								disabled={!canEdit}
 								title={t('pptx.slideBackground.removeBackgroundImage')}
-								onClick={() => onUpdateSlide({ backgroundImage: undefined })}
+								onClick={() =>
+									onUpdateSlide({
+										backgroundImage: '',
+										backgroundSource:
+											activeSlide.backgroundColor || activeSlide.backgroundGradient
+												? 'slide'
+												: 'inherited',
+									})
+								}
 							>
 								<LuX className='w-3 h-3' />
 							</button>
@@ -180,12 +200,25 @@ export function SlideBackgroundPanel({
 								backgroundColor: undefined,
 								backgroundImage: undefined,
 								backgroundGradient: undefined,
+								backgroundSource: 'inherited',
 							})
 						}
 					>
 						{t('pptx.slideBackground.clearBackground')}
 					</button>
 				)}
+
+				<label className='flex items-center gap-2 text-[11px]'>
+					<input
+						type='checkbox'
+						checked={activeSlide.showMasterShapes === false}
+						disabled={!canEdit}
+						onChange={(event) =>
+							onUpdateSlide({ showMasterShapes: event.target.checked ? false : true })
+						}
+					/>
+					<span className='text-muted-foreground'>Hide background graphics</span>
+				</label>
 
 				<div className='grid grid-cols-2 gap-1.5'>
 					<button

@@ -25,8 +25,6 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	}
 
 	async save(slides: PptxSlide[], options?: PptxHandlerSaveOptions): Promise<Uint8Array> {
-		this.dirtyTemplateLayoutPaths.clear();
-		this.dirtyTemplateMasterPaths.clear();
 		this.pendingTemplateElementBaselines.clear();
 		const effectiveConformance = this.resolveEffectiveConformance(options?.conformance);
 		const saveConstants = createPptxSaveConstants(effectiveConformance);
@@ -145,6 +143,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// §19.3.1.40.)
 		this.applySlideMasterChanges(options?.slideMasters);
 		this.applySlideLayoutChanges(options?.slideLayouts);
+		await this.preparePendingTemplateBackgroundsForSave(options);
 
 		// Persist only explicitly edited template/master parts. Slide serialization walks
 		// inherited elements and may enrich their cached objects even though the template
@@ -311,7 +310,64 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			this.templateElementBaselines.set(element, fingerprint);
 		}
 		this.pendingTemplateElementBaselines.clear();
+		// A successful save has flushed both direct template-background edits
+		// and template-element edits discovered while serializing the slides.
+		// Keep the flags on failure so a retry cannot silently lose the change.
+		this.dirtyTemplateLayoutPaths.clear();
+		this.dirtyTemplateMasterPaths.clear();
+		this.pendingTemplateBackgroundColors.clear();
 		return output;
+	}
+
+	/**
+	 * Persist direct layout/master background edits without serializing
+	 * render-only mutations that slide processing may have applied to inherited
+	 * shape XmlObjects. If the same template part contains a genuine element or
+	 * typed-model edit, keep that edited object and simply reapply the requested
+	 * background after those changes.
+	 */
+	private async preparePendingTemplateBackgroundsForSave(
+		options: PptxHandlerSaveOptions | undefined,
+	): Promise<void> {
+		if (this.pendingTemplateBackgroundColors.size === 0) {
+			return;
+		}
+		const typedMasterPaths = new Set(options?.slideMasters?.map((master) => master.path) ?? []);
+		const typedLayoutPaths = new Set(options?.slideLayouts?.map((layout) => layout.path) ?? []);
+
+		for (const [partPath, backgroundColor] of this.pendingTemplateBackgroundColors) {
+			const isMaster = this.masterXmlMap.has(partPath);
+			const isLayout = this.layoutXmlMap.has(partPath);
+			if (!isMaster && !isLayout) {
+				continue;
+			}
+
+			const hasOtherEdit = isMaster
+				? this.dirtyTemplateMasterPaths.has(partPath) || typedMasterPaths.has(partPath)
+				: this.dirtyTemplateLayoutPaths.has(partPath) || typedLayoutPaths.has(partPath);
+			if (!hasOtherEdit) {
+				const sourceXml = await this.zip.file(partPath)?.async('string');
+				if (sourceXml) {
+					const cleanXmlObject = this.parser.parse(sourceXml) as XmlObject;
+					if (isMaster) {
+						this.masterXmlMap.set(partPath, cleanXmlObject);
+					} else {
+						this.layoutXmlMap.set(partPath, cleanXmlObject);
+					}
+				}
+			}
+
+			this.templateBackgroundService.setBackground(
+				{ layoutXmlMap: this.layoutXmlMap, masterXmlMap: this.masterXmlMap },
+				partPath,
+				backgroundColor,
+			);
+			if (isMaster) {
+				this.dirtyTemplateMasterPaths.add(partPath);
+			} else {
+				this.dirtyTemplateLayoutPaths.add(partPath);
+			}
+		}
 	}
 
 	/**

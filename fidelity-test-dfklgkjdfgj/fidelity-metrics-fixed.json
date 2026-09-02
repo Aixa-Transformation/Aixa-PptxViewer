@@ -1,0 +1,67 @@
+[
+  {
+    "slide": 1,
+    "meanRgbDifference": 0.89,
+    "pixelsOverTolerancePercent": 1.09
+  },
+  {
+    "slide": 2,
+    "meanRgbDifference": 5.38,
+    "pixelsOverTolerancePercent": 3.63
+  },
+  {
+    "slide": 3,
+    "meanRgbDifference": 8.39,
+    "pixelsOverTolerancePercent": 5.61
+  },
+  {
+    "slide": 4,
+    "meanRgbDifference": 8.14,
+    "pixelsOverTolerancePercent": 6.01
+  },
+  {
+    "slide": 5,
+    "meanRgbDifference": 8.86,
+    "pixelsOverTolerancePercent": 6.47
+  },
+  {
+    "slide": 6,
+    "meanRgbDifference": 5.75,
+    "pixelsOverTolerancePercent": 4.53
+  },
+  {
+    "slide": 7,
+    "meanRgbDifference": 4.78,
+    "pixelsOverTolerancePercent": 3.75
+  },
+  {
+    "slide": 8,
+    "meanRgbDifference": 74.49,
+    "pixelsOverTolerancePercent": 61.69
+  },
+  {
+    "slide": 9,
+    "meanRgbDifference": 6.67,
+    "pixelsOverTolerancePercent": 4.45
+  },
+  {
+    "slide": 10,
+    "meanRgbDifference": 7.2,
+    "pixelsOverTolerancePercent": 5.45
+  },
+  {
+    "slide": 11,
+    "meanRgbDifference": 5.69,
+    "pixelsOverTolerancePercent": 4.43
+  },
+  {
+    "slide": 12,
+    "meanRgbDifference": 9.15,
+    "pixelsOverTolerancePercent": 5.98
+  },
+  {
+    "slide": 13,
+    "meanRgbDifference": 4.63,
+    "pixelsOverTolerancePercent": 3.64
+  }
+]

@@ -106,6 +106,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.templateElementBaselines = new WeakMap();
 		this.dirtyTemplateLayoutPaths.clear();
 		this.dirtyTemplateMasterPaths.clear();
+		this.pendingTemplateBackgroundColors.clear();
 		this.pendingTemplateElementBaselines.clear();
 		this.masterTxStylesCache.clear();
 		// Revoke any Blob URLs from a previous load before clearing cache

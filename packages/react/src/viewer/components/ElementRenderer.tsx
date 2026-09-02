@@ -98,11 +98,11 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 			onUpdateSmartArtElement,
 		});
 		const chartUpdateHandler = smartArtUpdateHandler;
-		const { hf, fc, sw, sc } = shapeParams(el);
+		const { hf, fc, sw, sc, backgroundFillStyle } = shapeParams(el, activeSlide);
 		const elementLocks = el.locks;
 		const isTxt = isEditableTextElement(el) && !elementLocks?.noTextEdit;
 		const txtSE = hasTextProperties(el) ? el.textStyle : undefined;
-		const ss = getShapeVisualStyle(
+		const baseShapeVisualStyle = getShapeVisualStyle(
 			el,
 			hf,
 			fc,
@@ -111,6 +111,9 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 			animationState?.animatesFill,
 			animationState?.animatesStroke,
 		);
+		const ss = backgroundFillStyle
+			? { ...baseShapeVisualStyle, ...backgroundFillStyle }
+			: baseShapeVisualStyle;
 		const ts = getTextStyleForElement(el, DEFAULT_TEXT_COLOR);
 		const vs = renderVectorShape(
 			el,

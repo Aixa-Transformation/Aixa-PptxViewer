@@ -7,6 +7,49 @@ export interface InlineTextScaleSearchInput {
 	iterations?: number;
 }
 
+export interface InlineTextFitMetrics {
+	scrollHeight: number;
+	clientHeight: number;
+	boxTop?: number;
+	boxBottom?: number;
+	contentTop?: number;
+	contentBottom?: number;
+	tolerance?: number;
+}
+
+/**
+ * Decide whether editable text is fully inside its fixed shape. `scrollHeight`
+ * alone is insufficient for middle/bottom-aligned flex bodies: overflowing
+ * content can extend above the box while the browser still reports identical
+ * scroll/client heights. The optional visual bounds cover that case.
+ */
+export function inlineTextFitMetricsFit({
+	scrollHeight,
+	clientHeight,
+	boxTop,
+	boxBottom,
+	contentTop,
+	contentBottom,
+	tolerance = 1,
+}: InlineTextFitMetrics): boolean {
+	if (scrollHeight > clientHeight + tolerance) {
+		return false;
+	}
+	const hasVisualBounds =
+		[boxTop, boxBottom, contentTop, contentBottom].every(
+			(value) => typeof value === 'number' && Number.isFinite(value),
+		) &&
+		(boxBottom as number) > (boxTop as number) &&
+		(contentBottom as number) > (contentTop as number);
+	if (!hasVisualBounds) {
+		return true;
+	}
+	return (
+		(contentTop as number) >= (boxTop as number) - tolerance &&
+		(contentBottom as number) <= (boxBottom as number) + tolerance
+	);
+}
+
 /**
  * Find the largest font scale that fits inside the existing text-box geometry.
  * This mirrors PowerPoint's `a:normAutofit` behaviour: the shape stays fixed

@@ -196,6 +196,7 @@ export const SLIDE_FIELD_KIND: Record<keyof PptxSlide, CollabFieldKind> = {
 	backgroundColor: 'scalar',
 	backgroundImage: 'scalar',
 	backgroundGradient: 'scalar',
+	backgroundSource: 'scalar',
 	backgroundPattern: 'complex',
 	backgroundShadeToTitle: 'scalar',
 	transition: 'complex',

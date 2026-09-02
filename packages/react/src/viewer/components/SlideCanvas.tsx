@@ -116,6 +116,7 @@ export function SlideCanvas({
 	// finger gestures manipulate elements instead of scrolling the page.
 	const isEditableCanvas = (mode === 'edit' || mode === 'master') && canEdit;
 	const hasEditableForegroundElements = (activeSlide?.elements.length ?? 0) > 1;
+	const visibleTemplateElements = activeSlide?.showMasterShapes === false ? [] : templateElements;
 
 	/* ── Stable callback refs ──────────────────────────────────────── */
 	const {
@@ -268,7 +269,7 @@ export function SlideCanvas({
 						onStartGuideDrag={setDraggingGuide}
 					/>
 					{/* Template elements */}
-					{templateElements.map((element, index) => (
+					{visibleTemplateElements.map((element, index) => (
 						<ElementRenderer
 							key={`tpl-${element.id}`}
 							element={element}
@@ -282,7 +283,6 @@ export function SlideCanvas({
 							mediaDataUrls={mediaDataUrls}
 							selectionColorClass='blue-400'
 							showHoverBorder={false}
-							opacity={0.95}
 							templateEditing={editTemplateMode}
 							zIndex={index}
 							imageAltText='Template element'
@@ -340,7 +340,7 @@ export function SlideCanvas({
 							tableEditorState={tableEditorState}
 							selectionColorClass='blue-500'
 							showHoverBorder
-							zIndex={templateElements.length + index}
+							zIndex={visibleTemplateElements.length + index}
 							imageAltText='Slide element'
 							showResizeHandles={
 								isEditableCanvas &&

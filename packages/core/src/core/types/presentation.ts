@@ -155,6 +155,17 @@ export interface PptxSlide {
 	backgroundImage?: string; // base64 data URL for background image
 	backgroundGradient?: string; // CSS gradient string for background
 	/**
+	 * Where the rendered background originates.
+	 *
+	 * A loaded slide can display a layout/master background even when its own
+	 * `<p:cSld>` has no `<p:bg>`. Keeping that distinction prevents save() from
+	 * converting an inherited background into a hard-coded slide override,
+	 * which would otherwise mask later theme/master background changes.
+	 * Editors that explicitly change a slide background should set this to
+	 * `"slide"`; clearing an override should set it to `"inherited"`.
+	 */
+	backgroundSource?: 'slide' | 'inherited';
+	/**
 	 * Pattern fill on the slide background (`<a:pattFill>` inside `<p:bgPr>`).
 	 *
 	 * When present, renderers should draw a real two-colour pattern using

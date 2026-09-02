@@ -74,6 +74,13 @@ export interface PptxCustomDashSegment {
 export interface ShapeStyle {
 	fillColor?: string;
 	/**
+	 * PowerPoint `p:sp/@useBgFill`. When true, the shape is painted with the
+	 * effective background of the slide it is rendered on instead of the
+	 * shape's theme `fillRef`. This must remain semantic because the same master
+	 * shape can resolve to a different fill on every descendant slide.
+	 */
+	useBackgroundFill?: boolean;
+	/**
 	 * Raw XML colour-choice node preserved from `a:solidFill` for round-trip
 	 * serialisation. Captures `a:schemeClr` / `a:sysClr` / `a:prstClr` /
 	 * `a:srgbClr` plus colour transforms (`lumMod`, `lumOff`, `tint`,

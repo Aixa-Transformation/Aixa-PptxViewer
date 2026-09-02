@@ -3,8 +3,37 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	buildNormalAutoFitTextStyle,
 	findLargestFittingInlineTextScale,
+	inlineTextFitMetricsFit,
 	normalizeInlineTextAutoFitScale,
 } from './inline-text-autofit';
+
+describe('inlineTextFitMetricsFit', () => {
+	it('detects text that overflows above a middle-aligned flex box', () => {
+		expect(
+			inlineTextFitMetricsFit({
+				scrollHeight: 100,
+				clientHeight: 100,
+				boxTop: 100,
+				boxBottom: 200,
+				contentTop: 82,
+				contentBottom: 182,
+			}),
+		).toBe(false);
+	});
+
+	it('accepts content whose visual bounds remain inside the shape', () => {
+		expect(
+			inlineTextFitMetricsFit({
+				scrollHeight: 96,
+				clientHeight: 100,
+				boxTop: 100,
+				boxBottom: 200,
+				contentTop: 102,
+				contentBottom: 198,
+			}),
+		).toBe(true);
+	});
+});
 
 describe('findLargestFittingInlineTextScale', () => {
 	it('keeps the original font size when the content already fits', () => {

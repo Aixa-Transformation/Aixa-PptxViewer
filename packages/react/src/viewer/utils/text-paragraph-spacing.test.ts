@@ -1,7 +1,10 @@
 import type { TextStyle } from 'pptx-viewer-core';
 import { describe, it, expect } from 'vitest';
 
-import { resolveParagraphSpacing } from './text-paragraph-spacing';
+import {
+	resolveParagraphSpacing,
+	scaleAbsoluteParagraphLineHeight,
+} from './text-paragraph-spacing';
 
 const base = {
 	isFirst: false,
@@ -121,5 +124,13 @@ describe('resolveParagraphSpacing', () => {
 		});
 		expect(result.marginTop).toBeUndefined();
 		expect(result.marginBottom).toBeUndefined();
+	});
+});
+
+describe('scaleAbsoluteParagraphLineHeight', () => {
+	it('scales exact line height with normAutofit while leaving unitless spacing alone', () => {
+		expect(scaleAbsoluteParagraphLineHeight('24px', 0.75)).toBe('18px');
+		expect(scaleAbsoluteParagraphLineHeight('18pt', 0.5)).toBe('9pt');
+		expect(scaleAbsoluteParagraphLineHeight(1.2, 0.5)).toBe(1.2);
 	});
 });

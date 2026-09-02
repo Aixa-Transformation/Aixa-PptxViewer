@@ -10,6 +10,7 @@ import {
 } from '../../utils/inline-selection-utils';
 import {
 	findLargestFittingInlineTextScale,
+	inlineTextFitMetricsFit,
 	normalizeInlineTextAutoFitScale,
 } from './inline-text-autofit';
 import { getListContinuationMarker } from './inline-list-enter';
@@ -148,12 +149,20 @@ export function InlineTextEditor({
 		// including mixed-size text and list markers. Existing normAutofit values
 		// are divided out once so deleting text can grow back toward 100%.
 		const currentScale = Math.max(0.05, autoFitFontScaleRef.current || 1);
+		// A slide can briefly report a zero-size editing box while it is being
+		// selected, scrolled into view, or moved between responsive panes. Treating
+		// that transient state as overflow collapses the font to the minimum before
+		// the real geometry is available.
+		if (editor.clientHeight <= 1 || editor.clientWidth <= 1) {
+			return currentScale;
+		}
 		const targets = [editor, ...editor.querySelectorAll<HTMLElement>('*')];
 		let smallestBaseFontSize = Number.POSITIVE_INFINITY;
 		for (const target of targets) {
+			const computedStyle = window.getComputedStyle(target);
 			let baseFontSize = Number(target.dataset.pptxAutoFitBaseFontSize);
 			if (!Number.isFinite(baseFontSize) || baseFontSize <= 0) {
-				const computedFontSize = Number.parseFloat(window.getComputedStyle(target).fontSize);
+				const computedFontSize = Number.parseFloat(computedStyle.fontSize);
 				if (!Number.isFinite(computedFontSize) || computedFontSize <= 0) {
 					continue;
 				}
@@ -161,6 +170,35 @@ export function InlineTextEditor({
 				target.dataset.pptxAutoFitBaseFontSize = String(baseFontSize);
 			}
 			smallestBaseFontSize = Math.min(smallestBaseFontSize, baseFontSize);
+
+			// Exact DrawingML line spacing resolves to a fixed CSS length. Capture
+			// that metric as well as the paragraph spacing so it shrinks in lockstep
+			// with the glyphs instead of forcing the fit search toward its minimum.
+			if (target === editor || target.hasAttribute('data-pptx-paragraph')) {
+				const baseLineHeight = Number(target.dataset.pptxAutoFitBaseLineHeight);
+				if (!Number.isFinite(baseLineHeight) || baseLineHeight <= 0) {
+					const computedLineHeight = Number.parseFloat(computedStyle.lineHeight);
+					if (Number.isFinite(computedLineHeight) && computedLineHeight > 0) {
+						target.dataset.pptxAutoFitBaseLineHeight = String(
+							computedLineHeight / currentScale,
+						);
+					}
+				}
+			}
+			if (target.hasAttribute('data-pptx-paragraph')) {
+				for (const [datasetKey, cssValue] of [
+					['pptxAutoFitBaseMarginTop', computedStyle.marginTop],
+					['pptxAutoFitBaseMarginBottom', computedStyle.marginBottom],
+				] as const) {
+					const baseMargin = Number(target.dataset[datasetKey]);
+					if (!Number.isFinite(baseMargin)) {
+						const computedMargin = Number.parseFloat(cssValue);
+						if (Number.isFinite(computedMargin)) {
+							target.dataset[datasetKey] = String(computedMargin / currentScale);
+						}
+					}
+				}
+			}
 		}
 
 		const computedMinimumScale = Number.isFinite(smallestBaseFontSize)
@@ -175,6 +213,20 @@ export function InlineTextEditor({
 				if (Number.isFinite(baseFontSize) && baseFontSize > 0) {
 					target.style.fontSize = `${baseFontSize * scale}px`;
 				}
+				const baseLineHeight = Number(target.dataset.pptxAutoFitBaseLineHeight);
+				if (Number.isFinite(baseLineHeight) && baseLineHeight > 0) {
+					target.style.lineHeight = `${baseLineHeight * scale}px`;
+				}
+				if (target.hasAttribute('data-pptx-paragraph')) {
+					const baseMarginTop = Number(target.dataset.pptxAutoFitBaseMarginTop);
+					if (Number.isFinite(baseMarginTop)) {
+						target.style.marginTop = `${baseMarginTop * scale}px`;
+					}
+					const baseMarginBottom = Number(target.dataset.pptxAutoFitBaseMarginBottom);
+					if (Number.isFinite(baseMarginBottom)) {
+						target.style.marginBottom = `${baseMarginBottom * scale}px`;
+					}
+				}
 			}
 		};
 		const fits = (scale: number): boolean => {
@@ -186,7 +238,32 @@ export function InlineTextEditor({
 			// shrinks the font by another step on every keystroke even though every
 			// rendered line fits. PowerPoint's Shrink text on overflow is driven by
 			// whether the wrapped text body exceeds the fixed box height here.
-			return editor.scrollHeight <= editor.clientHeight + 1;
+			let visualBounds: {
+				boxTop?: number;
+				boxBottom?: number;
+				contentTop?: number;
+				contentBottom?: number;
+			} = {};
+			try {
+				const box = editor.getBoundingClientRect();
+				const contentRange = document.createRange();
+				contentRange.selectNodeContents(editor);
+				const content = contentRange.getBoundingClientRect();
+				visualBounds = {
+					boxTop: box.top,
+					boxBottom: box.bottom,
+					contentTop: content.top,
+					contentBottom: content.bottom,
+				};
+			} catch {
+				// Older DOM shims do not expose Range#getBoundingClientRect. The
+				// scroll-height check remains a safe fallback in those environments.
+			}
+			return inlineTextFitMetricsFit({
+				scrollHeight: editor.scrollHeight,
+				clientHeight: editor.clientHeight,
+				...visualBounds,
+			});
 		};
 		const fittedScale = normalizeInlineTextAutoFitScale(
 			findLargestFittingInlineTextScale({
@@ -202,7 +279,11 @@ export function InlineTextEditor({
 				: 0.1;
 		const nextScale = normalizeInlineTextAutoFitScale(
 			!limitToOneStep
-				? fittedScale
+				// Entering edit mode is allowed to recover a stale miniature scale,
+				// but must never make the text smaller before the user types.
+				? allowGrowth
+					? Math.max(currentScale, fittedScale)
+					: fittedScale
 				: allowGrowth
 					// Deletion may restore at most two font-size units per edit.
 					? Math.max(currentScale, Math.min(fittedScale, currentScale + scaleStep))
@@ -322,7 +403,14 @@ export function InlineTextEditor({
 		if (!Number.isInteger(markerIndex) || markerIndex < 0) {
 			return false;
 		}
-		const marker = getListContinuationMarker(element.textSegments?.[markerIndex]);
+		const currentListNumberValue = paragraph.dataset.pptxListNumber;
+		const currentListNumber = Number(currentListNumberValue);
+		const hasCurrentListNumber =
+			currentListNumberValue !== undefined && Number.isFinite(currentListNumber);
+		const marker = getListContinuationMarker(
+			element.textSegments?.[markerIndex],
+			hasCurrentListNumber ? currentListNumber : undefined,
+		);
 		const markerElement = paragraph.querySelector<HTMLElement>(
 			`[data-seg-idx="${markerIndex}"]`,
 		);
@@ -458,6 +546,9 @@ export function InlineTextEditor({
 
 		const nextParagraph = paragraph.cloneNode(false) as HTMLElement;
 		prepareParagraphBox(nextParagraph);
+		if (hasCurrentListNumber) {
+			nextParagraph.dataset.pptxListNumber = String(currentListNumber + 1);
+		}
 
 		if (splitAtParagraphStart) {
 			// PowerPoint keeps the caret in the newly-created empty bullet before
@@ -509,9 +600,19 @@ export function InlineTextEditor({
 				const followingMarker = following.querySelector<HTMLElement>(
 					`[data-seg-idx="${followingMarkerIndex}"]`,
 				);
-				const incrementedMarker = getListContinuationMarker(followingSource);
+				const followingListNumberValue = following.dataset.pptxListNumber;
+				const followingListNumber = Number(followingListNumberValue);
+				const hasFollowingListNumber =
+					followingListNumberValue !== undefined && Number.isFinite(followingListNumber);
+				const incrementedMarker = getListContinuationMarker(
+					followingSource,
+					hasFollowingListNumber ? followingListNumber : undefined,
+				);
 				if (followingMarker && incrementedMarker) {
 					followingMarker.textContent = incrementedMarker;
+					if (hasFollowingListNumber) {
+						following.dataset.pptxListNumber = String(followingListNumber + 1);
+					}
 				}
 				following = following.nextElementSibling as HTMLElement | null;
 			}
@@ -634,6 +735,7 @@ export function InlineTextEditor({
 				whiteSpace: 'pre-wrap',
 				overflowWrap: 'break-word',
 				wordBreak: 'normal',
+				overflow: 'hidden',
 			}}
 			// Touch surfaces drive canvas drag/marquee through onPointerDown (see
 			// useCanvasEventHandlers.handleStagePointerDown). Without stopping it

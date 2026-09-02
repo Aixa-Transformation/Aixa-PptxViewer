@@ -188,6 +188,58 @@ describe('slide master save writer — end-to-end round-trip', () => {
 		expect(hf['@_hdr']).toBe('0');
 		expect(hf['@_sldNum']).toBe('0');
 	});
+
+	it('persists a direct master background edit without typed save options', async () => {
+		const { handler, data } = await PresentationBuilder.create();
+		const master = data.slideMasters![0];
+
+		handler.setTemplateBackground(master.path, '#26A269');
+		const saved = await handler.save(data.slides);
+		const masterXml = await loadSavedZipPart(saved, master.path);
+
+		expect(masterXml).toContain('<a:srgbClr val="26A269"');
+		const reloaded = await new (await import('../../PptxHandler')).PptxHandler().load(
+			saved.buffer.slice(saved.byteOffset, saved.byteOffset + saved.byteLength) as ArrayBuffer,
+		);
+		expect(reloaded.slideMasters?.[0]?.backgroundColor).toBe('#26A269');
+	});
+
+	it('does not materialize theme fill on a useBgFill master shape during a background-only save', async () => {
+		const seed = await PresentationBuilder.create();
+		const seedBytes = await seed.handler.save(seed.data.slides);
+		const zip = await JSZip.loadAsync(seedBytes);
+		const masterPath = seed.data.slideMasters![0].path;
+		const masterXml = await zip.file(masterPath)!.async('string');
+		const backgroundShape = `<p:sp useBgFill="1"><p:nvSpPr><p:cNvPr id="99" name="Background fidelity shape"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:noFill/></a:ln></p:spPr><p:style><a:lnRef idx="2"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></p:style></p:sp>`;
+		zip.file(masterPath, masterXml.replace('</p:spTree>', `${backgroundShape}</p:spTree>`));
+		const fixture = await zip.generateAsync({ type: 'uint8array' });
+		const { PptxHandler } = await import('../../PptxHandler');
+		const handler = new PptxHandler();
+		const data = await handler.load(
+			fixture.buffer.slice(fixture.byteOffset, fixture.byteOffset + fixture.byteLength) as ArrayBuffer,
+		);
+
+		handler.setTemplateBackground(masterPath, '#26A269');
+		const saved = await handler.save(data.slides);
+		const savedMasterXml = await loadSavedZipPart(saved, masterPath);
+		const reparsed = parser.parse(savedMasterXml!) as XmlObject;
+		const spTree = ((reparsed['p:sldMaster'] as XmlObject)['p:cSld'] as XmlObject)[
+			'p:spTree'
+		] as XmlObject;
+		const shapes = Array.isArray(spTree['p:sp'])
+			? (spTree['p:sp'] as XmlObject[])
+			: ([spTree['p:sp']].filter(Boolean) as XmlObject[]);
+		const shape = shapes.find((candidate) => {
+			const nv = candidate['p:nvSpPr'] as XmlObject | undefined;
+			const cNvPr = nv?.['p:cNvPr'] as XmlObject | undefined;
+			return cNvPr?.['@_name'] === 'Background fidelity shape';
+		});
+
+		expect(shape?.['@_useBgFill']).toBe('1');
+		const spPr = shape?.['p:spPr'] as XmlObject;
+		expect(spPr['a:solidFill']).toBeUndefined();
+		expect((spPr['a:ln'] as XmlObject)['a:noFill']).toBeDefined();
+	});
 });
 
 describe('slide layout save writer — end-to-end round-trip', () => {
@@ -243,6 +295,17 @@ describe('slide layout save writer — end-to-end round-trip', () => {
 		const ovr = root['p:clrMapOvr'] as XmlObject;
 		expect(ovr['a:masterClrMapping']).toBeDefined();
 		expect(ovr['a:overrideClrMapping']).toBeUndefined();
+	});
+
+	it('persists a direct layout background edit without typed save options', async () => {
+		const { handler, data } = await PresentationBuilder.create();
+		const layout = data.slideMasters![0].layouts![0];
+
+		handler.setTemplateBackground(layout.path, '#7030A0');
+		const saved = await handler.save(data.slides);
+		const layoutXml = await loadSavedZipPart(saved, layout.path);
+
+		expect(layoutXml).toContain('<a:srgbClr val="7030A0"');
 	});
 });
 

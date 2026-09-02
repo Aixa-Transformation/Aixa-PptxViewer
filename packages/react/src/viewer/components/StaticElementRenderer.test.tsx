@@ -65,6 +65,34 @@ const slide: PptxSlide = {
 };
 
 describe('static rich element rendering', () => {
+	it('renders useBgFill template shapes with the slide background instead of theme accent1', () => {
+		const masterShape: PptxElement = {
+			id: 'master-background-shape',
+			type: 'shape',
+			x: 0,
+			y: 0,
+			width: 960,
+			height: 540,
+			shapeType: 'rect',
+			shapeStyle: {
+				fillMode: 'theme',
+				fillColor: '#94B6D2',
+				useBackgroundFill: true,
+			},
+		};
+		const backgroundSlide: PptxSlide = {
+			...slide,
+			backgroundColor: '#FFFFFF',
+		};
+
+		const html = renderToStaticMarkup(
+			<StaticElementRenderer element={masterShape} activeSlide={backgroundSlide} />,
+		);
+
+		expect(html).toContain('background-color:#FFFFFF');
+		expect(html).not.toContain('background-color:#94B6D2');
+	});
+
 	it('dispatches rich group children to their chart and table renderers', () => {
 		const group: PptxElement = {
 			id: 'group-1',

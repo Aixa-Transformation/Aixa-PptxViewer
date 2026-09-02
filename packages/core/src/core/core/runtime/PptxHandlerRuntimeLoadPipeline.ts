@@ -289,6 +289,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.templateElementBaselines = new WeakMap();
 		this.dirtyTemplateLayoutPaths.clear();
 		this.dirtyTemplateMasterPaths.clear();
+		this.pendingTemplateBackgroundColors.clear();
 		this.pendingTemplateElementBaselines.clear();
 		this.masterTxStylesCache.clear();
 		this.layoutPlaceholderDefaultsCache.clear();
@@ -356,6 +357,14 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			path,
 			backgroundColor,
 		);
+		// Remember this as a focused background edit. During save, inherited
+		// elements are serialized through the same cached XmlObject and can gain
+		// render-only resolved fills. The save pipeline therefore reapplies this
+		// background to a clean copy of the template part when no real template
+		// element edit occurred, preserving the rest of the master/layout.
+		if (this.masterXmlMap.has(path) || this.layoutXmlMap.has(path)) {
+			this.pendingTemplateBackgroundColors.set(path, backgroundColor);
+		}
 	}
 
 	public createXmlBuilder(data: PptxData): PptxXmlBuilder {

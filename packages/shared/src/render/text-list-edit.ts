@@ -186,6 +186,29 @@ function paragraphForOldIndex(
 	return fallback;
 }
 
+function isSelectionAtParagraphStart(
+	paragraph: SegmentParagraph,
+	oldIndex: number,
+	offset: number,
+): boolean {
+	if (offset !== 0) {
+		return false;
+	}
+	const itemIndex = paragraph.items.findIndex((item) => item.oldIndex === oldIndex);
+	if (itemIndex < 0) {
+		return false;
+	}
+	// Browser selections commonly represent an endpoint at the beginning of the
+	// next paragraph's first content run. Ignore structural markers and empty
+	// formatting runs before it: no character from that paragraph was selected.
+	return paragraph.items
+		.slice(0, itemIndex)
+		.every(
+			(item) =>
+				isSyntheticListMarkerSegment(item.segment) || item.segment.text.length === 0,
+		);
+}
+
 /**
  * Apply a bulleted, numbered, or explicit no-list state to whole paragraphs.
  * The returned segments carry real DrawingML bullet metadata, so React renders
@@ -204,9 +227,20 @@ export function applyParagraphListType({
 			: segmentsFromPlainText(text, fallbackStyle);
 	const paragraphs = groupIntoParagraphs(sourceSegments);
 	const startParagraph = selection ? paragraphForOldIndex(paragraphs, selection.startSegIdx, 0) : 0;
-	const endParagraph = selection
+	let endParagraph = selection
 		? paragraphForOldIndex(paragraphs, selection.endSegIdx, paragraphs.length - 1)
 		: paragraphs.length - 1;
+	if (
+		selection &&
+		endParagraph > startParagraph &&
+		isSelectionAtParagraphStart(
+			paragraphs[endParagraph],
+			selection.endSegIdx,
+			selection.endOffset,
+		)
+	) {
+		endParagraph -= 1;
+	}
 	const firstTarget = Math.min(startParagraph, endParagraph);
 	const lastTarget = Math.max(startParagraph, endParagraph);
 	const output: TextSegment[] = [];

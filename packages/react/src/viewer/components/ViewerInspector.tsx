@@ -61,7 +61,10 @@ export interface ViewerInspectorProps {
 	onDeleteElement: () => void;
 	onUpdateSlide: (updates: Partial<PptxSlide>) => void;
 	onUpdateAllSlidesBackground: (
-		updates: Pick<PptxSlide, 'backgroundColor' | 'backgroundImage' | 'backgroundGradient'>,
+		updates: Pick<
+			PptxSlide,
+			'backgroundColor' | 'backgroundImage' | 'backgroundGradient' | 'backgroundSource'
+		>,
 	) => void;
 	presentationProperties: PptxPresentationProperties;
 	onUpdatePresentationProperties: (updates: Partial<PptxPresentationProperties>) => void;

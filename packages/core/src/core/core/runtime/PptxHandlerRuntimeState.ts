@@ -116,6 +116,9 @@ export class PptxHandlerRuntime {
 	protected dirtyTemplateLayoutPaths: Set<string> = new Set();
 	protected dirtyTemplateMasterPaths: Set<string> = new Set();
 
+	/** Direct layout/master background edits waiting to be persisted. */
+	protected pendingTemplateBackgroundColors: Map<string, string | undefined> = new Map();
+
 	/** Baselines committed only after package generation succeeds. */
 	protected pendingTemplateElementBaselines: Map<PptxElement, string> = new Map();
 

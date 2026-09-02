@@ -54,7 +54,8 @@ function ScaledSlidePreviewImpl({
 	const safeCanvasHeight = Math.max(canvasSize.height, 1);
 	const scale = containerWidth > 0 ? containerWidth / safeCanvasWidth : 0.2;
 	const previewHeight = Math.max(40, Math.round(safeCanvasHeight * scale));
-	const previewElements = [...templateElements, ...slide.elements].slice(0, 80);
+	const inheritedElements = slide.showMasterShapes === false ? [] : templateElements;
+	const previewElements = [...inheritedElements, ...slide.elements].slice(0, 80);
 
 	return (
 		<div
@@ -128,6 +129,9 @@ function arePropsEqual(prev: ScaledSlidePreviewProps, next: ScaledSlidePreviewPr
 		return false;
 	}
 	if (prev.slide.backgroundGradient !== next.slide.backgroundGradient) {
+		return false;
+	}
+	if (prev.slide.showMasterShapes !== next.slide.showMasterShapes) {
 		return false;
 	}
 	if (prev.templateElements !== next.templateElements) {

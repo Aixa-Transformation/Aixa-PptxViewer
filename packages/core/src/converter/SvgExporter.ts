@@ -91,15 +91,18 @@ interface RenderContext {
 	slideIndex: number;
 	/** Counter for image-effects filter ids within a slide. */
 	filterCounter: number;
+	/** Effective slide background used by p:sp/@useBgFill shapes. */
+	backgroundFillColor: string;
 }
 
-function createRenderContext(slideIndex = 0): RenderContext {
+function createRenderContext(slideIndex = 0, backgroundFillColor = '#FFFFFF'): RenderContext {
 	return {
 		defs: [],
 		markerCache: new Map(),
 		markerIdCounter: 0,
 		slideIndex,
 		filterCounter: 0,
+		backgroundFillColor,
 	};
 }
 
@@ -262,14 +265,16 @@ function renderText(el: PptxElement, defaults: ReturnType<typeof resolveDefaults
 	return parts.join('');
 }
 
-function renderShapeBody(el: PptxElement): string {
+function renderShapeBody(el: PptxElement, ctx: RenderContext): string {
 	if (el.type !== 'shape' && el.type !== 'text') {
 		return '';
 	}
 
 	const shapeStyle = 'shapeStyle' in el ? el.shapeStyle : undefined;
 	const shapeType = 'shapeType' in el ? el.shapeType : undefined;
-	const fillColor = shapeStyle?.fillColor ?? 'none';
+	const fillColor = shapeStyle?.useBackgroundFill
+		? ctx.backgroundFillColor
+		: shapeStyle?.fillColor ?? 'none';
 	const strokeColor = shapeStyle?.strokeColor ?? 'none';
 	const strokeWidth = shapeStyle?.strokeWidth ?? (strokeColor !== 'none' ? 1 : 0);
 	const fillMode = shapeStyle?.fillMode;
@@ -560,11 +565,11 @@ function renderElement(
 
 	switch (el.type) {
 		case 'text':
-			inner = renderShapeBody(el) + renderText(el, defaults);
+			inner = renderShapeBody(el, ctx) + renderText(el, defaults);
 			break;
 
 		case 'shape':
-			inner = renderShapeBody(el) + renderText(el, defaults);
+			inner = renderShapeBody(el, ctx) + renderText(el, defaults);
 			break;
 
 		case 'connector':
@@ -687,7 +692,12 @@ export class SvgExporter {
 		const defaults = resolveDefaults(options);
 		// Slide.slideId / sequence-number not always present; use a hash of
 		// elements length as a stable slide-local namespace for filter ids.
-		const ctx = createRenderContext(slide.elements.length);
+		const ctx = createRenderContext(
+			slide.elements.length,
+			slide.backgroundColor && slide.backgroundColor !== 'transparent'
+				? slide.backgroundColor
+				: '#FFFFFF',
+		);
 
 		const bodyParts: string[] = [];
 		bodyParts.push(renderBackground(slide, width, height));

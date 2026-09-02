@@ -39,6 +39,7 @@ describe('getDeckBackgroundPatch', () => {
 			backgroundColor: '#102030',
 			backgroundImage: 'data:image/png;base64,AAAA',
 			backgroundGradient: undefined,
+			backgroundSource: 'slide',
 		});
 	});
 
@@ -53,6 +54,7 @@ describe('getDeckBackgroundPatch', () => {
 			backgroundColor: '#AABBCC',
 			backgroundImage: '',
 			backgroundGradient: undefined,
+			backgroundSource: 'slide',
 		});
 	});
 });

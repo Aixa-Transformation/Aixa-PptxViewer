@@ -86,6 +86,51 @@ describe('applyParagraphListType', () => {
 		});
 	});
 
+	it('does not include the next paragraph when the selection ends at its text start', () => {
+		const segments: TextSegment[] = [
+			{ text: 'First', style: {} },
+			{ text: '\n', style: {}, isParagraphBreak: true },
+			{ text: '', style: {} },
+			{ text: 'Second', style: {} },
+			{ text: '\n', style: {}, isParagraphBreak: true },
+			{ text: 'Third', style: {} },
+		];
+		const result = applyParagraphListType({
+			textSegments: segments,
+			listType: 'numbered',
+			selection: { startSegIdx: 0, startOffset: 1, endSegIdx: 3, endOffset: 0 },
+		});
+
+		expect(result.text).toBe('1. First\nSecond\nThird');
+		expect(result.textSegments.filter((segment) => segment.bulletInfo?.autoNumType)).toHaveLength(1);
+	});
+
+	it('formats every partially selected paragraph as one contiguous numbered list', () => {
+		const segments: TextSegment[] = [
+			{ text: 'Alpha ', style: { bold: true } },
+			{ text: 'one', style: {} },
+			{ text: '\n', style: {}, isParagraphBreak: true },
+			{ text: 'Beta ', style: {} },
+			{ text: 'two', style: { italic: true } },
+			{ text: '\n', style: {}, isParagraphBreak: true },
+			{ text: 'Gamma', style: {} },
+		];
+		const result = applyParagraphListType({
+			textSegments: segments,
+			listType: 'numbered',
+			selection: { startSegIdx: 1, startOffset: 1, endSegIdx: 4, endOffset: 2 },
+		});
+
+		expect(result.text).toBe('1. Alpha one\n2. Beta two\nGamma');
+		expect(
+			result.textSegments
+				.filter((segment) => segment.bulletInfo?.autoNumType)
+				.map((segment) => segment.bulletInfo?.paragraphIndex),
+		).toStrictEqual([0, 1]);
+		expect(result.textSegments.find((segment) => segment.text === 'Alpha ')?.style.bold).toBe(true);
+		expect(result.textSegments.find((segment) => segment.text === 'two')?.style.italic).toBe(true);
+	});
+
 	it('keeps paragraph geometry on the new structural marker', () => {
 		const result = applyParagraphListType({
 			textSegments: [

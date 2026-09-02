@@ -346,6 +346,8 @@ describe('InlineTextEditor list Enter', () => {
 	it('restores a stale miniature PowerPoint autofit scale when the text has room', () => {
 		const onCommit = vi.fn();
 		const root = createRoot(host);
+		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
 		const element = {
 			...bulletElement(),
 			height: 200,
@@ -383,6 +385,97 @@ describe('InlineTextEditor list Enter', () => {
 			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
 		});
 		expect(onCommit.mock.calls[0][2]).toBe(1);
+
+		act(() => root.unmount());
+	});
+
+	it('scales exact line spacing with the font instead of collapsing the list', () => {
+		const root = createRoot(host);
+		const element = bulletElement();
+		element.height = 100;
+		element.textStyle = { fontSize: 20, autoFit: false, autoFitMode: 'none' };
+		element.textSegments = element.textSegments?.map((segment) => ({
+			...segment,
+			style: { ...segment.style, fontSize: 20, lineSpacingExactPt: 18 },
+		}));
+
+		act(() => {
+			root.render(
+				<div data-pptx-element='true' style={{ height: element.height }}>
+					<InlineTextEditor
+						initialText={element.text ?? ''}
+						spellCheck={false}
+						textStyle={{ fontSize: 20 }}
+						textStyleRaw={element.textStyle}
+						layoutStyle={{}}
+						element={element}
+						onCommit={vi.fn()}
+						onCancel={vi.fn()}
+						onEditChange={vi.fn()}
+					/>
+				</div>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		const paragraph = editor.querySelector<HTMLElement>('[data-pptx-paragraph]')!;
+		expect(paragraph.style.lineHeight).toBe('24px');
+		Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+		Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 400 });
+		Object.defineProperty(editor, 'scrollHeight', {
+			configurable: true,
+			get: () => {
+				const lineHeight = Number.parseFloat(paragraph.style.lineHeight) || 24;
+				return Math.ceil(150 * (lineHeight / 24));
+			},
+		});
+
+		for (let index = 0; index < 4; index += 1) {
+			act(() => {
+				editor.dispatchEvent(
+					new InputEvent('input', { bubbles: true, inputType: 'insertText' }),
+				);
+			});
+		}
+
+		const finalFontSize = Number.parseFloat(editor.style.fontSize);
+		const finalLineHeight = Number.parseFloat(paragraph.style.lineHeight);
+		expect(finalFontSize).toBeGreaterThan(12);
+		expect(finalLineHeight / 24).toBeCloseTo(finalFontSize / 20, 3);
+
+		act(() => root.unmount());
+	});
+
+	it('ignores a transient zero-size editing box instead of shrinking to the minimum', () => {
+		const root = createRoot(host);
+		const element = {
+			...bulletElement(),
+			textStyle: { fontSize: 20, autoFit: false, autoFitMode: 'none' as const },
+		} as PptxElement;
+		act(() => {
+			root.render(
+				<InlineTextEditor
+					initialText={element.text ?? ''}
+					spellCheck={false}
+					textStyle={{ fontSize: 20 }}
+					textStyleRaw={element.textStyle}
+					layoutStyle={{}}
+					element={element}
+					onCommit={vi.fn()}
+					onCancel={vi.fn()}
+					onEditChange={vi.fn()}
+				/>,
+			);
+		});
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 500 });
+		Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 0 });
+		Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 0 });
+
+		act(() => {
+			editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		});
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
 
 		act(() => root.unmount());
 	});
@@ -552,6 +645,75 @@ describe('InlineTextEditor list Enter', () => {
 		});
 		expect(editor.querySelectorAll('[data-pptx-paragraph]')).toHaveLength(3);
 		expect(onCommit).toHaveBeenCalled();
+
+		act(() => root.unmount());
+	});
+
+	it('keeps increasing numbers across repeated Enter presses in a newly inserted item', () => {
+		const root = createRoot(host);
+		act(() => {
+			root.render(
+				<InlineTextEditor
+					initialText={'1. First\n2. Second\n3. Third'}
+					spellCheck={false}
+					textStyle={{}}
+					textStyleRaw={{}}
+					layoutStyle={{ display: 'flex', flexDirection: 'column' }}
+					element={numberedElement()}
+					onCommit={vi.fn()}
+					onCancel={vi.fn()}
+					onEditChange={vi.fn()}
+				/>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		const firstText = editor.querySelector<HTMLElement>('[data-seg-idx="1"]')!;
+		const selection = window.getSelection()!;
+		const firstRange = document.createRange();
+		firstRange.setStart(firstText.firstChild!, firstText.textContent?.length ?? 0);
+		firstRange.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(firstRange);
+
+		act(() => {
+			editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		});
+
+		let paragraphs = editor.querySelectorAll<HTMLElement>('[data-pptx-paragraph]');
+		const secondContent = paragraphs[1].querySelector<HTMLElement>(
+			'[data-pptx-list-continuation-content="true"]',
+		)!;
+		secondContent.firstChild!.textContent = '\u200BInserted second';
+		act(() => {
+			editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		});
+		const secondTextNode = secondContent.firstChild!;
+		const secondRange = document.createRange();
+		secondRange.setStart(secondTextNode, secondTextNode.textContent?.length ?? 0);
+		secondRange.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(secondRange);
+
+		act(() => {
+			editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		});
+
+		paragraphs = editor.querySelectorAll<HTMLElement>('[data-pptx-paragraph]');
+		expect(Array.from(paragraphs, (paragraph) => paragraph.textContent)).toStrictEqual([
+			'1. First',
+			'2. Inserted second',
+			'3. \u200B',
+			'4. Second',
+			'5. Third',
+		]);
+		expect(Array.from(paragraphs, (paragraph) => paragraph.dataset.pptxListNumber)).toStrictEqual([
+			'1',
+			'2',
+			'3',
+			'4',
+			'5',
+		]);
 
 		act(() => root.unmount());
 	});
