@@ -18,11 +18,6 @@ import { buildTextBody3DSceneStyle } from '../../utils/text-effects';
 import { shouldUseSvgWarp, WarpedText } from '../../utils/text-warp';
 import { ActionButtonGlyphOverlay, isActionButtonShape } from './ActionButtonGlyphOverlay';
 import type { RenderBodyOptions } from './element-body-types';
-import {
-	fitTextToContainer,
-	getRenderedAutoFitScale,
-	isTextAutoFitEnabled,
-} from './text-autofit-dom';
 
 export function shouldRenderTextBody(
 	isTextElement: boolean,
@@ -65,42 +60,6 @@ export function getChevronTextFrameStyle(el: PptxElement): React.CSSProperties |
 		width,
 		height,
 	};
-}
-
-/**
- * View-mode text body that applies PowerPoint's shrink-to-fit.
- *
- * The measurement runs on the rendered markup rather than on an estimate, and
- * the inline editor runs the very same pass on its `contentEditable` clone of
- * this markup. That is what keeps the on-screen font size identical when
- * editing starts and when it ends, and it keeps the text inside the shape
- * after the committed segments replace the editor DOM.
- */
-function AutoFitTextBody({
-	autoFitEnabled,
-	renderedScale,
-	className,
-	style,
-	children,
-}: {
-	autoFitEnabled: boolean;
-	renderedScale: number;
-	className: string;
-	style: React.CSSProperties;
-	children: React.ReactNode;
-}): React.ReactElement {
-	const containerRef = React.useRef<HTMLDivElement>(null);
-	React.useLayoutEffect(() => {
-		if (!autoFitEnabled || !containerRef.current) {
-			return;
-		}
-		fitTextToContainer({ container: containerRef.current, renderedScale });
-	});
-	return (
-		<div ref={containerRef} className={className} style={style}>
-			{children}
-		</div>
-	);
 }
 
 export function renderTextElementBody(options: RenderBodyOptions): React.ReactNode {
@@ -199,9 +158,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 						/>
 					</div>
 				) : (
-					<AutoFitTextBody
-						autoFitEnabled={isTextAutoFitEnabled(txtSE)}
-						renderedScale={getRenderedAutoFitScale(txtSE)}
+					<div
 						className={cn(
 							'relative z-10 w-full h-full whitespace-pre-wrap break-words leading-[1.3]',
 							onHyperlinkClick ? '' : 'pointer-events-none',
@@ -226,7 +183,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							linkedSegments ?? undefined,
 							!isPresentationPassive,
 						)}
-					</AutoFitTextBody>
+					</div>
 				)}
 		</>
 	);
