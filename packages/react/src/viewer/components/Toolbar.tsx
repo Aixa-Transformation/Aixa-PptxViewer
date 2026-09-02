@@ -185,6 +185,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onInsertSlideFromLayout={p.onInsertSlideFromLayout}
 							onApplyLayout={p.onApplyLayout}
 							selectedElement={p.selectedElement}
+							liveAutoFitFontScale={p.liveAutoFitFontScale}
 							onUpdateTextStyle={p.onUpdateTextStyle}
 							themeFonts={p.themeFonts}
 							embeddedFontFamilies={p.embeddedFontFamilies}
@@ -217,6 +218,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 						<TextSection
 							canEdit={p.canEdit}
 							selectedElement={p.selectedElement}
+							liveAutoFitFontScale={p.liveAutoFitFontScale}
 							tableEditorState={p.tableEditorState}
 							onUpdateTextStyle={p.onUpdateTextStyle}
 							onTransformTextCase={p.onTransformTextCase}

@@ -58,6 +58,8 @@ export interface ViewerToolbarSectionProps {
 			React.SetStateAction<Record<string, PptxElement[]>>
 		>;
 		setIsDirty: React.Dispatch<React.SetStateAction<boolean>>;
+		inlineEditingElementId: string | null;
+		inlineEditingAutoFitFontScale: number | null;
 		newShapeType: SupportedShapeType;
 		setNewShapeType: React.Dispatch<React.SetStateAction<SupportedShapeType>>;
 		activeTool: DrawingTool;
@@ -432,6 +434,11 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 				redoLabel={history.redoLabel}
 				findReplaceOpen={findReplace.findReplaceOpen}
 				selectedElement={selectedElement}
+				liveAutoFitFontScale={
+					s.inlineEditingElementId === selectedElement?.id
+						? s.inlineEditingAutoFitFontScale
+						: null
+				}
 				tableEditorState={s.tableEditorState}
 				editTemplateMode={s.editTemplateMode}
 				newShapeType={s.newShapeType}

@@ -5,6 +5,7 @@ import {
 	findLargestFittingInlineTextScale,
 	inlineTextFitMetricsFit,
 	normalizeInlineTextAutoFitScale,
+	resolveInlineTextCommitAutoFitScale,
 } from './inline-text-autofit';
 
 describe('inlineTextFitMetricsFit', () => {
@@ -24,7 +25,9 @@ describe('inlineTextFitMetricsFit', () => {
 	it('accepts content whose visual bounds remain inside the shape', () => {
 		expect(
 			inlineTextFitMetricsFit({
-				scrollHeight: 96,
+				// Browser flex bookkeeping may inflate this even though the measured
+				// glyphs are fully inside the fixed PowerPoint text box.
+				scrollHeight: 240,
 				clientHeight: 100,
 				boxTop: 100,
 				boxBottom: 200,
@@ -32,6 +35,11 @@ describe('inlineTextFitMetricsFit', () => {
 				contentBottom: 198,
 			}),
 		).toBe(true);
+	});
+
+	it('uses scroll height when glyph bounds are unavailable', () => {
+		expect(inlineTextFitMetricsFit({ scrollHeight: 140, clientHeight: 100 })).toBe(false);
+		expect(inlineTextFitMetricsFit({ scrollHeight: 100, clientHeight: 100 })).toBe(true);
 	});
 });
 
@@ -87,5 +95,19 @@ describe('normalizeInlineTextAutoFitScale', () => {
 		expect(normalizeInlineTextAutoFitScale(2)).toBe(1);
 		expect(normalizeInlineTextAutoFitScale(0)).toBe(0.05);
 		expect(normalizeInlineTextAutoFitScale(Number.NaN)).toBe(1);
+	});
+});
+
+describe('resolveInlineTextCommitAutoFitScale', () => {
+	it('uses the final blur measurement when it is supplied', () => {
+		expect(resolveInlineTextCommitAutoFitScale(0.62, 0.7)).toBe(0.62);
+	});
+
+	it('keeps the latest live scale when pointer-down commits before blur', () => {
+		expect(resolveInlineTextCommitAutoFitScale(undefined, 0.7)).toBe(0.7);
+	});
+
+	it('does not invent a scale when neither commit path measured one', () => {
+		expect(resolveInlineTextCommitAutoFitScale(undefined, null)).toBeUndefined();
 	});
 });

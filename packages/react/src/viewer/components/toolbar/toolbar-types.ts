@@ -36,6 +36,8 @@ export interface ToolbarProps {
 	redoLabel: string | undefined;
 	findReplaceOpen: boolean;
 	selectedElement: PptxElement | null;
+	/** Live shrink-on-overflow scale while the selected text box is being edited. */
+	liveAutoFitFontScale?: number | null;
 	tableEditorState?: TableCellEditorState | null;
 	editTemplateMode: boolean;
 	newShapeType: SupportedShapeType;

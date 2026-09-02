@@ -17,6 +17,10 @@ import type { ElementClipboardPayload } from '../../types';
 import { cn } from '../../utils';
 import { RibbonMenu } from './RibbonMenu';
 import { SlidesGroup } from './SlidesGroup';
+import {
+	getAuthoredFontSizeForToolbar,
+	getEffectiveToolbarFontSize,
+} from './font-size-utils';
 import { gB, gL, grp, ic, sep } from './toolbar-constants';
 
 export interface HomeSectionProps {
@@ -36,6 +40,8 @@ export interface HomeSectionProps {
 	onAddSection?: () => void;
 	hiddenActions?: readonly ToolbarActionId[];
 	selectedElement?: PptxElement | null;
+	/** Live shrink-on-overflow scale reported by the active inline editor. */
+	liveAutoFitFontScale?: number | null;
 	onUpdateTextStyle?: (style: Record<string, unknown>) => void;
 	themeFonts?: { heading?: string; body?: string };
 	embeddedFontFamilies?: string[];
@@ -46,6 +52,7 @@ export interface HomeSectionProps {
 export function extractFontInfo(
 	element?: PptxElement | null,
 	themeFonts?: { heading?: string; body?: string },
+	liveAutoFitFontScale?: number | null,
 ): { fontFamily: string; fontSize: string } {
 	const placeholderType = (element as { placeholderType?: string } | null | undefined)?.placeholderType;
 	const isHeading = placeholderType === 'title' || placeholderType === 'ctrTitle';
@@ -66,7 +73,11 @@ export function extractFontInfo(
 	const textStyle = element.textStyle;
 
 	const fontFamily = segStyle?.fontFamily ?? textStyle?.fontFamily ?? defaults.fontFamily;
-	const fontSize = segStyle?.fontSize ?? textStyle?.fontSize;
+	const authoredFontSize = segStyle?.fontSize ?? textStyle?.fontSize;
+	const fontSize =
+		authoredFontSize !== undefined && authoredFontSize !== null
+			? getEffectiveToolbarFontSize(element, authoredFontSize, liveAutoFitFontScale)
+			: undefined;
 
 	return {
 		fontFamily,
@@ -156,6 +167,7 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 	const { fontFamily, fontSize } = extractFontInfo(
 		p.selectedElement,
 		p.themeFonts,
+		p.liveAutoFitFontScale,
 	);
 	const themeFontEntries = [
 		p.themeFonts?.heading ? { family: p.themeFonts.heading, label: 'Headings' } : undefined,
@@ -536,7 +548,13 @@ export function HomeSection(p: HomeSectionProps): React.ReactElement {
 											type='button'
 											className='flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors'
 											onClick={() => {
-												p.onUpdateTextStyle?.({ fontSize: s });
+											p.onUpdateTextStyle?.({
+											fontSize: getAuthoredFontSizeForToolbar(
+												p.selectedElement,
+												s,
+												p.liveAutoFitFontScale,
+											),
+											});
 												setSizeMenuOpen(false);
 											}}
 										>

@@ -160,7 +160,10 @@ export function buildCanvasProps(input: BuildCanvasPropsInput): SlideCanvasProps
 		onResizePointerDown: canvasHandlers.handleResizePointerDown,
 		onAdjustmentPointerDown: canvasHandlers.handleAdjustmentPointerDown,
 		onRotate: canvasHandlers.handleRotate,
-		onInlineEditChange: s.setInlineEditingText,
+		onInlineEditChange: (text, autoFitFontScale) => {
+			s.setInlineEditingText(text);
+			s.setInlineEditingAutoFitFontScale(autoFitFontScale ?? null);
+		},
 		onInlineEditCommit: canvasHandlers.handleInlineEditCommit,
 		onInlineEditCancel: () => s.setInlineEditingElementId(null),
 		onTableCellSelect: (cell, elementId) =>

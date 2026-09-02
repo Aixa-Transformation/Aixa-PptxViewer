@@ -15,7 +15,7 @@ interface ParentCallbacks {
 	onResizePointerDown: (elementId: string, e: React.MouseEvent, handle: string) => void;
 	onAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
 	onRotate?: (elementId: string, rotationDeg: number) => void;
-	onInlineEditChange: (text: string) => void;
+	onInlineEditChange: (text: string, autoFitFontScale?: number) => void;
 	onInlineEditCommit: (
 		autoFitHeight?: number,
 		committedTextOverride?: string,
@@ -42,7 +42,7 @@ export interface StableCallbacks {
 	stableResizePointerDown: (elementId: string, e: React.MouseEvent, handle: string) => void;
 	stableAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
 	stableRotate: (elementId: string, rotationDeg: number) => void;
-	stableInlineEditChange: (text: string) => void;
+	stableInlineEditChange: (text: string, autoFitFontScale?: number) => void;
 	stableInlineEditCommit: (
 		autoFitHeight?: number,
 		committedTextOverride?: string,
@@ -87,7 +87,8 @@ export function useStableCallbacks(callbacks: ParentCallbacks): StableCallbacks 
 	);
 
 	const stableInlineEditChange = useCallback(
-		(text: string) => cbRef.current.onInlineEditChange(text),
+		(text: string, autoFitFontScale?: number) =>
+			cbRef.current.onInlineEditChange(text, autoFitFontScale),
 		[],
 	);
 

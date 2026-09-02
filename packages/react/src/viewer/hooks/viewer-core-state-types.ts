@@ -132,6 +132,9 @@ export interface ViewerCoreState {
 	/** The current inline-editing text content (mirrored from the editor). */
 	inlineEditingText: string;
 	setInlineEditingText: React.Dispatch<React.SetStateAction<string>>;
+	/** Current shrink-on-overflow scale measured by the active inline editor. */
+	inlineEditingAutoFitFontScale: number | null;
+	setInlineEditingAutoFitFontScale: React.Dispatch<React.SetStateAction<number | null>>;
 	/** Whether the user is editing template/layout elements rather than slide elements. */
 	editTemplateMode: boolean;
 	setEditTemplateMode: React.Dispatch<React.SetStateAction<boolean>>;

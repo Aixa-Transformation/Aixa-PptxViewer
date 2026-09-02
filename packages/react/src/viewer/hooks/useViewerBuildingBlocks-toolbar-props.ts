@@ -134,6 +134,10 @@ export function buildToolbarProps(input: BuildToolbarPropsInput): ToolbarProps {
 		redoLabel: history.redoLabel,
 		findReplaceOpen: findReplace.findReplaceOpen,
 		selectedElement,
+		liveAutoFitFontScale:
+			s.inlineEditingElementId === selectedElement?.id
+				? s.inlineEditingAutoFitFontScale
+				: null,
 		tableEditorState: s.tableEditorState,
 		editTemplateMode: s.editTemplateMode,
 		newShapeType: s.newShapeType,

@@ -32,22 +32,24 @@ export function inlineTextFitMetricsFit({
 	contentBottom,
 	tolerance = 1,
 }: InlineTextFitMetrics): boolean {
-	if (scrollHeight > clientHeight + tolerance) {
-		return false;
-	}
 	const hasVisualBounds =
 		[boxTop, boxBottom, contentTop, contentBottom].every(
 			(value) => typeof value === 'number' && Number.isFinite(value),
 		) &&
 		(boxBottom as number) > (boxTop as number) &&
 		(contentBottom as number) > (contentTop as number);
-	if (!hasVisualBounds) {
-		return true;
+	if (hasVisualBounds) {
+		// Flex-aligned contentEditable elements can report a scrollHeight that
+		// includes the fixed viewport, invisible flex artifacts, or inaccessible
+		// overflow above a centered box. When actual glyph rectangles are available
+		// they are the authoritative PowerPoint fit measurement; otherwise a box
+		// with plenty of visible room can be driven down to a miniature font.
+		return (
+			(contentTop as number) >= (boxTop as number) - tolerance &&
+			(contentBottom as number) <= (boxBottom as number) + tolerance
+		);
 	}
-	return (
-		(contentTop as number) >= (boxTop as number) - tolerance &&
-		(contentBottom as number) <= (boxBottom as number) + tolerance
-	);
+	return scrollHeight <= clientHeight + tolerance;
 }
 
 /**
@@ -89,6 +91,24 @@ export function normalizeInlineTextAutoFitScale(scale: number): number {
 		return 1;
 	}
 	return Math.round(Math.max(0.05, Math.min(1, scale)) * 100000) / 100000;
+}
+
+/**
+ * A blur/keyboard commit supplies the final measured scale directly. Pointer
+ * commits can run before blur, so they must retain the latest scale published
+ * by the live editor rather than silently reverting to the authored font size.
+ */
+export function resolveInlineTextCommitAutoFitScale(
+	explicitScale: number | undefined,
+	liveScale: number | null | undefined,
+): number | undefined {
+	if (typeof explicitScale === 'number' && Number.isFinite(explicitScale)) {
+		return explicitScale;
+	}
+	if (typeof liveScale === 'number' && Number.isFinite(liveScale)) {
+		return liveScale;
+	}
+	return undefined;
 }
 
 /** Build the text-style state that serializes as DrawingML `a:normAutofit`. */

@@ -35,7 +35,7 @@ export interface RenderBodyOptions {
 	doGrp: boolean;
 	/** Optional rich read-only dispatcher for children inside a grouped element. */
 	renderGroupChild?: (child: PptxElement, index: number) => React.ReactNode;
-	onEditChange: (t: string) => void;
+	onEditChange: (t: string, autoFitFontScale?: number) => void;
 	onCommit: (
 		autoFitHeight?: number,
 		committedTextOverride?: string,

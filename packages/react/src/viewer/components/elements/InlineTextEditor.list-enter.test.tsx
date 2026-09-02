@@ -118,6 +118,21 @@ function spacedPlainElement(): PptxElement {
 	} as PptxElement;
 }
 
+function mixedWrappedAndInlineElement(): PptxElement {
+	const textSegments: TextSegment[] = [
+		{ text: 'Wrapped paragraph', style: { fontSize: 20, align: 'left' } },
+		{ text: '\n', style: { fontSize: 20 }, isParagraphBreak: true },
+		{ text: 'Inline paragraph', style: { fontSize: 20 } },
+	];
+	return {
+		...bulletElement(),
+		text: 'Wrapped paragraph\nInline paragraph',
+		textStyle: { fontSize: 20 },
+		textSegments,
+		paragraphIndents: undefined,
+	} as PptxElement;
+}
+
 describe('InlineTextEditor list Enter', () => {
 	let host: HTMLDivElement;
 
@@ -195,7 +210,7 @@ describe('InlineTextEditor list Enter', () => {
 		expect(continuedContent.style.wordBreak).toBe('normal');
 		expect(continuedContent.querySelector('br')).toBeNull();
 		expect(continuedContent.textContent).toBe('\u200B');
-		expect(onEditChange).not.toHaveBeenCalled();
+		expect(onEditChange).toHaveBeenLastCalledWith(`${originalText}\n\u2022 `, 1);
 
 		// Keep the caret anchor until the browser has inserted the first real
 		// character. Removing it during beforeinput leaves an empty flex child,
@@ -227,7 +242,7 @@ describe('InlineTextEditor list Enter', () => {
 
 		expect(editor.querySelectorAll('[data-pptx-paragraph]')).toHaveLength(2);
 		expect(onCommit).toHaveBeenCalledWith(undefined, originalText, 1);
-		expect(onEditChange).toHaveBeenLastCalledWith(originalText);
+		expect(onEditChange).toHaveBeenLastCalledWith(originalText, 1);
 
 		act(() => root.unmount());
 	});
@@ -289,6 +304,35 @@ describe('InlineTextEditor list Enter', () => {
 			'First paragraph\nNew paragraph\nSecond paragraph',
 			expect.any(Number),
 		);
+		act(() => root.unmount());
+	});
+
+	it('commits mixed wrapped and inline paragraphs without dropping lower text', () => {
+		const onCommit = vi.fn();
+		const root = createRoot(host);
+		const element = mixedWrappedAndInlineElement();
+		act(() => {
+			root.render(
+				<InlineTextEditor
+					initialText={element.text ?? ''}
+					spellCheck={false}
+					textStyle={{ fontSize: 20 }}
+					textStyleRaw={element.textStyle}
+					layoutStyle={{}}
+					element={element}
+					onCommit={onCommit}
+					onCancel={vi.fn()}
+					onEditChange={vi.fn()}
+				/>,
+			);
+		});
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		expect(editor.querySelectorAll('[data-pptx-paragraph]')).toHaveLength(1);
+
+		act(() => {
+			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+		});
+		expect(onCommit.mock.calls[0][1]).toBe('Wrapped paragraph\nInline paragraph');
 		act(() => root.unmount());
 	});
 
@@ -376,6 +420,64 @@ describe('InlineTextEditor list Enter', () => {
 		act(() => root.unmount());
 	});
 
+	it('finishes a genuine fit on blur after a large single edit', () => {
+		const onCommit = vi.fn();
+		const root = createRoot(host);
+		const element = {
+			...bulletElement(),
+			height: 100,
+			textStyle: { fontSize: 20, autoFit: false, autoFitMode: 'none' as const },
+		} as PptxElement;
+
+		act(() => {
+			root.render(
+				<div data-pptx-element='true' style={{ height: element.height }}>
+					<InlineTextEditor
+						initialText={element.text ?? ''}
+						spellCheck={false}
+						textStyle={{ fontSize: 20 }}
+						textStyleRaw={element.textStyle}
+						layoutStyle={{ justifyContent: 'center' }}
+						element={element}
+						onCommit={onCommit}
+						onCancel={vi.fn()}
+						onEditChange={vi.fn()}
+					/>
+				</div>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+		Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 400 });
+		Object.defineProperty(editor, 'scrollHeight', {
+			configurable: true,
+			get: () => {
+				const currentFontSize = Number.parseFloat(editor.style.fontSize) || 20;
+				return Math.ceil(220 * (currentFontSize / 20));
+			},
+		});
+
+		// A paste/replacement is one input event, so live editing moves down only
+		// one normal two-unit step and remains intentionally gradual.
+		act(() => {
+			editor.dispatchEvent(
+				new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste' }),
+			);
+		});
+		expect(Number.parseFloat(editor.style.fontSize) / 20).toBeCloseTo(18 / 20, 4);
+
+		act(() => {
+			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+		});
+
+		const committedScale = onCommit.mock.calls[0][2] as number;
+		expect(committedScale).toBeLessThan(18 / 20);
+		expect(220 * committedScale).toBeLessThanOrEqual(101);
+		expect(editor.style.overflow).toBe('hidden');
+		act(() => root.unmount());
+	});
+
 	it('does not shrink for the temporary horizontal width of a list marker row', () => {
 		const onCommit = vi.fn();
 		const root = createRoot(host);
@@ -424,7 +526,7 @@ describe('InlineTextEditor list Enter', () => {
 		act(() => root.unmount());
 	});
 
-	it('keeps a small post-blur safety margin so the final view does not clip the last line', () => {
+	it('does not shrink fixed-height text again on repeated click-out cycles', () => {
 		const onCommit = vi.fn();
 		const root = createRoot(host);
 		const element = {
@@ -454,26 +556,97 @@ describe('InlineTextEditor list Enter', () => {
 		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
 		Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
 		Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 400 });
-		Object.defineProperty(editor, 'scrollHeight', {
-			configurable: true,
-			get: () => {
-				const currentFontSize = Number.parseFloat(editor.style.fontSize) || 20;
-				return Math.ceil(99 * (currentFontSize / 20));
-			},
+		// Browsers report the fixed editing viewport as both scrollHeight and
+		// clientHeight when short content fits. The post-blur visual safety inset
+		// must not be subtracted from only one side of that comparison.
+		Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 100 });
+
+		for (let cycle = 0; cycle < 6; cycle += 1) {
+			act(() => {
+				editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+			});
+		}
+
+		expect(onCommit).toHaveBeenCalledTimes(6);
+		expect(onCommit.mock.calls.map((call) => call[2])).toEqual([1, 1, 1, 1, 1, 1]);
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
+		act(() => root.unmount());
+	});
+
+	it('does not shrink from an inflated flex scroll area when all glyphs fit', () => {
+		const onCommit = vi.fn();
+		const root = createRoot(host);
+		const element = {
+			...bulletElement(),
+			height: 100,
+			textStyle: { fontSize: 20, autoFit: true, autoFitMode: 'normal' as const },
+		} as PptxElement;
+
+		act(() => {
+			root.render(
+				<div data-pptx-element='true' style={{ height: element.height }}>
+					<InlineTextEditor
+						initialText={element.text ?? ''}
+						spellCheck={false}
+						textStyle={{ fontSize: 20 }}
+						textStyleRaw={element.textStyle}
+						layoutStyle={{ justifyContent: 'center' }}
+						element={element}
+						onCommit={onCommit}
+						onCancel={vi.fn()}
+						onEditChange={vi.fn()}
+					/>
+				</div>,
+			);
+		});
+
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		Object.defineProperty(editor, 'clientHeight', { configurable: true, value: 100 });
+		Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 400 });
+		Object.defineProperty(editor, 'scrollHeight', { configurable: true, value: 260 });
+		vi.spyOn(editor, 'getBoundingClientRect').mockReturnValue({
+			top: 0,
+			bottom: 100,
+			left: 0,
+			right: 400,
+			width: 400,
+			height: 100,
+			x: 0,
+			y: 0,
+			toJSON: () => ({}),
+		});
+		const nativeCreateRange = document.createRange.bind(document);
+		vi.spyOn(document, 'createRange').mockImplementation(() => {
+			const range = nativeCreateRange();
+			Object.defineProperty(range, 'getBoundingClientRect', {
+				configurable: true,
+				value: () => ({
+					top: 20,
+					bottom: 80,
+					left: 10,
+					right: 390,
+					width: 380,
+					height: 60,
+					x: 10,
+					y: 20,
+					toJSON: () => ({}),
+				}),
+			});
+			return range;
 		});
 
 		act(() => {
 			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
 		});
 
-		const committedScale = onCommit.mock.calls[0][2] as number;
-		expect(committedScale).toBeLessThan(1);
-		expect(committedScale).toBeGreaterThanOrEqual(18 / 20);
+		expect(onCommit.mock.calls[0][2]).toBe(1);
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
 		act(() => root.unmount());
 	});
 
-	it('restores a stale miniature PowerPoint autofit scale when the text has room', () => {
+	it('preserves the saved autofit scale instead of zooming in when editing starts', () => {
 		const onCommit = vi.fn();
+		const onEditChange = vi.fn();
 		const root = createRoot(host);
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
 		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
@@ -501,20 +674,88 @@ describe('InlineTextEditor list Enter', () => {
 						element={element}
 						onCommit={onCommit}
 						onCancel={vi.fn()}
-						onEditChange={vi.fn()}
+						onEditChange={onEditChange}
 					/>
 				</div>,
 			);
 		});
 
 		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
-		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(10, 4);
+		act(() => {
+			editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		});
+		expect(onEditChange.mock.calls.at(-1)?.[1]).toBe(0.5);
 
 		act(() => {
 			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
 		});
-		expect(onCommit.mock.calls[0][2]).toBe(1);
+		expect(onCommit.mock.calls[0][2]).toBe(0.5);
 
+		act(() => root.unmount());
+	});
+
+	it('retains a toolbar font-size change after input and blur', () => {
+		const onCommit = vi.fn();
+		const onEditChange = vi.fn();
+		const root = createRoot(host);
+		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
+		vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(100);
+		const originalElement = {
+			...bulletElement(),
+			textStyle: {
+				fontSize: 20,
+				autoFit: true,
+				autoFitMode: 'normal' as const,
+				autoFitFontScale: 0.5,
+			},
+			textSegments: bulletSegments().map((segment) => ({
+				...segment,
+				style: { ...segment.style, fontSize: 20 },
+			})),
+		} as PptxElement;
+		const renderEditor = (element: PptxElement, effectiveFontSize: number) => {
+			root.render(
+				<div data-pptx-element='true' style={{ height: element.height }}>
+					<InlineTextEditor
+						initialText={element.text ?? ''}
+						spellCheck={false}
+						textStyle={{ fontSize: effectiveFontSize }}
+						textStyleRaw={element.textStyle}
+						layoutStyle={{}}
+						element={element}
+						onCommit={onCommit}
+						onCancel={vi.fn()}
+						onEditChange={onEditChange}
+					/>
+				</div>,
+			);
+		};
+
+		act(() => renderEditor(originalElement, 10));
+		const editor = host.querySelector<HTMLElement>('[data-inline-editor]')!;
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(10, 4);
+
+		const toolbarUpdatedElement = {
+			...originalElement,
+			textStyle: { ...originalElement.textStyle, fontSize: 40 },
+			textSegments: originalElement.textSegments?.map((segment) => ({
+				...segment,
+				style: { ...segment.style, fontSize: 40 },
+			})),
+		} as PptxElement;
+		act(() => renderEditor(toolbarUpdatedElement, 20));
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
+
+		act(() => {
+			editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+			editor.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+		});
+
+		expect(Number.parseFloat(editor.style.fontSize)).toBeCloseTo(20, 4);
+		expect(onEditChange.mock.calls.at(-1)?.[1]).toBe(0.5);
+		expect(onCommit.mock.calls[0][2]).toBe(0.5);
 		act(() => root.unmount());
 	});
 

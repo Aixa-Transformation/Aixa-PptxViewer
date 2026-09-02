@@ -648,6 +648,80 @@ describe('toolbar - Home tab', () => {
 		expect(html).toContain('>24</span>');
 	});
 
+	it('font size display follows the selected element autofit scale', () => {
+		const html = render(
+			React.createElement(HomeSection, {
+				canEdit: true,
+				clipboardPayload: null,
+				onCopy: vi.fn<() => void>(),
+				onCut: vi.fn<() => void>(),
+				onPaste: vi.fn<() => void>(),
+				layoutOptions: [],
+				onInsertSlideFromLayout: vi.fn<() => void>(),
+				selectedElement: {
+					id: 'shape-1',
+					type: 'shape',
+					text: 'Autofit text',
+					textStyle: { fontSize: 24, autoFitFontScale: 0.75 },
+					textSegments: [{ text: 'Autofit text', style: { fontSize: 24 } }],
+				} as never,
+				onUpdateTextStyle: vi.fn<() => void>(),
+			}),
+		);
+		expect(html).toContain('>18</span>');
+	});
+
+	it('font size display follows the live inline-editing scale', () => {
+		const html = render(
+			React.createElement(HomeSection, {
+				canEdit: true,
+				clipboardPayload: null,
+				onCopy: vi.fn<() => void>(),
+				onCut: vi.fn<() => void>(),
+				onPaste: vi.fn<() => void>(),
+				layoutOptions: [],
+				onInsertSlideFromLayout: vi.fn<() => void>(),
+				selectedElement: {
+					id: 'shape-1',
+					type: 'shape',
+					text: 'Live autofit text',
+					textStyle: { fontSize: 24, autoFitFontScale: 0.75 },
+					textSegments: [{ text: 'Live autofit text', style: { fontSize: 24 } }],
+				} as never,
+				liveAutoFitFontScale: 0.5,
+				onUpdateTextStyle: vi.fn<() => void>(),
+			}),
+		);
+		expect(html).toContain('>12</span>');
+	});
+
+	it('font size display is always a whole number', () => {
+		const html = render(
+			React.createElement(HomeSection, {
+				canEdit: true,
+				clipboardPayload: null,
+				onCopy: vi.fn<() => void>(),
+				onCut: vi.fn<() => void>(),
+				onPaste: vi.fn<() => void>(),
+				layoutOptions: [],
+				onInsertSlideFromLayout: vi.fn<() => void>(),
+				selectedElement: {
+					id: 'shape-1',
+					type: 'shape',
+					text: 'Fractional authored font size',
+					textStyle: { fontSize: 58.67, autoFitFontScale: 0.75 },
+					textSegments: [
+						{ text: 'Fractional authored font size', style: { fontSize: 58.67 } },
+					],
+				} as never,
+				onUpdateTextStyle: vi.fn<() => void>(),
+			}),
+		);
+		expect(html).toContain('>44</span>');
+		expect(html).not.toContain('>44.00</span>');
+		expect(html).not.toContain('>58.67</span>');
+	});
+
 	it('paste is disabled when no clipboard payload', () => {
 		const html = render(
 			React.createElement(HomeSection, {

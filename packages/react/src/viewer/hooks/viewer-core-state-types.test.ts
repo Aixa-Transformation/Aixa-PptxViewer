@@ -102,6 +102,7 @@ describe('viewerCoreState defaults', () => {
 			isDirty: false,
 			inlineEditingElementId: null,
 			inlineEditingText: '',
+			inlineEditingAutoFitFontScale: null,
 			editTemplateMode: false,
 			pointerCommitNonce: 0,
 			hasMacros: false,

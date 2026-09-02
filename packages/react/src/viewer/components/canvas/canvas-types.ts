@@ -90,7 +90,7 @@ export interface SlideCanvasProps {
 	onAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
 	/** Commit a new rotation (degrees) when the on-canvas rotate handle is dragged. */
 	onRotate?: (elementId: string, rotationDeg: number) => void;
-	onInlineEditChange: (text: string) => void;
+	onInlineEditChange: (text: string, autoFitFontScale?: number) => void;
 	onInlineEditCommit: (
 		autoFitHeight?: number,
 		committedTextOverride?: string,
