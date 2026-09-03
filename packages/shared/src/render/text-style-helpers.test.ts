@@ -91,7 +91,7 @@ describe('computeAutoFitTextStyle', () => {
 		expect(computeAutoFitTextStyle({ ...base, textStyle: ts }).lineHeight).toBeUndefined();
 	});
 
-	it('shrinks via heuristic when spAutoFit text overflows', () => {
+	it('keeps the authored size for spAutoFit text that overflows', () => {
 		const ts: TextStyle = { autoFit: true, fontSize: 40, autoFitMode: 'shrink' };
 		const longText = 'x'.repeat(2000);
 		const result = computeAutoFitTextStyle({
@@ -101,8 +101,6 @@ describe('computeAutoFitTextStyle', () => {
 			height: 40,
 			textStyle: ts,
 		});
-		expect(result.fontSize).toBeDefined();
-		expect(result.fontSize!).toBeLessThan(40);
-		expect(result.fontSize!).toBeGreaterThanOrEqual(6);
+		expect(result.fontSize).toBeUndefined();
 	});
 });

@@ -222,6 +222,7 @@ export function useEditorOperations(input: UseEditorOperationsInput): EditorOper
 		ops,
 		history,
 		handlerRef,
+		setTemplateElementsBySlideId: state.setTemplateElementsBySlideId,
 	});
 
 	const tableOps = useTableOperations({

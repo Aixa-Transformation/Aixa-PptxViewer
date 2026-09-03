@@ -8,16 +8,8 @@ import {
 	getPendingSelectionRestore,
 	restoreSegmentSelection,
 } from '../../utils/inline-selection-utils';
-import {
-	findLargestFittingInlineTextScale,
-	inlineTextFitMetricsFit,
-	normalizeInlineTextAutoFitScale,
-} from './inline-text-autofit';
 import { getListContinuationMarker } from './inline-list-enter';
 
-const INLINE_TEXT_AUTOFIT_STEP = 2;
-const MIN_INLINE_TEXT_FONT_SIZE = 8;
-const VIEW_MODE_FIT_SAFETY_PX = 4;
 const LIST_CONTINUATION_CARET_PLACEHOLDER = '\u200B';
 
 /**
@@ -74,13 +66,6 @@ export function InlineTextEditor({
 }) {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const pendingListParagraphsRef = useRef<Set<HTMLElement>>(new Set());
-	const importedAutoFitScale =
-		typeof textStyleRaw?.autoFitFontScale === 'number' &&
-		textStyleRaw.autoFitFontScale > 0 &&
-		textStyleRaw.autoFitFontScale < 1
-			? textStyleRaw.autoFitFontScale
-			: 1;
-	const autoFitFontScaleRef = useRef(importedAutoFitScale);
 
 	// The editor is UNCONTROLLED: its content is seeded exactly once (below) and
 	// the DOM owns the text from then on. `initialText` is updated by the parent
@@ -161,227 +146,6 @@ export function InlineTextEditor({
 		}
 	}, [seed]);
 
-	const measureAndScaleText = useCallback((
-		allowGrowth = false,
-		limitToOneStep = false,
-		bottomSafetyInset = 0,
-	): number => {
-		const editor = editorRef.current;
-		if (!editor) {
-			return autoFitFontScaleRef.current;
-		}
-
-		// Preserve the authored font sizes per node. Applying one scale to those
-		// baselines reflows every rich-text run inside the fixed shape,
-		// including mixed-size text and list markers. Existing normAutofit values
-		// are divided out once so deleting text can grow back toward 100%.
-		const currentScale = Math.max(0.05, autoFitFontScaleRef.current || 1);
-		// A slide can briefly report a zero-size editing box while it is being
-		// selected, scrolled into view, or moved between responsive panes. Treating
-		// that transient state as overflow collapses the font to the minimum before
-		// the real geometry is available.
-		if (editor.clientHeight <= 1 || editor.clientWidth <= 1) {
-			return currentScale;
-		}
-		const targets = [editor, ...editor.querySelectorAll<HTMLElement>('*')];
-		let smallestBaseFontSize = Number.POSITIVE_INFINITY;
-		const metricChangedOutsideAutoFit = (
-			computedValue: number,
-			baseValue: number,
-		): boolean =>
-			Number.isFinite(computedValue) &&
-			Number.isFinite(baseValue) &&
-			Math.abs(computedValue - baseValue * currentScale) > 0.05;
-		for (const target of targets) {
-			const computedStyle = window.getComputedStyle(target);
-			const computedFontSize = Number.parseFloat(computedStyle.fontSize);
-			let baseFontSize = Number(target.dataset.pptxAutoFitBaseFontSize);
-			if (
-				!Number.isFinite(baseFontSize) ||
-				baseFontSize <= 0 ||
-				metricChangedOutsideAutoFit(computedFontSize, baseFontSize)
-			) {
-				if (!Number.isFinite(computedFontSize) || computedFontSize <= 0) {
-					continue;
-				}
-				// React can reuse this DOM node when the toolbar changes its authored
-				// font size. The old dataset is only an autofit baseline; if the live
-				// computed value no longer equals base * scale, rebase it instead of
-				// snapping the toolbar change back on the next input/blur measurement.
-				baseFontSize = computedFontSize / currentScale;
-				target.dataset.pptxAutoFitBaseFontSize = String(baseFontSize);
-			}
-			smallestBaseFontSize = Math.min(smallestBaseFontSize, baseFontSize);
-
-			// Exact DrawingML line spacing resolves to a fixed CSS length. Capture
-			// that metric as well as the paragraph spacing so it shrinks in lockstep
-			// with the glyphs instead of forcing the fit search toward its minimum.
-			if (target === editor || target.hasAttribute('data-pptx-paragraph')) {
-				const computedLineHeight = Number.parseFloat(computedStyle.lineHeight);
-				let baseLineHeight = Number(target.dataset.pptxAutoFitBaseLineHeight);
-				if (
-					(!Number.isFinite(baseLineHeight) ||
-						baseLineHeight <= 0 ||
-						metricChangedOutsideAutoFit(computedLineHeight, baseLineHeight)) &&
-					Number.isFinite(computedLineHeight) &&
-					computedLineHeight > 0
-				) {
-					baseLineHeight = computedLineHeight / currentScale;
-					target.dataset.pptxAutoFitBaseLineHeight = String(baseLineHeight);
-				}
-			}
-			if (target.hasAttribute('data-pptx-paragraph')) {
-				for (const [datasetKey, cssValue] of [
-					['pptxAutoFitBaseMarginTop', computedStyle.marginTop],
-					['pptxAutoFitBaseMarginBottom', computedStyle.marginBottom],
-				] as const) {
-					const computedMargin = Number.parseFloat(cssValue);
-					let baseMargin = Number(target.dataset[datasetKey]);
-					if (
-						(!Number.isFinite(baseMargin) ||
-							metricChangedOutsideAutoFit(computedMargin, baseMargin)) &&
-						Number.isFinite(computedMargin)
-					) {
-						baseMargin = computedMargin / currentScale;
-						target.dataset[datasetKey] = String(baseMargin);
-					}
-				}
-			}
-		}
-
-		const computedMinimumScale = Number.isFinite(smallestBaseFontSize)
-			? Math.max(0.05, Math.min(1, MIN_INLINE_TEXT_FONT_SIZE / smallestBaseFontSize))
-			: 0.1;
-		// Never enlarge already-authored/imported miniature text merely because
-		// our preferred live-edit floor is higher than its current scale.
-		const minimumScale = Math.min(currentScale, computedMinimumScale);
-		const applyScale = (scale: number): void => {
-			for (const target of targets) {
-				const baseFontSize = Number(target.dataset.pptxAutoFitBaseFontSize);
-				if (Number.isFinite(baseFontSize) && baseFontSize > 0) {
-					target.style.fontSize = `${baseFontSize * scale}px`;
-				}
-				const baseLineHeight = Number(target.dataset.pptxAutoFitBaseLineHeight);
-				if (Number.isFinite(baseLineHeight) && baseLineHeight > 0) {
-					target.style.lineHeight = `${baseLineHeight * scale}px`;
-				}
-				if (target.hasAttribute('data-pptx-paragraph')) {
-					const baseMarginTop = Number(target.dataset.pptxAutoFitBaseMarginTop);
-					if (Number.isFinite(baseMarginTop)) {
-						target.style.marginTop = `${baseMarginTop * scale}px`;
-					}
-					const baseMarginBottom = Number(target.dataset.pptxAutoFitBaseMarginBottom);
-					if (Number.isFinite(baseMarginBottom)) {
-						target.style.marginBottom = `${baseMarginBottom * scale}px`;
-					}
-				}
-			}
-		};
-		const fits = (scale: number): boolean => {
-			applyScale(scale);
-			// Measure the complete laid-out text, including glyphs above a
-			// middle-aligned flex box. The editor is normally clipped so typing
-			// never paints outside the shape, but measuring that clipped rendering
-			// can hide the very overflow normAutofit needs to detect. This mutation
-			// is synchronous and restored to hidden before the browser paints.
-			editor.style.overflow = 'visible';
-			// The editor always wraps long words (`overflow-wrap: break-word`).
-			// During an inserted list item Chromium can nevertheless report the
-			// fixed marker column in scrollWidth in addition to the flexible text
-			// column. Treating that transient hanging-indent width as real overflow
-			// shrinks the font by another step on every keystroke even though every
-			// rendered line fits. PowerPoint's Shrink text on overflow is driven by
-			// whether the wrapped text body exceeds the fixed box height here.
-			let visualBounds: {
-				boxTop?: number;
-				boxBottom?: number;
-				contentTop?: number;
-				contentBottom?: number;
-			} = {};
-			try {
-				const box = editor.getBoundingClientRect();
-				let contentTop = Number.POSITIVE_INFINITY;
-				let contentBottom = Number.NEGATIVE_INFINITY;
-				const walker = document.createTreeWalker(editor, 4);
-				let textNode = walker.nextNode();
-				while (textNode) {
-					const visibleText = (textNode.textContent ?? '').replaceAll(
-						LIST_CONTINUATION_CARET_PLACEHOLDER,
-						'',
-					);
-					if (visibleText.length > 0) {
-						const contentRange = document.createRange();
-						contentRange.selectNodeContents(textNode);
-						const content = contentRange.getBoundingClientRect();
-						if (
-							Number.isFinite(content.top) &&
-							Number.isFinite(content.bottom) &&
-							content.bottom > content.top
-						) {
-							contentTop = Math.min(contentTop, content.top);
-							contentBottom = Math.max(contentBottom, content.bottom);
-						}
-					}
-					textNode = walker.nextNode();
-				}
-				if (Number.isFinite(contentTop) && Number.isFinite(contentBottom)) {
-					visualBounds = {
-						boxTop: box.top,
-						boxBottom: box.bottom,
-						contentTop,
-						contentBottom,
-					};
-				}
-			} catch {
-				// Older DOM shims do not expose Range#getBoundingClientRect. The
-				// scroll-height check remains a safe fallback in those environments.
-			}
-			return inlineTextFitMetricsFit({
-				scrollHeight: editor.scrollHeight,
-				// A fixed-height contentEditable commonly reports scrollHeight equal
-				// to clientHeight even for just one short line. Reducing clientHeight
-				// by the view safety inset therefore makes every fitting box overflow
-				// and shrinks it again on every edit/blur cycle. Keep the real scroll
-				// viewport here; reserve the inset only against actual glyph bounds.
-				clientHeight: editor.clientHeight,
-				...visualBounds,
-				...(typeof visualBounds.boxBottom === 'number'
-					? { boxBottom: visualBounds.boxBottom - bottomSafetyInset }
-					: {}),
-			});
-		};
-		const fittedScale = normalizeInlineTextAutoFitScale(
-			findLargestFittingInlineTextScale({
-				fits,
-				minScale: minimumScale,
-				maxScale: allowGrowth ? 1 : currentScale,
-			}),
-		);
-		const editorBaseFontSize = Number(editor.dataset.pptxAutoFitBaseFontSize);
-		const scaleStep =
-			Number.isFinite(editorBaseFontSize) && editorBaseFontSize > 0
-				? INLINE_TEXT_AUTOFIT_STEP / editorBaseFontSize
-				: 0.1;
-		const nextScale = normalizeInlineTextAutoFitScale(
-			!limitToOneStep
-				// Entering edit mode is allowed to recover a stale miniature scale,
-				// but must never make the text smaller before the user types.
-				? allowGrowth
-					? Math.max(currentScale, fittedScale)
-					: fittedScale
-				: allowGrowth
-					// Deletion may restore at most two font-size units per edit.
-					? Math.max(currentScale, Math.min(fittedScale, currentScale + scaleStep))
-					// Insertion may shrink at most two units per edit. This prevents a
-					// single wrapping fluctuation from turning 24pt text into miniature text.
-					: Math.min(currentScale, Math.max(fittedScale, currentScale - scaleStep)),
-		);
-		applyScale(nextScale);
-		editor.style.overflow = 'hidden';
-		autoFitFontScaleRef.current = nextScale;
-		return nextScale;
-	}, []);
-
 	const removeListContinuationCaretPlaceholder = useCallback(() => {
 		const editor = editorRef.current;
 		if (!editor) {
@@ -416,14 +180,12 @@ export function InlineTextEditor({
 		}
 	}, []);
 
-	// Sync text to the parent and recompute PowerPoint-style font autofit on
-	// every input. The shape geometry remains unchanged.
-	const handleInput = useCallback((event: React.FormEvent<HTMLDivElement>) => {
+	// Sync text to the parent on every input. The authored font size and the
+	// shape geometry both stay fixed; overflowing text simply spills out.
+	const handleInput = useCallback(() => {
 		removeListContinuationCaretPlaceholder();
-		const inputType = (event.nativeEvent as InputEvent).inputType ?? '';
-		const liveAutoFitScale = measureAndScaleText(inputType.startsWith('delete'), true);
-		onEditChange(extractText(), liveAutoFitScale);
-	}, [extractText, measureAndScaleText, onEditChange, removeListContinuationCaretPlaceholder]);
+		onEditChange(extractText());
+	}, [extractText, onEditChange, removeListContinuationCaretPlaceholder]);
 
 	// When the caret sits at a soft word-wrap boundary (no explicit line break,
 	// just CSS wrapping), the space that separates the two words is still part
@@ -516,9 +278,8 @@ export function InlineTextEditor({
 		caretRange.collapse(true);
 		selection.removeAllRanges();
 		selection.addRange(caretRange);
-		measureAndScaleText(false, true);
 		return true;
-	}, [measureAndScaleText]);
+	}, []);
 
 	// Native contentEditable Enter creates browser-specific block markup. In a
 	// bullet paragraph Chromium commonly exposes that as two line breaks, which
@@ -623,7 +384,6 @@ export function InlineTextEditor({
 			paragraph.style.removeProperty('align-items');
 			paragraph.style.removeProperty('gap');
 			pendingListParagraphsRef.current.delete(paragraph);
-			measureAndScaleText(false, true);
 			return true;
 		}
 
@@ -773,9 +533,8 @@ export function InlineTextEditor({
 		caretRange.collapse(true);
 		selection.removeAllRanges();
 		selection.addRange(caretRange);
-		measureAndScaleText(false, true);
 		return true;
-	}, [element, measureAndScaleText]);
+	}, [element]);
 
 	const removeEmptyPendingListParagraphs = useCallback(() => {
 		for (const paragraph of pendingListParagraphsRef.current) {
@@ -815,14 +574,6 @@ export function InlineTextEditor({
 			selection.addRange(range);
 		}
 	}, []);
-
-	// Initial fit only. Preserve the saved on-slide size when it already fits and
-	// shrink immediately when it does not. Automatically growing to 100% on entry
-	// makes the editor look zoomed-in and hides lower paragraphs until another
-	// input event; deletion still restores size gradually through `handleInput`.
-	useLayoutEffect(() => {
-		measureAndScaleText(false);
-	}, [measureAndScaleText]);
 
 	// After a formatting update, React re-renders the contentEditable children
 	// which destroys the DOM selection. Restore it from the pending info.
@@ -884,7 +635,9 @@ export function InlineTextEditor({
 				whiteSpace: 'pre-wrap',
 				overflowWrap: 'break-word',
 				wordBreak: 'normal',
-				overflow: 'hidden',
+				// The authored font size never shrinks to fit, so overflowing text has
+				// to stay readable outside the shape instead of being clipped.
+				overflow: 'visible',
 			}}
 			// Touch surfaces drive canvas drag/marquee through onPointerDown (see
 			// useCanvasEventHandlers.handleStagePointerDown). Without stopping it
@@ -897,21 +650,9 @@ export function InlineTextEditor({
 			onBlur={() => {
 				removeEmptyPendingListParagraphs();
 				removeListContinuationCaretPlaceholder();
-				// The final view rebuilds the contentEditable DOM as DrawingML
-				// paragraphs. Its line-box metrics can be a few pixels taller than the
-				// browser's temporary typing DOM. Reserve a small bottom inset and finish
-				// the fit search before switching renderers. Keystrokes still shrink one
-				// normal two-unit step at a time; blur must resolve any remaining real
-				// overflow from paste, replacement, or a large single edit so view mode
-				// cannot place text above or below the fixed PowerPoint shape.
-				const finalAutoFitScale = measureAndScaleText(
-					false,
-					false,
-					VIEW_MODE_FIT_SAFETY_PX,
-				);
 				const committedText = extractText();
-				onEditChange(committedText, finalAutoFitScale);
-				onCommit(undefined, committedText, finalAutoFitScale);
+				onEditChange(committedText);
+				onCommit(undefined, committedText);
 			}}
 			onKeyDown={(e) => {
 				// Inline formatting shortcuts (Ctrl/Cmd + B/I/U)
@@ -945,14 +686,9 @@ export function InlineTextEditor({
 					e.preventDefault();
 					removeEmptyPendingListParagraphs();
 					removeListContinuationCaretPlaceholder();
-					const finalAutoFitScale = measureAndScaleText(
-						false,
-						false,
-						VIEW_MODE_FIT_SAFETY_PX,
-					);
 					const committedText = extractText();
-					onEditChange(committedText, finalAutoFitScale);
-					onCommit(undefined, committedText, finalAutoFitScale);
+					onEditChange(committedText);
+					onCommit(undefined, committedText);
 					return;
 				}
 				if (e.key === 'Enter') {
@@ -963,8 +699,7 @@ export function InlineTextEditor({
 						if (insertedParagraph) {
 							e.preventDefault();
 							e.stopPropagation();
-							const liveAutoFitScale = measureAndScaleText(false, true);
-							onEditChange(extractText(), liveAutoFitScale);
+							onEditChange(extractText());
 						}
 					}
 				}

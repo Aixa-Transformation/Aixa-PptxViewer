@@ -2,7 +2,7 @@
  * useSlideManagement: Slide CRUD operations: add, move, delete,
  * duplicate, toggle-hide, insert-from-layout, and context menu.
  */
-import type { PptxHandler, PptxSlide } from 'pptx-viewer-core';
+import type { PptxElement, PptxHandler, PptxSlide } from 'pptx-viewer-core';
 import { createBlankSlide, makeSlideId } from 'pptx-viewer-shared';
 import type React from 'react';
 
@@ -18,6 +18,10 @@ export interface UseSlideManagementInput {
 	history: EditorHistoryResult;
 	/** Ref to the loaded PPTX handler; `current` is null before initial load. */
 	handlerRef?: React.RefObject<PptxHandler | null> | React.MutableRefObject<PptxHandler | null>;
+	/** Template artwork shown behind each slide; populated for inserted slides. */
+	setTemplateElementsBySlideId?: React.Dispatch<
+		React.SetStateAction<Record<string, PptxElement[]>>
+	>;
 }
 
 export interface SlideManagementHandlers {
@@ -47,7 +51,15 @@ export function insertSlideFromLayoutUpdater(
 }
 
 export function useSlideManagement(input: UseSlideManagementInput): SlideManagementHandlers {
-	const { slides, activeSlideIndex, setActiveSlideIndex, ops, history, handlerRef } = input;
+	const {
+		slides,
+		activeSlideIndex,
+		setActiveSlideIndex,
+		ops,
+		history,
+		handlerRef,
+		setTemplateElementsBySlideId,
+	} = input;
 
 	const handleAddSlide = () => {
 		const newSlide = createBlankSlide(slides.length + 1);
@@ -176,7 +188,7 @@ export function useSlideManagement(input: UseSlideManagementInput): SlideManagem
 		const handler = handlerRef?.current;
 		if (handler) {
 			void handler.applyLayoutToSlide(insertAt, layoutPath, inserted).then(
-				(updated) => {
+				async (updated) => {
 					ops.updateSlides((prev) => {
 						if (prev[insertAt]?.id !== draft.id) {
 							return prev;
@@ -185,6 +197,19 @@ export function useSlideManagement(input: UseSlideManagementInput): SlideManagem
 						next[insertAt] = updated;
 						return next;
 					});
+					// The layout's decorative artwork lives outside slide.elements. A
+					// slide created here has no archive path, so it has to be resolved
+					// from the chosen layout or the new slide renders without it.
+					if (setTemplateElementsBySlideId) {
+						const templateElements = await handler.getTemplateElementsForSlide(
+							updated.id,
+							layoutPath,
+						);
+						setTemplateElementsBySlideId((prev) => ({
+							...prev,
+							[updated.id]: templateElements,
+						}));
+					}
 					return undefined;
 				},
 				() => {

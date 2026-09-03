@@ -440,10 +440,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 *
 	 * @param slideId - The slide's archive path (the `PptxSlide.id`, e.g.
 	 *   `ppt/slides/slide1.xml`).
+	 * @param layoutPath - Optional layout to resolve against, for slides that were
+	 *   inserted during the session and have no cached relationships yet.
 	 * @returns Master + layout elements with prefixed ids (may be empty).
 	 */
-	async getTemplateElementsForSlide(slideId: string): Promise<PptxElement[]> {
-		return this.getLayoutElements(slideId);
+	async getTemplateElementsForSlide(
+		slideId: string,
+		layoutPath?: string,
+	): Promise<PptxElement[]> {
+		return this.getLayoutElements(slideId, layoutPath);
 	}
 
 	/**

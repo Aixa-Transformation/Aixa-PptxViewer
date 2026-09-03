@@ -111,7 +111,12 @@ export function useLayoutSwitching(input: UseLayoutSwitchingInput): LayoutSwitch
 				// Template/layout artwork is kept outside slide.elements in the React
 				// viewer. Refresh that store after the relationship changes; otherwise
 				// the canvas continues showing the old layout until the file is reopened.
-				const templateElements = await handler.getTemplateElementsForSlide(updated.id);
+				// A slide inserted this session has no archive path, so resolve the
+				// artwork from the chosen layout rather than wiping it to an empty list.
+				const templateElements = await handler.getTemplateElementsForSlide(
+					updated.id,
+					layoutPath,
+				);
 				setTemplateElementsBySlideId((prev) => ({
 					...prev,
 					[updated.id]: templateElements,
