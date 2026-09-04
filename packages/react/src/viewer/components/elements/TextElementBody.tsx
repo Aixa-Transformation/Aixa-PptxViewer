@@ -148,6 +148,18 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 	// including any placeholder fill or outline inherited from the layout.
 	if (!shouldRenderText) return null;
 
+	// An empty placeholder has nothing but faint prompt text, so mark out its
+	// clickable area. The double outline reads against both dark and light
+	// backgrounds without depending on the theme colours.
+	const emptyPlaceholderStyle: React.CSSProperties | undefined =
+		!hasActualText && textProperties?.promptText && !isPresentationPassive
+			? {
+					outline: '1px dashed rgba(127, 127, 127, 0.9)',
+					outlineOffset: '-1px',
+					boxShadow: 'inset 0 0 0 2px rgba(255, 255, 255, 0.25)',
+				}
+			: undefined;
+
 	return (
 		<>
 			{vecShape}
@@ -186,6 +198,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 							...transformStyle,
 							...textBodySizeStyle,
 							...presetTextFrameStyle,
+							...emptyPlaceholderStyle,
 						}}
 					>
 						{renderTextSegments(

@@ -100,6 +100,13 @@ export class PptxHandlerRuntime {
 	/** Cached parsed layout elements keyed by layout archive path. */
 	protected layoutCache: Map<string, PptxElement[]> = new Map();
 
+	/**
+	 * Layout backgrounds exactly as the ribbon gallery previews them, keyed by
+	 * layout archive path. Switching a slide's layout reuses these so the canvas
+	 * cannot end up with a differently-resolved colour than the preview showed.
+	 */
+	protected layoutBackgroundCache: Map<string, { color?: string; image?: string }> = new Map();
+
 	/** Cached parsed master elements keyed by master archive path. */
 	protected masterCache: Map<string, PptxElement[]> = new Map();
 

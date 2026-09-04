@@ -136,8 +136,12 @@ export function renderTextSegments(
 			return (
 				<span
 					style={{
-						opacity: 0.5,
-						color: '#888888',
+						// Inherit the placeholder's own resolved colour so the prompt stays
+						// legible on dark and light backgrounds alike; a fixed grey washes
+						// out on both. The halo keeps it readable over busy artwork.
+						opacity: 0.75,
+						textShadow:
+							'0 0 2px rgba(0,0,0,0.35), 0 0 2px rgba(255,255,255,0.35)',
 						pointerEvents: 'none',
 					}}
 				>

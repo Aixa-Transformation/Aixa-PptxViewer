@@ -496,6 +496,34 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 * a `rawXml` with a `p:ph` reference so that the save pipeline
 	 * preserves the placeholder binding.
 	 */
+	/**
+	 * Read the level-1 run defaults a layout/master placeholder authors, so a
+	 * generated placeholder starts at the layout's own font instead of the
+	 * generic viewer default (and never shifts afterwards).
+	 */
+	private readPlaceholderRunDefaults(
+		shapeXml: XmlObject | undefined,
+	): { fontSize?: number; fontFamily?: string } {
+		const defRPr =
+			xmlPath(shapeXml, 'p:txBody', 'a:lstStyle', 'a:lvl1pPr', 'a:defRPr') ??
+			xmlPath(shapeXml, 'p:txBody', 'a:p', 'a:endParaRPr') ??
+			xmlPath(shapeXml, 'p:txBody', 'a:p', 'a:r', 'a:rPr');
+		if (!defRPr) {
+			return {};
+		}
+		const result: { fontSize?: number; fontFamily?: string } = {};
+		const hundredths = Number(defRPr['@_sz']);
+		if (Number.isFinite(hundredths) && hundredths > 0) {
+			result.fontSize = (hundredths / 100) * (96 / 72);
+		}
+		const typeface = (xmlPath(defRPr, 'a:latin') as XmlObject | undefined)?.['@_typeface'];
+		// `+mj-lt` / `+mn-lt` are theme references the renderer resolves itself.
+		if (typeof typeface === 'string' && typeface.length > 0 && !typeface.startsWith('+')) {
+			result.fontFamily = typeface;
+		}
+		return result;
+	}
+
 	protected createEmptyPlaceholderElement(
 		phInfo: PlaceholderInfo,
 		xEmu: number,
@@ -516,6 +544,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		if (phInfo.idx !== undefined) {
 			phNode['@_idx'] = phInfo.idx;
 		}
+		const runDefaults = this.readPlaceholderRunDefaults(layoutShapeXml);
 
 		const rawXml: XmlObject = {
 			'p:nvSpPr': {
@@ -556,6 +585,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			promptText:
 				this.readPlaceholderPromptText(layoutShapeXml) ??
 				this.defaultPlaceholderPromptText(phInfo.type),
+			...(Object.keys(runDefaults).length > 0 ? { textStyle: runDefaults } : {}),
 			rawXml,
 		};
 		// Lets consumers resolve the theme's major vs minor font for a box that
