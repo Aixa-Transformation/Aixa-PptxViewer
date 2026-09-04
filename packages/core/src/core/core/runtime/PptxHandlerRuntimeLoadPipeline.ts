@@ -296,6 +296,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.layoutPlaceholderDefaultsCache.clear();
 		this.masterPlaceholderDefaultsCache.clear();
 		this.themeOverrideCache.clear();
+		this.pendingSlideThemeSaveContexts.clear();
 		this.commentAuthorMap.clear();
 		this.commentAuthorDetails.clear();
 		this.vbaRelatedParts.clear();

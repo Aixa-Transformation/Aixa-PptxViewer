@@ -15,7 +15,7 @@ interface SlideBackgroundPanelProps {
 	activeSlide: PptxSlide;
 	canEdit: boolean;
 	onUpdateSlide: (patch: Partial<PptxSlide>) => void;
-	onUpdateAllSlidesBackground?: (patch: SlideBackgroundPatch) => void;
+	onApplySlideBackground?: (patch: SlideBackgroundPatch, allSlides: boolean) => void;
 
 	/** Template-mode fields (only needed for master/layout editing) */
 	editTemplateMode?: boolean;
@@ -26,7 +26,11 @@ interface SlideBackgroundPanelProps {
 
 export type SlideBackgroundPatch = Pick<
 	PptxSlide,
-	'backgroundColor' | 'backgroundImage' | 'backgroundGradient' | 'backgroundSource'
+	| 'backgroundColor'
+	| 'backgroundImage'
+	| 'backgroundGradient'
+	| 'backgroundSource'
+	| 'showMasterShapes'
 >;
 
 export function getDeckBackgroundPatch(activeSlide: PptxSlide): SlideBackgroundPatch {
@@ -37,16 +41,12 @@ export function getDeckBackgroundPatch(activeSlide: PptxSlide): SlideBackgroundP
 		// inherited colour that should preserve an existing image fill.
 		backgroundImage: activeSlide.backgroundImage || '',
 		backgroundGradient: activeSlide.backgroundGradient,
-		backgroundSource: 'slide',
+		backgroundSource:
+			activeSlide.backgroundColor || activeSlide.backgroundImage || activeSlide.backgroundGradient
+				? 'slide'
+				: 'inherited',
+		showMasterShapes: activeSlide.showMasterShapes,
 	};
-}
-
-export function getMasterBackgroundTargetPaths(
-	slideMasters: ReadonlyArray<Pick<PptxSlideMaster, 'path'>> | undefined,
-	applyToAllMasters: boolean,
-): string[] {
-	const paths = (slideMasters ?? []).map(({ path }) => path).filter(Boolean);
-	return applyToAllMasters ? paths : paths.slice(0, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ export function SlideBackgroundPanel({
 	activeSlide,
 	canEdit,
 	onUpdateSlide,
-	onUpdateAllSlidesBackground,
+	onApplySlideBackground,
 	editTemplateMode,
 	slideMasters,
 	onSetTemplateBackground,
@@ -65,32 +65,6 @@ export function SlideBackgroundPanel({
 }: SlideBackgroundPanelProps): React.ReactElement {
 	const { t } = useTranslation();
 	const bgImageInputRef = useRef<HTMLInputElement>(null);
-	const canApplyColorToMasters =
-		canEdit && Boolean(activeSlide.backgroundColor) && Boolean(onSetTemplateBackground);
-	const hasBackground = Boolean(
-		activeSlide.backgroundColor || activeSlide.backgroundImage || activeSlide.backgroundGradient,
-	);
-	const canApplyBackgroundToAllSlides =
-		canEdit && hasBackground && Boolean(onUpdateAllSlidesBackground);
-	const applyColorToMasters = (applyToAllMasters: boolean) => {
-		if (!activeSlide.backgroundColor || !onSetTemplateBackground) {
-			return;
-		}
-		for (const path of getMasterBackgroundTargetPaths(slideMasters, applyToAllMasters)) {
-			onSetTemplateBackground(path, activeSlide.backgroundColor);
-		}
-	};
-	const applyBackgroundToAllMastersAndSlides = () => {
-		if (!onUpdateAllSlidesBackground || !hasBackground) {
-			return;
-		}
-		onUpdateAllSlidesBackground(getDeckBackgroundPatch(activeSlide));
-		if (activeSlide.backgroundColor && onSetTemplateBackground) {
-			for (const path of getMasterBackgroundTargetPaths(slideMasters, true)) {
-				onSetTemplateBackground(path, activeSlide.backgroundColor);
-			}
-		}
-	};
 
 	return (
 		<>
@@ -224,23 +198,20 @@ export function SlideBackgroundPanel({
 					<button
 						type='button'
 						className={BTN}
-						disabled={
-							!canApplyColorToMasters ||
-							getMasterBackgroundTargetPaths(slideMasters, false).length === 0
-						}
-						title='Applies the current solid background colour to the first slide master'
-						onClick={() => applyColorToMasters(false)}
+						disabled={!canEdit || !onApplySlideBackground}
+						title='Applies the background settings to the current slide only'
+						onClick={() => onApplySlideBackground?.(getDeckBackgroundPatch(activeSlide), false)}
 					>
-						{t('pptx.documentProperties.applyFirstMaster')}
+						{t('pptx.documentProperties.applyCurrentSlide')}
 					</button>
 					<button
 						type='button'
 						className={BTN}
-						disabled={!canApplyBackgroundToAllSlides}
-						title='Applies the current background colour or image to every slide and updates every slide master colour'
-						onClick={applyBackgroundToAllMastersAndSlides}
+						disabled={!canEdit || !onApplySlideBackground}
+						title='Applies the background settings to every slide'
+						onClick={() => onApplySlideBackground?.(getDeckBackgroundPatch(activeSlide), true)}
 					>
-						{t('pptx.documentProperties.applyAllMasters')}
+						{t('pptx.documentProperties.applyAllSlides')}
 					</button>
 				</div>
 			</div>

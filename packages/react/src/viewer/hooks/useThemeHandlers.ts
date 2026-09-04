@@ -17,6 +17,7 @@ import type { RefObject } from 'react';
 import type { EditorHistoryResult } from './useEditorHistory';
 
 export interface UseThemeHandlersInput {
+	activeSlideIndex?: number;
 	handlerRef: RefObject<PptxHandler | null>;
 	serializeSlides: () => Promise<Uint8Array | null>;
 	setContent: React.Dispatch<React.SetStateAction<ArrayBuffer | Uint8Array | null>>;
@@ -28,9 +29,7 @@ export interface UseThemeHandlersInput {
 	/** Current live slides, re-coloured in place on a scheme-colour change. */
 	setSlides: React.Dispatch<React.SetStateAction<PptxSlide[]>>;
 	/** Inherited master/layout elements rendered in a separate canvas layer. */
-	setTemplateElementsBySlideId: React.Dispatch<
-		React.SetStateAction<Record<string, PptxElement[]>>
-	>;
+	setTemplateElementsBySlideId: React.Dispatch<React.SetStateAction<Record<string, PptxElement[]>>>;
 	/** Current theme, used to derive the previous colour map for re-resolution. */
 	theme: PptxTheme | undefined;
 	/**
@@ -61,7 +60,7 @@ export function reResolveTemplateElementsBySlideId(
 }
 
 export interface ThemeHandlersResult {
-	handleApplyTheme: (themePath: string, applyToAllMasters: boolean) => Promise<void>;
+	handleApplyTheme: (themePath: string, applyToAllSlides: boolean) => Promise<Uint8Array | null>;
 	handleUpdateThemeColorScheme: (colorScheme: PptxThemeColorScheme) => Promise<void>;
 	handleUpdateThemeFontScheme: (fontScheme: PptxThemeFontScheme) => Promise<void>;
 	handleUpdateThemeName: (name: string) => Promise<void>;
@@ -96,32 +95,31 @@ export function useThemeHandlers(input: UseThemeHandlersInput): ThemeHandlersRes
 		setTemplateElementsBySlideId,
 		theme,
 		bumpHistory,
+		activeSlideIndex,
 	} = input;
 
 	const refreshContentAfterThemeChange = async () => {
 		const updated = await serializeSlides();
 		if (!updated) {
-			return;
+			return null;
 		}
 		setContent(updated);
 		if (onContentChange) {
 			onContentChange(updated);
 		}
 		history.markDirty();
+		return updated;
 	};
 
-	const handleApplyTheme = async (themePath: string, applyToAllMasters: boolean) => {
+	const handleApplyTheme = async (themePath: string, applyToAllSlides: boolean) => {
 		const handler = handlerRef.current;
-		if (!handler) {
-			return;
+		if (!handler || (!applyToAllSlides && activeSlideIndex === undefined)) {
+			return null;
 		}
-		await handler.setPresentationTheme(themePath, applyToAllMasters);
-		setSlideMasters((prev) =>
-			prev.map((master, index) =>
-				applyToAllMasters || index === 0 ? { ...master, themePath } : master,
-			),
-		);
-		await refreshContentAfterThemeChange();
+		// Materialise new/reordered slides before resolving their presentation positions.
+		if (!(await serializeSlides())) return null;
+		await handler.setSlidesTheme(themePath, applyToAllSlides ? undefined : [activeSlideIndex!]);
+		return refreshContentAfterThemeChange();
 	};
 
 	const handleUpdateThemeColorScheme = async (colorScheme: PptxThemeColorScheme) => {

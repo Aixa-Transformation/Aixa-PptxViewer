@@ -6,6 +6,8 @@ import type {
 	PptxCustomProperty,
 	PptxCustomerData,
 	PptxTagCollection,
+	PptxSlide,
+	PptxThemeFormatScheme,
 } from '../../types';
 import { parseActiveXControlsFromSlide } from '../../utils/activex-parser';
 import { resolveContentType } from '../../utils/customer-data-package';
@@ -14,6 +16,23 @@ import { discoverTagCollections } from '../../utils/tag-package';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeMediaData';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
+	/** Colours in the live model still refer to the pre-Apply theme until reload. */
+	protected pendingSlideThemeSaveContexts = new Map<
+		string,
+		{
+			colorOverrides?: Record<string, string>;
+			formatSchemeOverride?: PptxThemeFormatScheme;
+		} | null
+	>();
+
+	/** Overridden by the theme-aware runtime layer. */
+	protected async withSlideThemeForSave(
+		_slide: PptxSlide,
+		save: () => Promise<void>,
+	): Promise<void> {
+		await save();
+	}
+
 	protected buildRelativeTargetPath(fromPartPath: string, toPartPath: string): string {
 		const fromParts = fromPartPath.split('/');
 		const toParts = toPartPath.split('/');

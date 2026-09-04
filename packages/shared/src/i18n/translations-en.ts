@@ -2462,6 +2462,8 @@ export const translationsEn: Record<string, string> = {
 	'pptx.customShows.renamePrompt': 'Rename custom show',
 	'pptx.documentProperties.applyAllMasters': 'Apply All Masters',
 	'pptx.documentProperties.applyFirstMaster': 'Apply First Master',
+	'pptx.documentProperties.applyCurrentSlide': 'Apply to Current Slide',
+	'pptx.documentProperties.applyAllSlides': 'Apply to All Slides',
 	'pptx.documentProperties.custom.add': 'Add',
 	'pptx.documentProperties.custom.heading': 'Custom Properties',
 	'pptx.documentProperties.documentHeading': 'Document',

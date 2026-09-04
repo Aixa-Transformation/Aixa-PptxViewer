@@ -189,6 +189,7 @@ export interface IPptxHandlerRuntime {
 	Builder(data: PptxData): PptxXmlBuilder;
 	setTemplateBackground(path: string, backgroundColor: string | undefined): void;
 	setPresentationTheme(themePath: string, applyToAllMasters?: boolean): Promise<void>;
+	setSlidesTheme(themePath: string, slideIndices?: readonly number[]): Promise<void>;
 	getTemplateBackgroundColor(path: string): string | undefined;
 	updateThemeColorScheme(colorScheme: PptxThemeColorScheme): Promise<void>;
 	updateThemeFontScheme(fontScheme: PptxThemeFontScheme): Promise<void>;

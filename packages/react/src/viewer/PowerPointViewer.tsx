@@ -119,6 +119,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			onContentChange,
 			onDirtyChange,
 			onDeckWideChange,
+			onSaveRequest,
 			onActiveSlideChange,
 			onModeChange,
 			onZoomChange,
@@ -403,10 +404,10 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			if (changed) {
 				syncingFromOptionsRef.current = true;
 			}
-		// The embedded host does not expose the viewer settings dialog. Syncing
-		// persisted options on every render can repeatedly toggle reduced motion
-		// while the iframe is mounting, so apply the initial values once only.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+			// The embedded host does not expose the viewer settings dialog. Syncing
+			// persisted options on every render can repeatedly toggle reduced motion
+			// while the iframe is mounting, so apply the initial values once only.
+			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, []);
 		useEffect(() => {
 			// Legacy state -> options (ribbon View toggles, title-bar autosave).
@@ -828,7 +829,10 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 											const merged = [...current];
 											for (const font of fonts) {
 												const index = merged.findIndex(
-													(existing) => existing.name === font.name && Boolean(existing.bold) === Boolean(font.bold) && Boolean(existing.italic) === Boolean(font.italic),
+													(existing) =>
+														existing.name === font.name &&
+														Boolean(existing.bold) === Boolean(font.bold) &&
+														Boolean(existing.italic) === Boolean(font.italic),
 												);
 												if (index >= 0) merged[index] = font;
 												else merged.push(font);
@@ -873,6 +877,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 								onResizeRight={isMobile ? undefined : resizablePanels.onResizeRight}
 								hiddenActions={hiddenActions}
 								onDeckWideChange={onDeckWideChange}
+								onSaveRequest={onSaveRequest}
 								aiConfig={ai}
 								aiBridge={ai ? aiBridge : undefined}
 								aiPanel={ai ? aiPanel : undefined}

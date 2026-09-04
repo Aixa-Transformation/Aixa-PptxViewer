@@ -205,6 +205,11 @@ export class PptxHandlerCore {
 		await this.runtime.setPresentationTheme(themePath, applyToAllMasters);
 	}
 
+	/** Apply an existing archive theme to zero-based slide positions (omit for all slides). */
+	public async setSlidesTheme(themePath: string, slideIndices?: readonly number[]): Promise<void> {
+		await this.runtime.setSlidesTheme(themePath, slideIndices);
+	}
+
 	/**
 	 * Modify the theme’s colour scheme (accent colours, background, text, etc.).
 	 *

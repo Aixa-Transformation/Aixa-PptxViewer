@@ -281,7 +281,11 @@ export interface PowerPointViewerProps {
 	 * cache one preview per slide can use this to invalidate every preview after
 	 * the next successful save instead of refreshing only the active slide.
 	 */
-	onDeckWideChange?: (change: { type: 'background' }) => void;
+	onDeckWideChange?: (change: { type: 'background' | 'theme' }) => void;
+	/** Explicit Apply action: persist the updated deck, even if already dirty.
+	 * Theme actions supply serialized bytes; otherwise call getContent() for the committed state.
+	 */
+	onSaveRequest?: (content?: Uint8Array) => void;
 	/** Callback when active slide changes */
 	onActiveSlideChange?: (slideIndex: number) => void;
 	/** Callback when the viewer mode changes (e.g. edit to present). */

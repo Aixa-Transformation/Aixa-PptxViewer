@@ -5,7 +5,7 @@ import {
 	withFrameSlides,
 	withSlidesPerPage,
 } from 'pptx-viewer-shared';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { CanvasSize } from '../../types';
@@ -144,9 +144,26 @@ export function ThemeSelectorCard({
 	selectedThemePath: string;
 	setSelectedThemePath: (path: string) => void;
 	canEdit: boolean;
-	onApplyTheme: (path: string, allMasters: boolean) => void;
+	onApplyTheme: (path: string, allSlides: boolean) => void | Promise<void>;
 }): React.ReactElement {
 	const { t } = useTranslation();
+	const applying = useRef(false);
+	const [isApplying, setIsApplying] = useState(false);
+	const [applyError, setApplyError] = useState('');
+	const apply = async (allSlides: boolean) => {
+		if (!canEdit || !selectedThemePath || applying.current) return;
+		applying.current = true;
+		setIsApplying(true);
+		setApplyError('');
+		try {
+			await onApplyTheme(selectedThemePath, allSlides);
+		} catch (error) {
+			setApplyError(error instanceof Error ? error.message : 'The theme could not be applied.');
+		} finally {
+			applying.current = false;
+			setIsApplying(false);
+		}
+	};
 	return (
 		<div className={CARD}>
 			<div className={HEADING}>{t('pptx.documentProperties.themeHeading')}</div>
@@ -154,7 +171,7 @@ export function ThemeSelectorCard({
 				<label className='flex flex-col gap-1'>
 					<span className='text-muted-foreground'>{t('pptx.documentProperties.themeHeading')}</span>
 					<select
-						disabled={themeOptions.length === 0}
+						disabled={!canEdit || isApplying || themeOptions.length === 0}
 						className={INPUT}
 						value={selectedThemePath}
 						onChange={(e) => setSelectedThemePath(e.target.value)}
@@ -174,20 +191,25 @@ export function ThemeSelectorCard({
 					<button
 						type='button'
 						className={BTN}
-						disabled={!canEdit || !selectedThemePath}
-						onClick={() => onApplyTheme(selectedThemePath, false)}
+						disabled={!canEdit || isApplying || !selectedThemePath}
+						onClick={() => void apply(false)}
 					>
-						{t('pptx.documentProperties.applyFirstMaster')}
+						{t('pptx.documentProperties.applyCurrentSlide')}
 					</button>
 					<button
 						type='button'
 						className={BTN}
-						disabled={!canEdit || !selectedThemePath}
-						onClick={() => onApplyTheme(selectedThemePath, true)}
+						disabled={!canEdit || isApplying || !selectedThemePath}
+						onClick={() => void apply(true)}
 					>
-						{t('pptx.documentProperties.applyAllMasters')}
+						{t('pptx.documentProperties.applyAllSlides')}
 					</button>
 				</div>
+				{applyError && (
+					<p role='alert' className='text-red-500'>
+						{applyError}
+					</p>
+				)}
 			</div>
 		</div>
 	);

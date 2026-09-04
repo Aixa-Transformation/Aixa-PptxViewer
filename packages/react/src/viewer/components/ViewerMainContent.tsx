@@ -72,7 +72,8 @@ export interface ViewerMainContentProps {
 	/** Host-supplied list of toolbar buttons/ribbon tabs to hide. */
 	hiddenActions?: readonly ToolbarActionId[];
 	/** Reports an operation that changes the appearance of every slide. */
-	onDeckWideChange?: (change: { type: 'background' }) => void;
+	onDeckWideChange?: (change: { type: 'background' | 'theme' }) => void;
+	onSaveRequest?: (content?: Uint8Array) => void;
 	/** AI assistant config (present only when the host passes the `ai` prop). */
 	aiConfig?: PptxAiConfig;
 	/** Bridge exposing the live deck to the AI core. */
@@ -119,6 +120,7 @@ export function ViewerMainContent(props: ViewerMainContentProps) {
 		onResizeRight,
 		hiddenActions,
 		onDeckWideChange,
+		onSaveRequest,
 		aiConfig,
 		aiBridge,
 		aiPanel,
@@ -321,6 +323,7 @@ export function ViewerMainContent(props: ViewerMainContentProps) {
 					panelWidth={rightPanelWidth}
 					onResizeRight={onResizeRight}
 					onDeckWideChange={onDeckWideChange}
+					onSaveRequest={onSaveRequest}
 					aiConfig={aiConfig}
 					aiBridge={aiBridge}
 					aiPanel={aiPanel}

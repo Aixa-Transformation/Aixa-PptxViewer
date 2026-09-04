@@ -75,7 +75,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 		onUpdateElementStyle,
 		onUpdateTextStyle,
 		onUpdateSlide,
-		onUpdateAllSlidesBackground,
+		onApplySlideBackground,
 		editTemplateMode,
 		slideMasters,
 		onSetTemplateBackground,
@@ -241,7 +241,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 											activeSlide={activeSlide}
 											canEdit={canEdit}
 											onUpdateSlide={onUpdateSlide}
-											onUpdateAllSlidesBackground={onUpdateAllSlidesBackground}
+											onApplySlideBackground={onApplySlideBackground}
 											editTemplateMode={editTemplateMode}
 											slideMasters={slideMasters}
 											onSetTemplateBackground={onSetTemplateBackground}

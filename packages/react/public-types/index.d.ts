@@ -23,7 +23,9 @@ export interface PowerPointViewerProps {
 	theme?: unknown;
 	onContentChange?: (content: Uint8Array) => void;
 	onDirtyChange?: (dirty: boolean) => void;
-	onDeckWideChange?: (change: { type: 'background' }) => void;
+	onDeckWideChange?: (change: { type: 'background' | 'theme' }) => void;
+	/** Persist an explicit Apply action; use these bytes or call getContent(). */
+	onSaveRequest?: (content?: Uint8Array) => void;
 }
 
 export const PowerPointViewer: ComponentType<PowerPointViewerProps>;
@@ -41,7 +43,10 @@ export class Presentation {
 	static load(buffer: ArrayBuffer): Promise<Presentation>;
 	readonly slideCount: number;
 	removeSlide(index: number): this;
-	merge(source: Presentation, options?: { slideIndices?: number[]; insertAt?: number; keepSourceTheme?: boolean }): number;
+	merge(
+		source: Presentation,
+		options?: { slideIndices?: number[]; insertAt?: number; keepSourceTheme?: boolean },
+	): number;
 	save(): Promise<Uint8Array>;
 	dispose(): void;
 }

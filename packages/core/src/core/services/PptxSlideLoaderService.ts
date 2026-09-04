@@ -179,6 +179,7 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 
 		// Use try/finally to ensure theme override state is always restored
 		let restoreThemeOverride: (() => void) | undefined;
+		let restoreSlideThemeOverride: (() => void) | undefined;
 		try {
 			// Apply layout-level theme overrides if present
 			const layoutPathForOverride = params.findLayoutPathForSlide(path);
@@ -187,6 +188,13 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 				if (themeOverride) {
 					restoreThemeOverride = params.applyThemeOverrideState(themeOverride);
 				}
+			}
+
+			// Slide overrides have higher precedence than layout/master themes.
+			// Apply before parsing inherited elements and placeholder defaults too.
+			const slideThemeOverride = await params.loadThemeOverride(path);
+			if (slideThemeOverride) {
+				restoreSlideThemeOverride = params.applyThemeOverrideState(slideThemeOverride);
 			}
 
 			// Layout parsing seeds placeholder defaults consumed by slide parsing.
@@ -210,11 +218,7 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 			// it omits are rebuilt from the layout as empty prompt boxes.
 			const missingPlaceholders =
 				layoutPathForOverride && params.buildMissingLayoutPlaceholders
-					? await params.buildMissingLayoutPlaceholders(
-							path,
-							slideElements,
-							layoutPathForOverride,
-						)
+					? await params.buildMissingLayoutPlaceholders(path, slideElements, layoutPathForOverride)
 					: [];
 			const elements = [...layoutElements, ...slideElements, ...missingPlaceholders];
 			const slideRoot = slideXmlObj['p:sld'] as XmlObject | undefined;
@@ -267,8 +271,7 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 			// target ids never match any loaded element id, so nothing animates.
 			reconcileAnimationTargets(elements, nativeAnimations, animations);
 			const rawTiming = (slideXmlObj['p:sld'] as XmlObject | undefined)?.['p:timing'] as
-				| XmlObject
-				| undefined;
+				XmlObject | undefined;
 
 			const drawingGuides = parseSlideDrawingGuides(slideXmlObj);
 
@@ -322,6 +325,7 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 				slideSynchronization,
 			};
 		} finally {
+			restoreSlideThemeOverride?.();
 			if (restoreThemeOverride) {
 				restoreThemeOverride();
 			}

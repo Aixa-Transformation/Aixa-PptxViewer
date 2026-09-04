@@ -6,6 +6,7 @@ import { themeColorSchemesEqual } from 'pptx-viewer-core';
 import type { PptxElement, PptxSlide } from 'pptx-viewer-core';
 import type { ToolbarActionId } from 'pptx-viewer-shared';
 import type { PptxAiBridge, PptxAiConfig } from 'pptx-viewer-shared/ai';
+import { flushSync } from 'react-dom';
 
 import { ViewerInspector, SelectionPane } from '.';
 import type { AiPanelController } from '../hooks/ai/useAiPanelController';
@@ -52,7 +53,8 @@ export interface ViewerSidePanelsProps {
 	/** Callback to resize the right panel. */
 	onResizeRight?: (delta: number) => void;
 	/** Reports an operation that changes the appearance of every slide. */
-	onDeckWideChange?: (change: { type: 'background' }) => void;
+	onDeckWideChange?: (change: { type: 'background' | 'theme' }) => void;
+	onSaveRequest?: (content?: Uint8Array) => void;
 	/** AI assistant config (present only when the host passes the `ai` prop). */
 	aiConfig?: PptxAiConfig;
 	/** Bridge exposing the live deck to the AI core. */
@@ -86,6 +88,7 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 		panelWidth,
 		onResizeRight,
 		onDeckWideChange,
+		onSaveRequest,
 		aiConfig,
 		aiBridge,
 		aiPanel,
@@ -103,9 +106,7 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 			{!isMobile &&
 				(mode === 'edit' || mode === 'master') &&
 				s.isInspectorPaneOpen &&
-				onResizeRight && (
-				<ResizeHandle direction='horizontal' onResize={onResizeRight} />
-			)}
+				onResizeRight && <ResizeHandle direction='horizontal' onResize={onResizeRight} />}
 			<ViewerInspector
 				isMobile={isMobile}
 				hiddenActions={hiddenActions}
@@ -132,9 +133,15 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 				onMoveLayerToEdge={manipulation.handleMoveLayerToEdge}
 				onDeleteElement={manipulation.handleDelete}
 				onUpdateSlide={propertyHandlers.handleUpdateSlide}
-				onUpdateAllSlidesBackground={(updates) => {
-					propertyHandlers.handleUpdateAllSlidesBackground(updates);
-					onDeckWideChange?.({ type: 'background' });
+				onApplySlideBackground={(updates, allSlides) => {
+					if (!canEdit) return;
+					// Hosts may serialize immediately in onSaveRequest; commit the slide state first.
+					flushSync(() => {
+						if (allSlides) propertyHandlers.handleUpdateAllSlidesBackground(updates);
+						else propertyHandlers.handleUpdateSlide(updates);
+					});
+					if (allSlides) onDeckWideChange?.({ type: 'background' });
+					onSaveRequest?.();
 				}}
 				presentationProperties={s.presentationProperties}
 				onUpdatePresentationProperties={propertyHandlers.handleUpdatePresentationProperties}
@@ -152,7 +159,13 @@ export function ViewerSidePanels(props: ViewerSidePanelsProps) {
 				onUpdateCoreProperties={propertyHandlers.handleUpdateCoreProperties}
 				onUpdateAppProperties={propertyHandlers.handleUpdateAppProperties}
 				onUpdateCustomProperties={propertyHandlers.handleUpdateCustomProperties}
-				onApplyTheme={themeHandlers.handleApplyTheme}
+				onApplyTheme={async (path, allSlides) => {
+					if (!canEdit) return;
+					const updated = await themeHandlers.handleApplyTheme(path, allSlides);
+					if (!updated) return;
+					if (allSlides) onDeckWideChange?.({ type: 'theme' });
+					onSaveRequest?.(updated);
+				}}
 				onSetTemplateBackground={themeHandlers.handleSetTemplateBackground}
 				onGetTemplateBackgroundColor={themeHandlers.handleGetTemplateBackgroundColor}
 				mediaDataUrls={s.mediaDataUrls}

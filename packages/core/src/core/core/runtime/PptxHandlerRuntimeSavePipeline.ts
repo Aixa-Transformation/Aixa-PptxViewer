@@ -58,7 +58,9 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// Process each slide (this may embed new media files that register
 		// extensions in usedMediaPaths, so content-types must be updated after).
 		for (const slide of slides) {
-			await this.processSlideForSave(slide, saveSession, saveConstants);
+			await this.withSlideThemeForSave(slide, () =>
+				this.processSlideForSave(slide, saveSession, saveConstants),
+			);
 		}
 
 		// Update [Content_Types].xml with slide overrides and media Defaults.
@@ -306,6 +308,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		}
 
 		const output = await this.zip.generateAsync({ type: 'uint8array' });
+		this.pendingSlideThemeSaveContexts.clear();
 		for (const [element, fingerprint] of this.pendingTemplateElementBaselines) {
 			this.templateElementBaselines.set(element, fingerprint);
 		}

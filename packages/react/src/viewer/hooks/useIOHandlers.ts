@@ -105,6 +105,7 @@ export function useIOHandlers(input: UseIOHandlersInput): IOHandlersResult {
 	});
 
 	const themeHandlers = useThemeHandlers({
+		activeSlideIndex,
 		handlerRef,
 		serializeSlides,
 		setContent,

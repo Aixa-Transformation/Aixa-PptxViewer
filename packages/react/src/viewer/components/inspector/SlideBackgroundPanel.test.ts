@@ -1,30 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDeckBackgroundPatch, getMasterBackgroundTargetPaths } from './SlideBackgroundPanel';
-
-describe('getMasterBackgroundTargetPaths', () => {
-	const masters = [
-		{ path: 'ppt/slideMasters/slideMaster1.xml' },
-		{ path: 'ppt/slideMasters/slideMaster2.xml' },
-	];
-
-	it('targets only the first master when requested', () => {
-		expect(getMasterBackgroundTargetPaths(masters, false)).toEqual([
-			'ppt/slideMasters/slideMaster1.xml',
-		]);
-	});
-
-	it('targets every master when requested', () => {
-		expect(getMasterBackgroundTargetPaths(masters, true)).toEqual([
-			'ppt/slideMasters/slideMaster1.xml',
-			'ppt/slideMasters/slideMaster2.xml',
-		]);
-	});
-
-	it('returns no targets when a deck has no parsed masters', () => {
-		expect(getMasterBackgroundTargetPaths(undefined, true)).toEqual([]);
-	});
-});
+import { getDeckBackgroundPatch } from './SlideBackgroundPanel';
 
 describe('getDeckBackgroundPatch', () => {
 	it('copies an uploaded image and its fallback colour to the whole deck', () => {
@@ -40,6 +16,7 @@ describe('getDeckBackgroundPatch', () => {
 			backgroundImage: 'data:image/png;base64,AAAA',
 			backgroundGradient: undefined,
 			backgroundSource: 'slide',
+			showMasterShapes: undefined,
 		});
 	});
 
@@ -55,6 +32,17 @@ describe('getDeckBackgroundPatch', () => {
 			backgroundImage: '',
 			backgroundGradient: undefined,
 			backgroundSource: 'slide',
+			showMasterShapes: undefined,
+		});
+	});
+
+	it('supports clearing a background and copying background-graphics visibility', () => {
+		expect(getDeckBackgroundPatch({ id: 's', elements: [], showMasterShapes: false })).toEqual({
+			backgroundColor: undefined,
+			backgroundImage: '',
+			backgroundGradient: undefined,
+			backgroundSource: 'inherited',
+			showMasterShapes: false,
 		});
 	});
 });
