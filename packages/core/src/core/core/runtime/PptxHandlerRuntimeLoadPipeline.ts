@@ -86,11 +86,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 					layout.elements = await this.getLayoutElements(previewSlidePath);
 					this.slideRelsMap.delete(previewSlidePath);
 					layout.backgroundColor ??= master.backgroundColor;
-					layout.backgroundImage ??= master.backgroundImage;
-					this.layoutBackgroundCache.set(layout.path, {
-						color: layout.backgroundColor,
-						image: layout.backgroundImage,
-					});
+					this.layoutBackgroundCache.set(layout.path, { color: layout.backgroundColor });
 				}
 			}
 		} finally {
@@ -649,16 +645,16 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			String((sldLayout?.['p:cSld'] as XmlObject | undefined)?.['@_name'] || '').trim() ||
 			layoutPath;
 
-		// Prefer the backgrounds the ribbon gallery previewed for this layout, so
-		// the canvas cannot disagree with the thumbnail the user just clicked.
-		const previewed = this.layoutBackgroundCache.get(layoutPath);
+		// Prefer the colour the ribbon gallery previewed for this layout, so the
+		// canvas cannot disagree with the thumbnail the user just clicked. The image
+		// and gradient have no thumbnail equivalent, so they resolve layout-then-
+		// master exactly as the initial load does.
 		const layoutBgColor =
-			previewed?.color ??
+			this.layoutBackgroundCache.get(layoutPath)?.color ??
 			this.extractBackgroundColor(layoutXml, 'p:sldLayout') ??
 			(await this.getLayoutBackgroundColor(slidePath, layoutPath));
 		const layoutBgGradient = await this.getLayoutBackgroundGradient(slidePath, layoutPath);
-		const layoutBgImage =
-			previewed?.image ?? (await this.getLayoutBackgroundImage(slidePath, layoutPath));
+		const layoutBgImage = await this.getLayoutBackgroundImage(slidePath, layoutPath);
 
 		// ── 4. Update the slide object ──────────────────────────────────
 		const updated: PptxSlide = {
