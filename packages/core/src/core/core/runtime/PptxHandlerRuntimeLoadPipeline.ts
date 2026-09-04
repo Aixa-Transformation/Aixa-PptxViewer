@@ -453,7 +453,16 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		slideId: string,
 		layoutPath?: string,
 	): Promise<PptxElement[]> {
-		return this.getLayoutElements(slideId, layoutPath);
+		// The ribbon gallery decodes layout images eagerly. Parsing the same artwork
+		// lazily here would hand the canvas pictures with no image data, so it would
+		// not match the thumbnail the user picked.
+		const previousEagerDecodeImages = this.eagerDecodeImages;
+		this.eagerDecodeImages = true;
+		try {
+			return await this.getLayoutElements(slideId, layoutPath);
+		} finally {
+			this.eagerDecodeImages = previousEagerDecodeImages;
+		}
 	}
 
 	/**
@@ -623,17 +632,18 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			}
 		}
 
-		// ── 2. Invalidate layout element cache for the old layout ───────
-		this.layoutCache.delete(layoutPath);
+		// The gallery materialised this layout with images already decoded, so the
+		// cache is reused rather than dropped: re-parsing it here would rebuild the
+		// artwork without image data and the canvas would not match the thumbnail.
 
-		// ── 3. Remap placeholder elements to the new layout ─────────────
+		// ── 2. Remap placeholder elements to the new layout ─────────────
 		const remappedElements = this.remapElementsToNewLayout(
 			slide.elements,
 			layoutXml as XmlObject,
 			layoutPath,
 		);
 
-		// ── 4. Resolve layout name and background ───────────────────────
+		// ── 3. Resolve layout name and background ───────────────────────
 		const sldLayout = (layoutXml as XmlObject)['p:sldLayout'] as XmlObject | undefined;
 		const layoutName =
 			String((sldLayout?.['p:cSld'] as XmlObject | undefined)?.['@_name'] || '').trim() ||
@@ -650,7 +660,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const layoutBgImage =
 			previewed?.image ?? (await this.getLayoutBackgroundImage(slidePath, layoutPath));
 
-		// ── 5. Update the slide object ──────────────────────────────────
+		// ── 4. Update the slide object ──────────────────────────────────
 		const updated: PptxSlide = {
 			...slide,
 			elements: remappedElements,
