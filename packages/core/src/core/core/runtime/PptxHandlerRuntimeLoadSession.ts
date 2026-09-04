@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 
 import { XmlObject } from '../../types';
-import type { PptxElement, PptxSection, PptxCustomXmlPart } from '../../types';
+import type { PptxElement, PptxSection, PptxCustomXmlPart, TextStyle } from '../../types';
 import { oleBytesToDataUrl, unwrapOleEmbedding } from '../../utils/ole-embedded-extract';
 import { mimeTypeForOleFile } from '../../utils/ole-utils';
 import { detectDigitalSignatures } from '../../utils/signature-detection';
@@ -28,6 +28,41 @@ interface JSZipFileWithDataSize {
 }
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
+	/**
+	 * Seed a generated placeholder's text style from the layout/master placeholder
+	 * it stands in for, so an empty box uses the template's font, size and colour
+	 * instead of the renderer's hard-coded defaults (black on a dark theme).
+	 * Anything the layout shape already supplied wins; only gaps are filled.
+	 */
+	protected applyTemplatePlaceholderTextStyle(element: PptxElement, slidePath: string): void {
+		const phInfo = this.getElementPlaceholderInfo(element);
+		if (!phInfo) {
+			return;
+		}
+		const defaults = this.lookupPlaceholderDefaults(slidePath, phInfo);
+		if (!defaults) {
+			return;
+		}
+		const target = element as PptxElement & { textStyle?: TextStyle };
+		const textStyle: TextStyle = { ...(target.textStyle ?? {}) };
+		this.applyPlaceholderBodyDefaults(textStyle, defaults);
+
+		const level = defaults.levelStyles?.[0];
+		if (level) {
+			textStyle.fontFamily ??= level.fontFamily;
+			textStyle.fontSize ??= level.fontSize;
+			textStyle.color ??= level.color;
+			textStyle.bold ??= level.bold;
+			textStyle.italic ??= level.italic;
+			textStyle.lineSpacing ??= level.lineSpacing;
+			textStyle.lineSpacingExactPt ??= level.lineSpacingExactPt;
+			if (textStyle.align === undefined && level.alignment) {
+				textStyle.align = level.alignment as TextStyle['align'];
+			}
+		}
+		target.textStyle = textStyle;
+	}
+
 	protected isZipContainer(data: ArrayBuffer): boolean {
 		const bytes = new Uint8Array(data);
 		if (bytes.byteLength < 4) {
@@ -433,8 +468,17 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			loadThemeOverride: (partBasePath) => this.loadThemeOverride(partBasePath),
 			applyThemeOverrideState: (override) => this.applyThemeOverrideState(override),
 			getLayoutElements: (slidePath) => this.getLayoutElements(slidePath),
-			buildMissingLayoutPlaceholders: (slidePath, slideElements, layoutPath) =>
-				this.buildMissingLayoutPlaceholders(slidePath, slideElements, layoutPath),
+			buildMissingLayoutPlaceholders: async (slidePath, slideElements, layoutPath) => {
+				const generated = await this.buildMissingLayoutPlaceholders(
+					slidePath,
+					slideElements,
+					layoutPath,
+				);
+				for (const element of generated) {
+					this.applyTemplatePlaceholderTextStyle(element, slidePath);
+				}
+				return generated;
+			},
 			parseSlide: (slideXml, slidePath) => this.parseSlide(slideXml, slidePath),
 			extractMediaTimingMap: (slideXml, slidePath) =>
 				this.extractMediaTimingMap(slideXml, slidePath),

@@ -17,6 +17,7 @@ import { stripParentDirSegments } from '../../utils/strip-parent-dir-segments';
 import { PptxLoadDataBuilder } from '../builders';
 import type { PptxHandlerLoadOptions } from '../types';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeLoadSession';
+import { isEmptyGeneratedPlaceholder } from './transient-placeholder';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	protected async buildLoadData(
@@ -639,6 +640,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			layoutXml as XmlObject,
 			layoutPath,
 		);
+		// The slide's relationships now point at the new layout, so the freshly
+		// generated placeholders resolve their font, size and colour from it.
+		for (const element of remappedElements) {
+			if (isEmptyGeneratedPlaceholder(element)) {
+				this.applyTemplatePlaceholderTextStyle(element, slidePath);
+			}
+		}
 
 		// ── 3. Resolve layout name and background ───────────────────────
 		const sldLayout = (layoutXml as XmlObject)['p:sldLayout'] as XmlObject | undefined;
