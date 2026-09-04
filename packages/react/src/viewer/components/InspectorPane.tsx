@@ -23,6 +23,7 @@ import { ResizeHandle } from './ResizeHandle';
 
 export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 	const {
+		isMobile,
 		isOpen,
 		canEdit,
 		activeSlide,
@@ -74,6 +75,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 		onUpdateElementStyle,
 		onUpdateTextStyle,
 		onUpdateSlide,
+		onUpdateAllSlidesBackground,
 		editTemplateMode,
 		slideMasters,
 		onSetTemplateBackground,
@@ -93,9 +95,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 			? 'properties'
 			: activeTab;
 
-	// Swipe-down-to-dismiss for the mobile bottom-sheet presentation. The grab
-	// region is `md:hidden`, so `dragY` only ever moves on mobile: the inline
-	// transform below is therefore a no-op on desktop where this is a side panel.
+	// Swipe-down-to-dismiss is active only through the mobile drag handle.
 	const { dragY, handlers: dragHandlers } = useSheetDismissDrag(onClose);
 
 	const {
@@ -109,42 +109,43 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 	return (
 		<>
 			{/* Mobile backdrop: tap to dismiss the bottom sheet. */}
-			{isOpen && (
+			{isMobile && isOpen && (
 				<button
 					type='button'
 					aria-label={t('common.close')}
 					onClick={onClose}
-					className='md:hidden fixed inset-0 z-20 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-150'
+					className='fixed inset-0 z-20 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-150'
 				/>
 			)}
 			<div
 				className={cn(
 					// Shared styles
 					'bg-background flex flex-col text-xs text-foreground shadow-xl',
-					// Mobile: absolute bottom sheet overlay sized via dvh so it
-					// adapts to the on-screen keyboard / dynamic browser chrome.
-					'max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:w-full max-md:max-h-[75dvh] max-md:rounded-t-2xl max-md:border-t max-md:border-border max-md:z-30 max-md:pb-[max(env(safe-area-inset-bottom),0px)]',
-					'max-md:transition-transform max-md:duration-200 max-md:ease-in-out',
-					isOpen ? 'max-md:translate-y-0' : 'max-md:translate-y-full',
-					// Desktop: flow-based flex child (takes space from canvas)
-					'md:h-full md:border-l md:border-border',
-					!panelWidth && 'md:w-72',
+					isMobile
+						? 'fixed inset-x-0 bottom-0 top-auto w-full max-h-[75dvh] rounded-t-2xl border-t border-border z-30 pb-[max(env(safe-area-inset-bottom),0px)] transition-transform duration-200 ease-in-out'
+						: 'h-full border-l border-border',
+					isMobile && (isOpen ? 'translate-y-0' : 'translate-y-full'),
+					!isMobile && !panelWidth && 'w-72',
 				)}
 				style={{
-					...(panelWidth ? { width: panelWidth } : {}),
-					...(dragY > 0 ? { transform: `translateY(${dragY}px)`, transition: 'none' } : {}),
+					...(!isMobile && panelWidth ? { width: panelWidth } : {}),
+					...(isMobile && dragY > 0
+						? { transform: `translateY(${dragY}px)`, transition: 'none' }
+						: {}),
 				}}
 			>
 				{/* Mobile drag handle: swipe down past the threshold to dismiss. */}
-				<div
-					className='md:hidden flex items-center justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none'
-					onPointerDown={dragHandlers.onPointerDown}
-					onPointerMove={dragHandlers.onPointerMove}
-					onPointerUp={dragHandlers.onPointerUp}
-					onPointerCancel={dragHandlers.onPointerCancel}
-				>
-					<div className='h-1 w-10 rounded-full bg-muted-foreground/40' />
-				</div>
+				{isMobile && (
+					<div
+						className='flex items-center justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none'
+						onPointerDown={dragHandlers.onPointerDown}
+						onPointerMove={dragHandlers.onPointerMove}
+						onPointerUp={dragHandlers.onPointerUp}
+						onPointerCancel={dragHandlers.onPointerCancel}
+					>
+						<div className='h-1 w-10 rounded-full bg-muted-foreground/40' />
+					</div>
+				)}
 
 				<InspectorPaneHeader
 					activeTab={effectiveActiveTab}
@@ -198,6 +199,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 									slides={slides}
 									tableEditorState={tableEditorState}
 									mediaDataUrls={mediaDataUrls}
+									theme={theme}
 									onUpdateElement={onUpdateElement}
 									onUpdateElementStyle={onUpdateElementStyle}
 									onUpdateTextStyle={onUpdateTextStyle}
@@ -230,6 +232,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 											activeSlide={activeSlide}
 											theme={theme}
 											onUpdateSlide={onUpdateSlide}
+											hiddenActions={hiddenActions}
 										/>
 									)}
 
@@ -238,6 +241,7 @@ export function InspectorPane(props: InspectorPaneProps): React.ReactElement {
 											activeSlide={activeSlide}
 											canEdit={canEdit}
 											onUpdateSlide={onUpdateSlide}
+											onUpdateAllSlidesBackground={onUpdateAllSlidesBackground}
 											editTemplateMode={editTemplateMode}
 											slideMasters={slideMasters}
 											onSetTemplateBackground={onSetTemplateBackground}

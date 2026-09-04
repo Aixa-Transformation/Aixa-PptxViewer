@@ -65,6 +65,7 @@ export function renderBody(options: RenderBodyOptions): React.ReactNode {
 		sourceSlideIndex,
 		tableStyleContext,
 		onFormatText,
+		slideHeight,
 		canEditSmartArt,
 		onUpdateSmartArtElement,
 		canEditChart,
@@ -114,6 +115,7 @@ export function renderBody(options: RenderBodyOptions): React.ReactNode {
 					onCancel={onCancel}
 					onEditChange={onEditChange}
 					onFormatText={onFormatText}
+					slideHeight={slideHeight}
 				/>
 			</>
 		);

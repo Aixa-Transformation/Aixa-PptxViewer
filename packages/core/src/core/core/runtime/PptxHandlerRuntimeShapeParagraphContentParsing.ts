@@ -40,7 +40,17 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			ctx.slidePath,
 			ctx.effectiveLevelStyles,
 		);
-		if (paragraphBulletInfo && !paragraphBulletInfo.none) {
+		if (paragraphBulletInfo?.none) {
+			// Keep an empty metadata segment for an explicit <a:buNone/>. It has
+			// no visible text, but dropping it here lets an inherited layout/master
+			// bullet return on the next editor save. The writer recognises this as
+			// a structural marker and emits a:buNone again without creating a run.
+			segments.push({
+				text: '',
+				style: { ...mergedDefaultRunStyle, listType: 'none' },
+				bulletInfo: paragraphBulletInfo,
+			});
+		} else if (paragraphBulletInfo) {
 			let bulletText: string;
 			if (paragraphBulletInfo.char) {
 				bulletText = `${paragraphBulletInfo.char} `;

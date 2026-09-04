@@ -638,6 +638,9 @@ export * from './text-format-presets';
 // highlight-colour (and future fill/line-colour) pickers, shared by every
 // binding instead of each hardcoding its own copy.
 export * from './color-swatches';
+// Paragraph-aware bullet/numbered-list editing. Produces structural BulletInfo
+// markers that render correctly and serialize as DrawingML list properties.
+export * from './text-list-edit';
 
 // PowerPoint-style title bar (AutoSave toggle + quick access + file name +
 // search) and the shared IndexedDB autosave recovery store behind it. Pure

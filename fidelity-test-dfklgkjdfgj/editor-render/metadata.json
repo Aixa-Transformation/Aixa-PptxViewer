@@ -1,0 +1,33 @@
+{
+  "slides": 13,
+  "width": 1280,
+  "height": 720,
+  "themeOptions": [
+    {
+      "name": "SavonVTI",
+      "path": "ppt/theme/theme1.xml"
+    },
+    {
+      "name": "Office Theme",
+      "path": "ppt/theme/theme2.xml"
+    }
+  ],
+  "themeColorMap": {
+    "dk1": "#000000",
+    "lt1": "#FFFFFF",
+    "dk2": "#775F55",
+    "lt2": "#EBDDC3",
+    "accent1": "#94B6D2",
+    "accent2": "#DD8047",
+    "accent3": "#A5AB81",
+    "accent4": "#D8B25C",
+    "accent5": "#7BA79D",
+    "accent6": "#968C8C",
+    "hlink": "#F7B615",
+    "folHlink": "#704404",
+    "tx1": "#000000",
+    "tx2": "#44546A",
+    "bg1": "#FFFFFF",
+    "bg2": "#E7E6E6"
+  }
+}

@@ -207,6 +207,11 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 
 			// Merge layout elements (behind) with slide elements (on top)
 			const elements = [...layoutElements, ...slideElements];
+			const slideRoot = slideXmlObj['p:sld'] as XmlObject | undefined;
+			const commonSlideData = slideRoot?.['p:cSld'] as XmlObject | undefined;
+			const hasOwnBackground =
+				commonSlideData !== undefined &&
+				Object.prototype.hasOwnProperty.call(commonSlideData, 'p:bg');
 			const ownBackgroundColor = params.extractBackgroundColor(slideXmlObj);
 			const ownBackgroundGradient = params.extractBackgroundGradient(slideXmlObj);
 			const [
@@ -285,6 +290,7 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 				backgroundColor,
 				backgroundGradient: backgroundGradient || undefined,
 				backgroundImage,
+				backgroundSource: hasOwnBackground ? 'slide' : 'inherited',
 				transition,
 				animations,
 				nativeAnimations,

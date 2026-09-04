@@ -20,6 +20,7 @@ import { BLIP_FILL_ORDER, SP_PR_ORDER, reorderObjectKeys } from '../../utils/xml
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeSaveContentPartInk';
 import type { SaveSlideContext } from './PptxHandlerRuntimeSaveElementEmbedding';
 import { CHART_CONTENT_TYPE, CHART_RELATIONSHIP_TYPE } from './PptxHandlerRuntimeSaveShapeXml';
+import { fingerprintTemplateElement } from './template-element-fingerprint';
 
 export type { SaveSlideContext };
 
@@ -291,6 +292,22 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		ctx: SaveSlideContext,
 	): void {
 		let shape = el.rawXml as XmlObject | undefined;
+		let templateElementChanged = false;
+		if (this.isTemplateElementId(el.id)) {
+			const partPath = this.getTemplatePartPath(ctx.slide.id, el.id);
+			if (partPath) {
+				const currentFingerprint = fingerprintTemplateElement(el);
+				if (this.templateElementBaselines.get(el) !== currentFingerprint) {
+					templateElementChanged = true;
+					if (el.id.startsWith('master-')) {
+						this.dirtyTemplateMasterPaths.add(partPath);
+					} else {
+						this.dirtyTemplateLayoutPaths.add(partPath);
+					}
+					this.pendingTemplateElementBaselines.set(el, currentFingerprint);
+				}
+			}
+		}
 
 		// Image embedding
 		if ((el.type === 'picture' || el.type === 'image') && typeof el.imageData === 'string') {
@@ -312,7 +329,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				// previously bypassed.  Each save/reopen cycle therefore copied the
 				// same artwork onto the slide again, progressively distorting Strict
 				// decks when users navigated away and back.
-				if (this.isTemplateElementId(el.id)) {
+				if (this.isTemplateElementId(el.id) && templateElementChanged) {
 					const templateSpTree = this.getTemplateSpTree(ctx.slide.id, el.id);
 					if (templateSpTree) {
 						el.rawXml = this.ensureTemplateShapeAttached(templateSpTree, el.type, grpXml);
@@ -364,11 +381,27 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			// Ink loaded from real files always carries the original
 			// `<aink:ink>`-bearing graphicFrame on `rawXml`. We preserve it
 			// verbatim because re-encoding it would lose
-			// pressure, tool metadata, and per-stroke style. Only SDK-created ink
-			// elements (no rawXml) use the editable aink writer, which also carries
-			// a custGeom fallback for consumers that do not support Office 2010 ink.
+			// pressure, tool metadata, and per-stroke style. New Draw-tab ink has
+			// no rawXml and is authored as a standards-shaped p:contentPart plus a
+			// related InkML part. Keeping it out of an inline graphicFrame avoids
+			// PowerPoint's repair/corruption path for newly drawn strokes.
 			if (!shape) {
-				shape = this.createInkGraphicFrameXml(el as InkPptxElement);
+				const contentPart = this.createContentPartInkFromInkElement(
+					el as InkPptxElement,
+					ctx,
+				);
+				if (contentPart) {
+					collectors.contentParts.push(contentPart);
+				} else {
+					this.compatibilityService.reportWarning({
+						code: 'SAVE_ELEMENT_SKIPPED',
+						message: `Ink element '${el.id}' contains no valid stroke and was skipped during save.`,
+						scope: 'save',
+						slideId: ctx.slide.id,
+						elementId: el.id,
+					});
+				}
+				return;
 			}
 		}
 		if (el.type === 'zoom') {
@@ -500,9 +533,11 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 		// Template elements
 		if (this.isTemplateElementId(el.id)) {
-			const templateSpTree = this.getTemplateSpTree(ctx.slide.id, el.id);
-			if (templateSpTree) {
-				el.rawXml = this.ensureTemplateShapeAttached(templateSpTree, el.type, shape);
+			if (templateElementChanged) {
+				const templateSpTree = this.getTemplateSpTree(ctx.slide.id, el.id);
+				if (templateSpTree) {
+					el.rawXml = this.ensureTemplateShapeAttached(templateSpTree, el.type, shape);
+				}
 			}
 			return;
 		}

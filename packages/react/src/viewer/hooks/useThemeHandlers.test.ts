@@ -7,7 +7,13 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
-import type { ThemeHandlersResult, UseThemeHandlersInput } from './useThemeHandlers';
+import type { PptxElement, PptxThemeColorScheme } from 'pptx-viewer-core';
+
+import {
+	reResolveTemplateElementsBySlideId,
+	type ThemeHandlersResult,
+	type UseThemeHandlersInput,
+} from './useThemeHandlers';
 
 // ---------------------------------------------------------------------------
 // Type-level assertions: ensure the new methods exist in the result type
@@ -60,11 +66,53 @@ describe('useThemeHandlersInput contract', () => {
 				markDirty: vi.fn<() => void>(),
 			} as unknown as UseThemeHandlersInput['history'],
 			setSlides: vi.fn<() => void>(),
+			setTemplateElementsBySlideId: vi.fn<() => void>(),
 			theme: undefined,
 			bumpHistory: vi.fn<() => void>(),
 		};
 
 		expect(input.handlerRef.current).toBeNull();
 		expect(input.slideMasters).toStrictEqual([]);
+	});
+});
+
+describe('reResolveTemplateElementsBySlideId', () => {
+	it('re-colours master/layout elements stored outside slide.elements', () => {
+		const elements = {
+			'slide-1': [
+				{
+					id: 'master-background',
+					type: 'shape',
+					shapeType: 'rect',
+					x: 0,
+					y: 0,
+					width: 1280,
+					height: 720,
+					shapeStyle: { fillColor: '#94B6D2' },
+				} as PptxElement,
+			],
+		};
+		const scheme = {
+			dk1: '#000000',
+			lt1: '#FFFFFF',
+			dk2: '#222222',
+			lt2: '#EEEEEE',
+			accent1: '#4472C4',
+			accent2: '#ED7D31',
+			accent3: '#A5A5A5',
+			accent4: '#FFC000',
+			accent5: '#5B9BD5',
+			accent6: '#70AD47',
+			hlink: '#0563C1',
+			folHlink: '#954F72',
+		} satisfies PptxThemeColorScheme;
+
+		const result = reResolveTemplateElementsBySlideId(
+			elements,
+			{ accent1: '94B6D2' },
+			scheme,
+		);
+
+		expect(result['slide-1'][0].shapeStyle?.fillColor).toBe('#4472C4');
 	});
 });

@@ -73,7 +73,7 @@ import type { CollaborationConfig } from './hooks/collaboration';
 import { useDerivedSlideState } from './hooks/useDerivedSlideState';
 import { useEditorHistory } from './hooks/useEditorHistory';
 import { useEditorOperations } from './hooks/useEditorOperations';
-import { useIsMobile } from './hooks/useIsMobile';
+import { DESKTOP_ONLY_VIEWER_LAYOUT, useIsMobile } from './hooks/useIsMobile';
 import { useLayoutSwitching } from './hooks/useLayoutSwitching';
 import { usePresentationSetup } from './hooks/usePresentationSetup';
 import { useReducedMotion } from './hooks/useReducedMotion';
@@ -118,6 +118,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 			canEdit = false,
 			onContentChange,
 			onDirtyChange,
+			onDeckWideChange,
 			onActiveSlideChange,
 			onModeChange,
 			onZoomChange,
@@ -437,7 +438,9 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 
 		// ── Mobile / responsive ─────────────────────────────────────
 		const mobile = useIsMobile({ containerRef });
-		const { isMobile, isTouchDevice, isVirtualKeyboardOpen } = mobile;
+		const { isTouchDevice } = mobile;
+		const isMobile = DESKTOP_ONLY_VIEWER_LAYOUT ? false : mobile.isMobile;
+		const isVirtualKeyboardOpen = isMobile && mobile.isVirtualKeyboardOpen;
 
 		// ── Resizable panels ──────────────────────────────────────
 		const resizablePanels = useResizablePanels();
@@ -869,6 +872,7 @@ export const PowerPointViewer = forwardRef<PowerPointViewerHandle, PowerPointVie
 								rightPanelWidth={isMobile ? undefined : resizablePanels.rightWidth}
 								onResizeRight={isMobile ? undefined : resizablePanels.onResizeRight}
 								hiddenActions={hiddenActions}
+								onDeckWideChange={onDeckWideChange}
 								aiConfig={ai}
 								aiBridge={ai ? aiBridge : undefined}
 								aiPanel={ai ? aiPanel : undefined}

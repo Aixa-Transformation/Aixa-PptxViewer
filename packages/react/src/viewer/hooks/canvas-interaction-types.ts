@@ -17,5 +17,9 @@ export interface CanvasInteractionHandlers {
 	handleUpdateSmartArtElement: (elementId: string, updates: Partial<PptxElement>) => void;
 	/** Apply a text-style toggle (Ctrl/Cmd+B/I/U) to the element being inline-edited. */
 	handleFormatText: (updates: Partial<TextStyle>) => void;
-	handleInlineEditCommit: () => void;
+	handleInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 }

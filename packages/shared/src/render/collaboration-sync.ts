@@ -236,6 +236,7 @@ export const SCALAR_SLIDE_KEYS: ReadonlySet<string> = new Set([
 	'backgroundColor',
 	'backgroundImage',
 	'backgroundGradient',
+	'backgroundSource',
 	'backgroundShadeToTitle',
 	'notes',
 	'notesCSldName',

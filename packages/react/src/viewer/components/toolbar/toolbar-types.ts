@@ -5,6 +5,7 @@ import type {
 	PptxChartType,
 	TextStyle,
 	PptxCustomShow,
+	ShapeStyle,
 } from 'pptx-viewer-core';
 import type { ViewerFontSource } from 'pptx-viewer-shared';
 import type { ToolbarActionId } from 'pptx-viewer-shared';
@@ -35,6 +36,8 @@ export interface ToolbarProps {
 	redoLabel: string | undefined;
 	findReplaceOpen: boolean;
 	selectedElement: PptxElement | null;
+	/** Live shrink-on-overflow scale while the selected text box is being edited. */
+	liveAutoFitFontScale?: number | null;
 	tableEditorState?: TableCellEditorState | null;
 	editTemplateMode: boolean;
 	newShapeType: SupportedShapeType;
@@ -59,6 +62,7 @@ export interface ToolbarProps {
 	onUndo: () => void;
 	onRedo: () => void;
 	onToggleFindReplace: () => void;
+	onSelectAll: () => void;
 	onSetNewShapeType: (type: SupportedShapeType) => void;
 	onAddTextBox: () => void;
 	onAddShape: () => void;
@@ -118,6 +122,7 @@ export interface ToolbarProps {
 	onRunAccessibilityCheck: () => void;
 	onToggleSlideSorter: () => void;
 	onUpdateTextStyle: (updates: Partial<TextStyle>) => void;
+	onUpdateElementStyle: (updates: Partial<ShapeStyle>) => void;
 	/** Rewrite the selected text's characters (PowerPoint's Aa "Change Case" dropdown). */
 	onTransformTextCase: (mode: ChangeCaseMode) => void;
 	isOverflowMenuOpen: boolean;

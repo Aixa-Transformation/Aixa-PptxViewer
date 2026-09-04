@@ -231,8 +231,10 @@ export interface IPptxHandlerRuntime {
 	 * placeholders; returns only decorative shapes/pictures/graphic frames.
 	 *
 	 * @param slideId - The slide's archive path (`PptxSlide.id`).
+	 * @param layoutPath - Optional layout to resolve against, for slides inserted
+	 *   during the session that have no cached relationships yet.
 	 */
-	getTemplateElementsForSlide(slideId: string): Promise<PptxElement[]>;
+	getTemplateElementsForSlide(slideId: string, layoutPath?: string): Promise<PptxElement[]>;
 	/**
 	 * Scan the loaded PPTX archive for all theme parts.
 	 */

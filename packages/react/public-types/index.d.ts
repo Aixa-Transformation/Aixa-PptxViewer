@@ -23,6 +23,7 @@ export interface PowerPointViewerProps {
 	theme?: unknown;
 	onContentChange?: (content: Uint8Array) => void;
 	onDirtyChange?: (dirty: boolean) => void;
+	onDeckWideChange?: (change: { type: 'background' }) => void;
 }
 
 export const PowerPointViewer: ComponentType<PowerPointViewerProps>;

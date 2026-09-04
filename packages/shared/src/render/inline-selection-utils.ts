@@ -12,6 +12,18 @@ export interface InlineTextSelection {
 	startOffset: number;
 	endSegIdx: number;
 	endOffset: number;
+	/**
+	 * Live paragraph coordinates from the contentEditable DOM. Segment indexes
+	 * alone can be stale while the user is typing because the editor deliberately
+	 * keeps its DOM uncontrolled until commit. List commands use these coordinates
+	 * to target newly inserted paragraphs before that commit happens.
+	 */
+	startParagraphIndex?: number;
+	startParagraphOffset?: number;
+	endParagraphIndex?: number;
+	endParagraphOffset?: number;
+	/** True when the normalized selection ends before any authored text in a paragraph. */
+	endAtParagraphStart?: boolean;
 }
 
 let pendingRestore: InlineTextSelection | null = null;
@@ -71,6 +83,19 @@ export function getInlineEditorSelection(
 		startOffset: start.offsetInSeg,
 		endSegIdx: end.segIdx,
 		endOffset: end.offsetInSeg,
+		...(start.paragraphIndex !== undefined
+			? {
+					startParagraphIndex: start.paragraphIndex,
+					startParagraphOffset: start.paragraphOffset ?? 0,
+				}
+			: {}),
+		...(end.paragraphIndex !== undefined
+			? {
+					endParagraphIndex: end.paragraphIndex,
+					endParagraphOffset: end.paragraphOffset ?? 0,
+					endAtParagraphStart: end.atParagraphStart === true,
+				}
+			: {}),
 	};
 }
 
@@ -84,7 +109,14 @@ function getSegmentPosition(
 	node: Node,
 	offset: number,
 	segments: TextSegment[],
-): { segIdx: number; offsetInSeg: number; absOffset: number } | null {
+): {
+	segIdx: number;
+	offsetInSeg: number;
+	absOffset: number;
+	paragraphIndex?: number;
+	paragraphOffset?: number;
+	atParagraphStart?: boolean;
+} | null {
 	const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
 	if (!el) {
 		return null;
@@ -109,7 +141,71 @@ function getSegmentPosition(
 	}
 	absOffset += offsetInSeg;
 
-	return { segIdx, offsetInSeg, absOffset };
+	const paragraphPosition = getParagraphPosition(editor, node, offset);
+	return { segIdx, offsetInSeg, absOffset, ...paragraphPosition };
+}
+
+function getTopLevelParagraphs(editor: Element): HTMLElement[] {
+	return Array.from(editor.querySelectorAll<HTMLElement>('[data-pptx-paragraph]')).filter(
+		(paragraph) => !paragraph.parentElement?.closest('[data-pptx-paragraph]'),
+	);
+}
+
+/**
+ * Resolve a DOM point against the paragraph wrappers rendered by
+ * `renderTextSegments`. The offset deliberately excludes the visible synthetic
+ * list marker so it can be projected onto freshly remapped text segments.
+ */
+function getParagraphPosition(
+	editor: Element,
+	node: Node,
+	offset: number,
+): {
+	paragraphIndex?: number;
+	paragraphOffset?: number;
+	atParagraphStart?: boolean;
+} {
+	const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+	const paragraph = element?.closest<HTMLElement>('[data-pptx-paragraph]');
+	if (!paragraph || !editor.contains(paragraph)) {
+		return {};
+	}
+	const paragraphs = getTopLevelParagraphs(editor);
+	const paragraphIndex = paragraphs.indexOf(paragraph);
+	if (paragraphIndex < 0) {
+		return {};
+	}
+
+	let prefixText = '';
+	try {
+		const prefixRange = document.createRange();
+		prefixRange.selectNodeContents(paragraph);
+		prefixRange.setEnd(node, offset);
+		const prefixContainer = document.createElement('div');
+		prefixContainer.append(prefixRange.cloneContents());
+		const authoredSegments = Array.from(
+			prefixContainer.querySelectorAll<HTMLElement>('[data-seg-idx]'),
+		).filter((segment) => !segment.parentElement?.closest('[data-seg-idx]'));
+		// Ignore formatting whitespace between JSX elements. Authored text always
+		// lives inside a segment span, including provisional list continuations.
+		prefixText = authoredSegments.map((segment) => segment.textContent ?? '').join('');
+	} catch {
+		return { paragraphIndex };
+	}
+	const markerIndex = paragraph.dataset.pptxListSegIdx;
+	const marker = markerIndex !== undefined
+		? paragraph.querySelector<HTMLElement>(`[data-seg-idx="${markerIndex}"]`)
+		: null;
+	const markerText = marker?.textContent ?? '';
+	if (markerText && prefixText.startsWith(markerText)) {
+		prefixText = prefixText.slice(markerText.length);
+	}
+	const authoredPrefix = prefixText.replaceAll('\u200B', '');
+	return {
+		paragraphIndex,
+		paragraphOffset: authoredPrefix.length,
+		atParagraphStart: authoredPrefix.length === 0,
+	};
 }
 
 /**

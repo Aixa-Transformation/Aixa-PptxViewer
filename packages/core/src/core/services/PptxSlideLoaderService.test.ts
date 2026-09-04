@@ -172,6 +172,7 @@ describe('pptxSlideLoaderService', () => {
 			expect(result[0].id).toBe('ppt/slides/slide1.xml');
 			expect(result[0].slideNumber).toBe(1);
 			expect(result[0].rId).toBe('rId1');
+			expect(result[0].backgroundSource).toBe('inherited');
 		});
 	});
 

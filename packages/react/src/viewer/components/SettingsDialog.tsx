@@ -161,7 +161,7 @@ export function SettingsDialog({
 					role='dialog'
 					aria-modal='true'
 					aria-label={t('pptx.options.title')}
-					className='pointer-events-auto flex max-h-[85vh] w-[min(56rem,calc(100%-2rem))] flex-col rounded-xl border border-border bg-popover shadow-2xl backdrop-blur-xl max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:max-h-[88dvh] max-md:w-full max-md:rounded-t-2xl max-md:rounded-b-none max-md:border-x-0 max-md:border-b-0 max-md:pb-[max(env(safe-area-inset-bottom),0px)]'
+					className='pointer-events-auto flex max-h-[85vh] w-[min(56rem,calc(100%-2rem))] flex-col rounded-xl border border-border bg-popover shadow-2xl backdrop-blur-xl           '
 				>
 					{/* Header - also a swipe-down-to-dismiss grab region on touch. */}
 					<div
@@ -183,10 +183,10 @@ export function SettingsDialog({
 					</div>
 
 					{/* Body: category rail + pane */}
-					<div className='flex min-h-0 flex-1 max-md:flex-col'>
+					<div className='flex min-h-0 flex-1 '>
 						<nav
 							aria-label={t('pptx.options.title')}
-							className='w-44 shrink-0 space-y-0.5 overflow-y-auto border-r border-border/60 p-2 max-md:flex max-md:w-full max-md:space-y-0 max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-r-0'
+							className='w-44 shrink-0 space-y-0.5 overflow-y-auto border-r border-border/60 p-2       '
 						>
 							{VIEWER_OPTIONS_TABS.map((tab) => (
 								<button
@@ -195,7 +195,7 @@ export function SettingsDialog({
 									onClick={() => setActiveTabId(tab.id)}
 									aria-current={activeTabId === tab.id}
 									className={cn(
-										'block w-full whitespace-nowrap rounded px-3 py-2 text-left text-sm transition-colors max-md:w-auto',
+										'block w-full whitespace-nowrap rounded px-3 py-2 text-left text-sm transition-colors ',
 										activeTabId === tab.id
 											? 'bg-primary/10 font-medium text-primary'
 											: 'text-foreground hover:bg-accent',
@@ -210,7 +210,7 @@ export function SettingsDialog({
 									onClick={() => setActiveTabId(AI_TAB_ID)}
 									aria-current={activeTabId === AI_TAB_ID}
 									className={cn(
-										'block w-full whitespace-nowrap rounded px-3 py-2 text-left text-sm transition-colors max-md:w-auto',
+										'block w-full whitespace-nowrap rounded px-3 py-2 text-left text-sm transition-colors ',
 										activeTabId === AI_TAB_ID
 											? 'bg-primary/10 font-medium text-primary'
 											: 'text-foreground hover:bg-accent',

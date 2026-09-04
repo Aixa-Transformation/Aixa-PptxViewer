@@ -32,6 +32,15 @@ describe('buildPreviewElements', () => {
 		expect(buildPreviewElements(slide).map((e) => e.id)).toStrictEqual(['s1']);
 	});
 
+	it('omits template elements when the slide hides background graphics', () => {
+		const slide = {
+			...makeSlide([makeElement('s1')]),
+			showMasterShapes: false,
+		};
+		const result = buildPreviewElements(slide, [makeElement('t1'), makeElement('t2')]);
+		expect(result.map((e) => e.id)).toStrictEqual(['s1']);
+	});
+
 	it('does not mutate the slide element array', () => {
 		const owned = [makeElement('s1')];
 		const slide = makeSlide(owned);

@@ -17,7 +17,8 @@ export function isSyntheticBulletMarkerSegment(segment: TextSegment): boolean {
 	const markerText = String(segment.text ?? '').trim();
 	return Boolean(
 		segment.bulletInfo &&
-		((segment.bulletInfo.char && markerText === segment.bulletInfo.char) ||
+		((segment.bulletInfo.none && markerText.length === 0) ||
+			(segment.bulletInfo.char && markerText === segment.bulletInfo.char) ||
 			(segment.bulletInfo.autoNumType && /^\S+[.)]$/u.test(markerText)) ||
 			((segment.bulletInfo.imageDataUrl || segment.bulletInfo.imageRelId) &&
 				markerText === '\u{1F4CE}')),

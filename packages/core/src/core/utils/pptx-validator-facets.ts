@@ -3,6 +3,7 @@ import {
 	BLACK_WHITE,
 	ENUMS,
 	FIXED_PERCENT,
+	POSITIVE_FIXED_PERCENT,
 	POSITIVE_PERCENT,
 } from './pptx-validator-facet-constants';
 import type { ValidationIssue } from './pptx-validator-types';
@@ -53,7 +54,9 @@ function numericValue(value: string): number | undefined {
 
 function validatePercentage(element: XmlElement, path: string, issues: ValidationIssue[]): void {
 	const positive = POSITIVE_PERCENT.has(element.local);
-	if (!positive && !FIXED_PERCENT.has(element.local)) {
+	const positiveFixed = POSITIVE_FIXED_PERCENT.has(element.local);
+	const fixed = FIXED_PERCENT.has(element.local);
+	if (!positive && !positiveFixed && !fixed) {
 		return;
 	}
 	const value = attribute(element.attributes, 'val');
@@ -61,15 +64,18 @@ function validatePercentage(element: XmlElement, path: string, issues: Validatio
 		return;
 	}
 	const numeric = numericValue(value);
-	const min = positive ? 0 : -100000;
-	if (numeric === undefined || numeric < min || numeric > 100000) {
+	const min = positive || positiveFixed ? 0 : -100000;
+	const max = positive ? Number.POSITIVE_INFINITY : 100000;
+	if (numeric === undefined || numeric < min || numeric > max) {
 		add(
 			issues,
 			path,
 			element.local,
 			'val',
 			value,
-			`${positive ? 'a positive fixed' : 'a fixed'} percentage from ${min} through 100000`,
+			positive
+				? 'a positive percentage greater than or equal to 0'
+				: `${positiveFixed ? 'a positive fixed' : 'a fixed'} percentage from ${min} through 100000`,
 		);
 	}
 }

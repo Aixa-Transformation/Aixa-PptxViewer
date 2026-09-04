@@ -286,6 +286,11 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.masterCache.clear();
 		this.layoutXmlMap.clear();
 		this.masterXmlMap.clear();
+		this.templateElementBaselines = new WeakMap();
+		this.dirtyTemplateLayoutPaths.clear();
+		this.dirtyTemplateMasterPaths.clear();
+		this.pendingTemplateBackgroundColors.clear();
+		this.pendingTemplateElementBaselines.clear();
 		this.masterTxStylesCache.clear();
 		this.layoutPlaceholderDefaultsCache.clear();
 		this.masterPlaceholderDefaultsCache.clear();
@@ -352,6 +357,14 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			path,
 			backgroundColor,
 		);
+		// Remember this as a focused background edit. During save, inherited
+		// elements are serialized through the same cached XmlObject and can gain
+		// render-only resolved fills. The save pipeline therefore reapplies this
+		// background to a clean copy of the template part when no real template
+		// element edit occurred, preserving the rest of the master/layout.
+		if (this.masterXmlMap.has(path) || this.layoutXmlMap.has(path)) {
+			this.pendingTemplateBackgroundColors.set(path, backgroundColor);
+		}
 	}
 
 	public createXmlBuilder(data: PptxData): PptxXmlBuilder {
@@ -427,10 +440,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 *
 	 * @param slideId - The slide's archive path (the `PptxSlide.id`, e.g.
 	 *   `ppt/slides/slide1.xml`).
+	 * @param layoutPath - Optional layout to resolve against, for slides that were
+	 *   inserted during the session and have no cached relationships yet.
 	 * @returns Master + layout elements with prefixed ids (may be empty).
 	 */
-	async getTemplateElementsForSlide(slideId: string): Promise<PptxElement[]> {
-		return this.getLayoutElements(slideId);
+	async getTemplateElementsForSlide(
+		slideId: string,
+		layoutPath?: string,
+	): Promise<PptxElement[]> {
+		return this.getLayoutElements(slideId, layoutPath);
 	}
 
 	/**

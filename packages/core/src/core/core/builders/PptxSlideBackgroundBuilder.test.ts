@@ -86,6 +86,48 @@ describe('pptxSlideBackgroundBuilder', () => {
 		expect(cSld['p:bg']).toBeUndefined();
 	});
 
+	it('does not materialize a resolved layout/master background on the slide', async () => {
+		const slideNode: XmlObject = {
+			'p:cSld': {
+				'p:spTree': { 'p:sp': [] },
+			},
+		};
+		const input = createInput(
+			{
+				backgroundColor: '#FFFFFF',
+				backgroundSource: 'inherited',
+			},
+			slideNode,
+		);
+		await builder.applyBackground(input);
+
+		const cSld = slideNode['p:cSld'] as XmlObject;
+		expect(cSld['p:bg']).toBeUndefined();
+		expect(cSld['p:spTree']).toBeDefined();
+	});
+
+	it('writes an explicit edit even when the source slide originally inherited its background', async () => {
+		const slideNode: XmlObject = {
+			'p:cSld': {
+				'p:spTree': { 'p:sp': [] },
+			},
+		};
+		const input = createInput(
+			{
+				backgroundColor: '#123456',
+				backgroundImage: '',
+				backgroundSource: 'slide',
+			},
+			slideNode,
+		);
+		await builder.applyBackground(input);
+
+		const bgPr = ((slideNode['p:cSld'] as XmlObject)['p:bg'] as XmlObject)[
+			'p:bgPr'
+		] as XmlObject;
+		expect(bgPr['a:solidFill']).toEqual({ 'a:srgbClr': { '@_val': '123456' } });
+	});
+
 	// ── Solid color background ───────────────────────────────────────────
 
 	it('generates a:solidFill for a hex background color', async () => {
@@ -324,6 +366,34 @@ describe('pptxSlideBackgroundBuilder', () => {
 			'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
 			'../media/image1.png',
 		);
+	});
+
+	it('replaces an existing image fill when a solid colour explicitly clears the image', async () => {
+		const slideNode: XmlObject = {
+			'p:cSld': {
+				'p:bg': {
+					'p:bgPr': {
+						'a:blipFill': {
+							'a:blip': { '@_r:embed': 'rId7' },
+							'a:stretch': { 'a:fillRect': {} },
+						},
+					},
+				},
+				'p:spTree': { 'p:sp': [] },
+			},
+		};
+		const input = createInput(
+			{ backgroundColor: '#123456', backgroundImage: '' },
+			slideNode,
+		);
+
+		await builder.applyBackground(input);
+
+		const bgPr = ((slideNode['p:cSld'] as XmlObject)['p:bg'] as XmlObject)[
+			'p:bgPr'
+		] as XmlObject;
+		expect(bgPr['a:blipFill']).toBeUndefined();
+		expect(bgPr['a:solidFill']).toEqual({ 'a:srgbClr': { '@_val': '123456' } });
 	});
 
 	// ── Schema child order ────────────────────────────────────────────────

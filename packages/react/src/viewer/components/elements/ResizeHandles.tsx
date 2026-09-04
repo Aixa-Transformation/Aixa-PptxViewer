@@ -35,22 +35,22 @@ const CORNER_HANDLES: {
 }[] = [
 	{
 		handle: 'nw',
-		posClass: '-left-1.5 -top-1.5 max-md:-left-2.5 max-md:-top-2.5',
+		posClass: '-left-1.5 -top-1.5  ',
 		cursor: 'cursor-nwse-resize',
 	},
 	{
 		handle: 'ne',
-		posClass: '-right-1.5 -top-1.5 max-md:-right-2.5 max-md:-top-2.5',
+		posClass: '-right-1.5 -top-1.5  ',
 		cursor: 'cursor-nesw-resize',
 	},
 	{
 		handle: 'sw',
-		posClass: '-left-1.5 -bottom-1.5 max-md:-left-2.5 max-md:-bottom-2.5',
+		posClass: '-left-1.5 -bottom-1.5  ',
 		cursor: 'cursor-nesw-resize',
 	},
 	{
 		handle: 'se',
-		posClass: '-right-1.5 -bottom-1.5 max-md:-right-2.5 max-md:-bottom-2.5',
+		posClass: '-right-1.5 -bottom-1.5  ',
 		cursor: 'cursor-nwse-resize',
 	},
 ];
@@ -66,25 +66,25 @@ const EDGE_HANDLES: {
 		handle: 'n',
 		posClass: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2',
 		cursor: 'cursor-ns-resize',
-		sizeClass: 'w-5 h-2 max-md:w-8 max-md:h-3 rounded-sm',
+		sizeClass: 'w-5 h-2   rounded-sm',
 	},
 	{
 		handle: 's',
 		posClass: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2',
 		cursor: 'cursor-ns-resize',
-		sizeClass: 'w-5 h-2 max-md:w-8 max-md:h-3 rounded-sm',
+		sizeClass: 'w-5 h-2   rounded-sm',
 	},
 	{
 		handle: 'e',
 		posClass: 'right-0 top-1/2 translate-x-1/2 -translate-y-1/2',
 		cursor: 'cursor-ew-resize',
-		sizeClass: 'w-2 h-5 max-md:w-3 max-md:h-8 rounded-sm',
+		sizeClass: 'w-2 h-5   rounded-sm',
 	},
 	{
 		handle: 'w',
 		posClass: 'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2',
 		cursor: 'cursor-ew-resize',
-		sizeClass: 'w-2 h-5 max-md:w-3 max-md:h-8 rounded-sm',
+		sizeClass: 'w-2 h-5   rounded-sm',
 	},
 ];
 
@@ -170,6 +170,7 @@ export function ResizeHandles({
 				<button
 					key={handle}
 					type='button'
+					data-resize-handle={handle}
 					className={cn('absolute z-10 group', posClass, cursor)}
 					style={peStyle}
 					onPointerDown={(e) => handleResizePointer(e, handle)}
@@ -179,9 +180,9 @@ export function ResizeHandles({
 					}}
 				>
 					{/* Visible dot */}
-					<div className='w-3 h-3 max-md:w-5.5 max-md:h-5.5 rounded-full border border-white bg-primary shadow' />
+					<div className='w-3 h-3   rounded-full border border-white bg-primary shadow' />
 					{/* Invisible expanded hit area */}
-					<div className='absolute -inset-1.5 max-md:-inset-1' />
+					<div className='absolute -inset-1.5 ' />
 				</button>
 			))}
 
@@ -190,6 +191,7 @@ export function ResizeHandles({
 				<button
 					key={handle}
 					type='button'
+					data-resize-handle={handle}
 					className={cn('absolute z-10', posClass, cursor)}
 					style={peStyle}
 					onPointerDown={(e) => handleResizePointer(e, handle)}
@@ -201,7 +203,7 @@ export function ResizeHandles({
 					{/* Visible indicator */}
 					<div className={cn(sizeClass, 'border border-white bg-primary shadow')} />
 					{/* Invisible expanded hit area */}
-					<div className='absolute -inset-2 max-md:-inset-1' />
+					<div className='absolute -inset-2 ' />
 				</button>
 			))}
 
@@ -212,9 +214,10 @@ export function ResizeHandles({
 			{onRotate ? (
 				<button
 					type='button'
+					data-rotate-handle='true'
 					aria-label={t('pptx.resizeHandles.rotateAria')}
 					data-pptx-compact
-					className='absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-5 h-5 max-md:w-7 max-md:h-7 rounded-full border border-white bg-primary text-white shadow cursor-grab active:cursor-grabbing'
+					className='absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-5 h-5   rounded-full border border-white bg-primary text-white shadow cursor-grab active:cursor-grabbing'
 					style={peStyle}
 					onPointerDown={(e) => {
 						if (e.pointerType === 'mouse') {
@@ -228,9 +231,9 @@ export function ResizeHandles({
 						startRotate(e.currentTarget);
 					}}
 				>
-					<LuRotateCw className='w-3 h-3 max-md:w-4 max-md:h-4' />
+					<LuRotateCw className='w-3 h-3  ' />
 					{/* Expanded invisible hit area (kept inside the element box). */}
-					<span className='absolute -inset-2 max-md:-inset-1' aria-hidden='true' />
+					<span className='absolute -inset-2 ' aria-hidden='true' />
 				</button>
 			) : null}
 
@@ -240,7 +243,7 @@ export function ResizeHandles({
 					type='button'
 					aria-label={t('pptx.canvas.adjustShape')}
 					data-pptx-compact
-					className='absolute h-2.5 w-2.5 max-md:h-4 max-md:w-4 rotate-45 border border-amber-700 bg-amber-300 shadow z-10'
+					className='absolute h-2.5 w-2.5   rotate-45 border border-amber-700 bg-amber-300 shadow z-10'
 					style={{
 						left: adjH.left - 5,
 						top: adjH.top,

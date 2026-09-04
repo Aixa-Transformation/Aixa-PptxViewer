@@ -142,7 +142,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// then applied again on the next load and bullets multiply on every host
 		// save/content refresh.
 		const hasStructuredListMarkers = Boolean(
-			el.textSegments?.some((segment) => segment.bulletInfo && !segment.bulletInfo.none),
+			el.textSegments?.some((segment) => segment.bulletInfo),
 		);
 		if (
 			typeof el.text === 'string' &&

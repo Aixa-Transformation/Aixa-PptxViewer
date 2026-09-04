@@ -89,7 +89,10 @@ export function useDrawingOverlay({
 			if (activeTool === 'select') {
 				return;
 			}
-			// Eraser: find and remove ink elements near click point
+			// Eraser: find and remove ink elements near click point. Newly drawn
+			// strokes are `ink` until saved; after a save/reload PowerPoint-native
+			// InkML strokes load as `contentPart`, so both representations must be
+			// erasable from the Draw tab.
 			if (activeTool === 'eraser' && activeSlide) {
 				const pt = pointerToCanvasCoords(e);
 				if (!pt) {
@@ -97,7 +100,7 @@ export function useDrawingOverlay({
 				}
 				const HIT_RADIUS = 15;
 				for (const el of [...activeSlide.elements].reverse()) {
-					if (el.type !== 'ink') {
+					if (el.type !== 'ink' && el.type !== 'contentPart') {
 						continue;
 					}
 					if (

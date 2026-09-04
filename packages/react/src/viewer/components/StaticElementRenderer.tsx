@@ -1,11 +1,10 @@
 import type { GroupPptxElement, PptxElement, PptxSlide, ShapeStyle } from 'pptx-viewer-core';
-import { hasShapeProperties, hasTextProperties } from 'pptx-viewer-core';
+import { hasTextProperties } from 'pptx-viewer-core';
 import { getGroupChildParentFill, resolveGroupChildFill } from 'pptx-viewer-shared';
 import React from 'react';
 
-import { DEFAULT_FILL_COLOR, DEFAULT_STROKE_COLOR, DEFAULT_TEXT_COLOR } from '../constants';
+import { DEFAULT_TEXT_COLOR } from '../constants';
 import {
-	buildCssGradientFromShapeStyle,
 	getElementTransform,
 	getImageEffectsFilter,
 	getImageEffectsOpacity,
@@ -13,12 +12,12 @@ import {
 	getShapeVisualStyle,
 	getTextStyleForElement,
 	isEditableTextElement,
-	normalizeHexColor,
 	renderVectorShape,
 } from '../utils';
 import type { TableStyleContext } from '../utils/table-band-style';
 import type { FieldSubstitutionContext } from '../utils/text-field-substitution';
 import { renderBody } from './elements/ElementBody';
+import { shapeParams } from './elements/element-shape-params';
 import { ShapeEffectOverlay } from './elements/ShapeEffectOverlay';
 
 export interface StaticElementRendererProps {
@@ -56,29 +55,31 @@ function StaticElementRendererImpl({
 	tableStyleContext,
 	parentGroupFill,
 }: StaticElementRendererProps): React.ReactElement {
-	const style = hasShapeProperties(element) ? element.shapeStyle : undefined;
-	const hasFill =
-		(style?.fillColor !== undefined && style.fillColor !== 'transparent') ||
-		Boolean(buildCssGradientFromShapeStyle(style) || style?.fillGradient) ||
-		(style?.fillMode === 'pattern' && Boolean(style.fillPatternPreset));
-	const fill = normalizeHexColor(style?.fillColor, DEFAULT_FILL_COLOR);
-	const strokeWidth = Math.max(0, style?.strokeWidth || 0);
-	const stroke = normalizeHexColor(style?.strokeColor, DEFAULT_STROKE_COLOR);
+	const {
+		hf: hasFill,
+		fc: fill,
+		sw: strokeWidth,
+		sc: stroke,
+		backgroundFillStyle,
+	} = shapeParams(element, activeSlide);
 	const baseVisualStyle = getShapeVisualStyle(element, hasFill, fill, strokeWidth, stroke);
+	const resolvedBackgroundVisualStyle = backgroundFillStyle
+		? { ...baseVisualStyle, ...backgroundFillStyle }
+		: baseVisualStyle;
 	// `a:grpFill`: a child with fillMode 'group' inherits the enclosing group's
 	// fill. `getShapeVisualStyle` has no group branch, so override the resolved
 	// background here from the shared resolver (no-op for non-grpFill children).
 	const inheritedFill = resolveGroupChildFill(element, parentGroupFill);
 	const visualStyle: React.CSSProperties = inheritedFill
 		? {
-				...baseVisualStyle,
+				...resolvedBackgroundVisualStyle,
 				backgroundColor: inheritedFill.backgroundColor,
 				backgroundImage: inheritedFill.backgroundImage,
 				backgroundRepeat: inheritedFill.backgroundRepeat,
 				backgroundSize: inheritedFill.backgroundSize,
 				backgroundPosition: inheritedFill.backgroundPosition,
 			}
-		: baseVisualStyle;
+		: resolvedBackgroundVisualStyle;
 	const textStyle = getTextStyleForElement(
 		element,
 		element.type === 'shape' && hasFill ? '#ffffff' : DEFAULT_TEXT_COLOR,

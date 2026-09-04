@@ -82,6 +82,33 @@ describe('svgExporter', () => {
 		expect(svg).toContain('data:image/png;base64,iVBOR');
 	});
 
+	it('renders p:sp useBgFill shapes with the effective slide background', () => {
+		const slide = makeSlide({
+			backgroundColor: '#FFFFFF',
+			elements: [
+				{
+					type: 'shape',
+					id: 'master-bg-shape',
+					x: 0,
+					y: 0,
+					width: 960,
+					height: 540,
+					shapeType: 'rect',
+					shapeStyle: {
+						fillMode: 'theme',
+						fillColor: '#94B6D2',
+						useBackgroundFill: true,
+					},
+				},
+			],
+		});
+
+		const svg = SvgExporter.exportSlide(slide, 960, 540);
+
+		expect(svg.match(/fill="#FFFFFF"/g)).toHaveLength(2);
+		expect(svg).not.toContain('fill="#94B6D2"');
+	});
+
 	// ── Text element ─────────────────────────────────────────────
 
 	it('renders a text element with <text> and <tspan>', () => {

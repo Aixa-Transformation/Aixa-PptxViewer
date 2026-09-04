@@ -15,8 +15,12 @@ interface ParentCallbacks {
 	onResizePointerDown: (elementId: string, e: React.MouseEvent, handle: string) => void;
 	onAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
 	onRotate?: (elementId: string, rotationDeg: number) => void;
-	onInlineEditChange: (text: string) => void;
-	onInlineEditCommit: () => void;
+	onInlineEditChange: (text: string, autoFitFontScale?: number) => void;
+	onInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	onInlineEditCancel: () => void;
 	onTableCellSelect: (
 		cell: Omit<TableCellEditorState, 'elementId'> | null,
@@ -38,8 +42,12 @@ export interface StableCallbacks {
 	stableResizePointerDown: (elementId: string, e: React.MouseEvent, handle: string) => void;
 	stableAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
 	stableRotate: (elementId: string, rotationDeg: number) => void;
-	stableInlineEditChange: (text: string) => void;
-	stableInlineEditCommit: () => void;
+	stableInlineEditChange: (text: string, autoFitFontScale?: number) => void;
+	stableInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	stableInlineEditCancel: () => void;
 	stableTableCellSelect: (cell: TableCellEditorState | null, elementId: string) => void;
 	stableCommitCellEdit: (
@@ -79,11 +87,24 @@ export function useStableCallbacks(callbacks: ParentCallbacks): StableCallbacks 
 	);
 
 	const stableInlineEditChange = useCallback(
-		(text: string) => cbRef.current.onInlineEditChange(text),
+		(text: string, autoFitFontScale?: number) =>
+			cbRef.current.onInlineEditChange(text, autoFitFontScale),
 		[],
 	);
 
-	const stableInlineEditCommit = useCallback(() => cbRef.current.onInlineEditCommit(), []);
+	const stableInlineEditCommit = useCallback(
+		(
+			autoFitHeight?: number,
+			committedTextOverride?: string,
+			autoFitFontScale?: number,
+		) =>
+			cbRef.current.onInlineEditCommit(
+				autoFitHeight,
+				committedTextOverride,
+				autoFitFontScale,
+			),
+		[],
+	);
 
 	const stableInlineEditCancel = useCallback(() => cbRef.current.onInlineEditCancel(), []);
 

@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_TEXT_COLOR } from '../../constants';
 import { getTextCompensationTransform, getTextWarpStyle, getTextLayoutStyle } from '../../utils';
 import { getTextStyleForElement } from '../../utils/text-utils';
+import { shouldClipFixedTextBody } from './TextElementBody';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -1077,5 +1078,29 @@ describe('inlineTextEditor: full style chain integration', () => {
 		// Padding should be preserved
 		expect(style.paddingLeft).toBe(10);
 		expect(style.paddingRight).toBe(10);
+	});
+});
+
+describe('fixed text body overflow', () => {
+	it('clips normal-autofit text to the same fixed viewport used while editing', () => {
+		const element = makeTextElement({
+			textStyle: { autoFit: true, autoFitMode: 'normal', fontSize: 44 },
+		});
+		expect(shouldClipFixedTextBody(element)).toBe(true);
+	});
+
+	it('preserves authored no-autofit and nowrap overflow behavior', () => {
+		expect(
+			shouldClipFixedTextBody(
+				makeTextElement({ textStyle: { autoFit: false, autoFitMode: 'none' } }),
+			),
+		).toBe(false);
+		expect(
+			shouldClipFixedTextBody(
+				makeTextElement({
+					textStyle: { autoFit: true, autoFitMode: 'normal', textWrap: 'none' },
+				}),
+			),
+		).toBe(false);
 	});
 });

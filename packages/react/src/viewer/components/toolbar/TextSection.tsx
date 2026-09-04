@@ -1,5 +1,6 @@
 import { hasTextProperties } from 'pptx-viewer-core';
 import type { PptxElement, TextStyle } from 'pptx-viewer-core';
+import { getElementListType } from 'pptx-viewer-shared';
 import React, { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,6 +18,10 @@ import type { TableCellEditorState } from '../../types';
 import type { ChangeCaseMode } from '../../utils/text-case-transform';
 import { ColumnsDropdown, LineSpacingDropdown, TextDirectionDropdown } from './ParagraphDropdowns';
 import { RibbonMenu } from './RibbonMenu';
+import {
+	getAuthoredFontSizeForToolbar,
+	getEffectiveToolbarFontSize,
+} from './font-size-utils';
 import { gB, gL, grp, FMT, ATXT, pill, ic, sep } from './toolbar-constants';
 
 /**
@@ -77,6 +82,8 @@ const HIGHLIGHT_COLOR_PRESETS = [
 export interface TextSectionProps {
 	canEdit: boolean;
 	selectedElement: PptxElement | null;
+	/** Live shrink-on-overflow scale reported by the active inline editor. */
+	liveAutoFitFontScale?: number | null;
 	tableEditorState?: TableCellEditorState | null;
 	onUpdateTextStyle: (updates: Partial<TextStyle>) => void;
 	/** Rewrite the selected text's characters (PowerPoint's Aa "Change Case" dropdown). */
@@ -92,6 +99,9 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 	// Enable formatting for text elements AND table cells
 	const canFormat = isTextEl || isTable;
 	const effectiveTs = getEffectiveTextStyle(p.selectedElement, p.tableEditorState);
+	const effectiveListType = isTextEl
+		? getElementListType(p.selectedElement)
+		: (effectiveTs?.listType ?? 'none');
 
 	const currentColor =
 		isTextEl && p.selectedElement && hasTextProperties(p.selectedElement)
@@ -245,8 +255,18 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 								if (!canFormat || !p.selectedElement) {
 									return;
 								}
-								const current = effectiveTs?.fontSize ?? 18;
-								p.onUpdateTextStyle({ fontSize: current + 2 });
+								const current = getEffectiveToolbarFontSize(
+									p.selectedElement,
+									effectiveTs?.fontSize ?? 18,
+									p.liveAutoFitFontScale,
+								);
+								p.onUpdateTextStyle({
+									fontSize: getAuthoredFontSizeForToolbar(
+										p.selectedElement,
+										current + 2,
+										p.liveAutoFitFontScale,
+									),
+								});
 							}}
 							className={gB}
 							title={t('pptx.text.increaseFontSize')}
@@ -261,8 +281,18 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 								if (!canFormat || !p.selectedElement) {
 									return;
 								}
-								const current = effectiveTs?.fontSize ?? 18;
-								p.onUpdateTextStyle({ fontSize: Math.max(1, current - 2) });
+								const current = getEffectiveToolbarFontSize(
+									p.selectedElement,
+									effectiveTs?.fontSize ?? 18,
+									p.liveAutoFitFontScale,
+								);
+								p.onUpdateTextStyle({
+									fontSize: getAuthoredFontSizeForToolbar(
+										p.selectedElement,
+										Math.max(1, current - 2),
+										p.liveAutoFitFontScale,
+									),
+								});
 							}}
 							className={gB}
 							title={t('pptx.text.decreaseFontSize')}
@@ -555,7 +585,7 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 									return;
 								}
 								p.onUpdateTextStyle({
-									listType: effectiveTs?.listType === 'bullet' ? 'none' : 'bullet',
+									listType: effectiveListType === 'bullet' ? 'none' : 'bullet',
 								});
 							}}
 							className={gB}
@@ -572,7 +602,7 @@ export function TextSection(p: TextSectionProps): React.ReactElement {
 									return;
 								}
 								p.onUpdateTextStyle({
-									listType: effectiveTs?.listType === 'numbered' ? 'none' : 'numbered',
+									listType: effectiveListType === 'numbered' ? 'none' : 'numbered',
 								});
 							}}
 							className={gL}

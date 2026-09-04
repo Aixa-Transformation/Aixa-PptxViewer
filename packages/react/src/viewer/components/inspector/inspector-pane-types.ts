@@ -30,6 +30,7 @@ export type InspectorTab = 'elements' | 'properties' | 'comments';
 // ---------------------------------------------------------------------------
 
 export interface InspectorPaneProps {
+	isMobile: boolean;
 	hiddenActions?: readonly ToolbarActionId[];
 	isOpen: boolean;
 	canEdit: boolean;
@@ -47,6 +48,12 @@ export interface InspectorPaneProps {
 	onUpdateTextStyle: (updates: Partial<TextStyle>) => void;
 	onUpdateElement: (updates: Partial<PptxElement>) => void;
 	onUpdateSlide: (updates: Partial<PptxSlide>) => void;
+	onUpdateAllSlidesBackground: (
+		updates: Pick<
+			PptxSlide,
+			'backgroundColor' | 'backgroundImage' | 'backgroundGradient' | 'backgroundSource'
+		>,
+	) => void;
 	onSelectElement: (elementId: string | null) => void;
 	onMoveLayer: (direction: string) => void;
 	onMoveLayerToEdge: (direction: string) => void;

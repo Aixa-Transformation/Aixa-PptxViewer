@@ -1,5 +1,6 @@
 import { hasShapeProperties, hasTextProperties } from 'pptx-viewer-core';
 import type { PptxElement, PptxSlide, ShapeStyle, TextStyle } from 'pptx-viewer-core';
+import { applyParagraphListType, getElementListType } from 'pptx-viewer-shared';
 /**
  * useElementOperations: Element update callbacks for PowerPointViewer.
  *
@@ -14,6 +15,7 @@ import {
 	applyStyleToSelectedSegments,
 	setPendingSelectionRestore,
 } from '../utils/inline-selection-utils';
+import { remapParagraphIndents, remapTextToSegments } from '../utils/remap-text';
 import { applyCaseTransformToSegments, transformTextCase } from '../utils/text-case-transform';
 import type { ChangeCaseMode } from '../utils/text-case-transform';
 import type { EditorHistoryResult } from './useEditorHistory';
@@ -38,6 +40,9 @@ export interface UseElementOperationsInput {
 	setSelectedElementId: React.Dispatch<React.SetStateAction<string | null>>;
 	setSelectedElementIds: React.Dispatch<React.SetStateAction<string[]>>;
 	setInlineEditingElementId: React.Dispatch<React.SetStateAction<string | null>>;
+	inlineEditingElementId: string | null;
+	inlineEditingText: string;
+	setInlineEditingText: React.Dispatch<React.SetStateAction<string>>;
 	setContextMenuState: React.Dispatch<
 		React.SetStateAction<import('../types').ElementContextMenuState | null>
 	>;
@@ -66,6 +71,33 @@ export interface ElementOperations {
 	serializeSlides: () => Promise<Uint8Array | null>;
 }
 
+export function buildLiveListEditSource(
+	element: PptxElement & {
+		text?: string;
+		textSegments?: import('pptx-viewer-core').TextSegment[];
+		textStyle?: TextStyle;
+		paragraphIndents?: Array<{ marginLeft?: number; indent?: number }>;
+	},
+	inlineEditingElementId: string | null,
+	inlineEditingText: string,
+): {
+	text: string;
+	textSegments: import('pptx-viewer-core').TextSegment[] | undefined;
+	paragraphIndents: Array<{ marginLeft?: number; indent?: number }> | undefined;
+} {
+	const isLiveInlineEdit = inlineEditingElementId === element.id;
+	const text = isLiveInlineEdit ? inlineEditingText : (element.text ?? '');
+	return {
+		text,
+		textSegments: isLiveInlineEdit
+			? remapTextToSegments(text, element.textSegments, element.textStyle)
+			: element.textSegments,
+		paragraphIndents: isLiveInlineEdit
+			? remapParagraphIndents(text, element.textSegments, element.paragraphIndents)
+			: element.paragraphIndents,
+	};
+}
+
 /* ------------------------------------------------------------------ */
 /*  Hook                                                              */
 /* ------------------------------------------------------------------ */
@@ -84,6 +116,9 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 		setSelectedElementId,
 		setSelectedElementIds,
 		setInlineEditingElementId,
+		inlineEditingElementId,
+		inlineEditingText,
+		setInlineEditingText,
 		setContextMenuState,
 	} = input;
 
@@ -174,6 +209,58 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 
 			// Check if there's an active text selection in the inline editor
 			const inlineSel = getInlineEditorSelection(selectedElement.textSegments);
+			if (updates.listType !== undefined) {
+				// The contentEditable owns its live DOM while typing, so the selected
+				// element's segment model can be one or more paragraphs behind. Project
+				// the latest authored text onto fresh segments before applying a list;
+				// `inlineSel` carries live paragraph coordinates that remain valid even
+				// when its pre-edit segment indexes are stale.
+				const {
+					text: sourceText,
+					textSegments: sourceSegments,
+					paragraphIndents: sourceParagraphIndents,
+				} = buildLiveListEditSource(
+					selectedElement,
+					inlineEditingElementId,
+					inlineEditingText,
+				);
+				const listResult = applyParagraphListType({
+					text: sourceText,
+					textSegments: sourceSegments,
+					fallbackStyle: selectedElement.textStyle,
+					listType: updates.listType,
+					selection: inlineSel,
+				});
+				if (listResult.selection) {
+					setPendingSelectionRestore(listResult.selection);
+				}
+				if (inlineEditingElementId === selectedElement.id) {
+					setInlineEditingText(listResult.text);
+				}
+				const nextTextStyle = { ...selectedElement.textStyle };
+				const structuralListType = getElementListType({
+					...selectedElement,
+					text: listResult.text,
+					textSegments: listResult.textSegments,
+				} as PptxElement);
+				if (structuralListType === 'mixed') {
+					// A body-level list type applies to every paragraph in DrawingML.
+					// Keep mixed/partial formatting solely on the paragraph markers so
+					// surrounding paragraphs do not inherit the toolbar operation.
+					delete nextTextStyle.listType;
+				} else {
+					nextTextStyle.listType = structuralListType;
+				}
+				updateSelectedElement({
+					text: listResult.text,
+					textSegments: listResult.textSegments,
+					textStyle: nextTextStyle,
+					...(sourceParagraphIndents
+						? { paragraphIndents: sourceParagraphIndents }
+						: {}),
+				} as Partial<PptxElement>);
+				return;
+			}
 			if (inlineSel && selectedElement.textSegments) {
 				// Apply formatting only to the selected segment range
 				const { newSegments, newSelection } = applyStyleToSelectedSegments(
@@ -200,7 +287,13 @@ export function useElementOperations(input: UseElementOperationsInput): ElementO
 				textSegments: newSegments,
 			} as Partial<PptxElement>);
 		},
-		[selectedElement, updateSelectedElement],
+		[
+			inlineEditingElementId,
+			inlineEditingText,
+			selectedElement,
+			setInlineEditingText,
+			updateSelectedElement,
+		],
 	);
 
 	const updateSelectedTextCase = useCallback(

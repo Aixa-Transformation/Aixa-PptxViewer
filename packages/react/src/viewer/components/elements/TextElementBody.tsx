@@ -62,6 +62,22 @@ export function getChevronTextFrameStyle(el: PptxElement): React.CSSProperties |
 	};
 }
 
+/**
+ * Normal PowerPoint autofit owns overflow inside a fixed text shape. Keep the
+ * final renderer clipped to the same viewport as InlineTextEditor so a font
+ * floor or a one-frame layout difference cannot paint text above/below the
+ * selection box. `a:noAutofit` deliberately retains its authored overflow,
+ * and nowrap text keeps its horizontal overflow semantics.
+ */
+export function shouldClipFixedTextBody(el: PptxElement, isLinkedTextBox = false): boolean {
+	return Boolean(
+		isLinkedTextBox ||
+			(hasTextProperties(el) &&
+				el.textStyle?.autoFitMode === 'normal' &&
+				el.textStyle?.textWrap !== 'none'),
+	);
+}
+
 export function renderTextElementBody(options: RenderBodyOptions): React.ReactNode {
 	const {
 		el,
@@ -98,7 +114,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 		transformOrigin: 'center',
 		...(scene3dStyle?.perspective ? { perspective: scene3dStyle.perspective } : {}),
 		...(scene3dStyle?.transformStyle ? { transformStyle: scene3dStyle.transformStyle } : {}),
-		...(isLinkedTextBox ? { overflow: 'hidden' } : {}),
+		...(shouldClipFixedTextBody(el, isLinkedTextBox) ? { overflow: 'hidden' } : {}),
 	};
 	// `a:noAutofit` with top anchoring keeps the authored font size and lets the
 	// text body extend below its placeholder. A fixed `height: 100%` turns the

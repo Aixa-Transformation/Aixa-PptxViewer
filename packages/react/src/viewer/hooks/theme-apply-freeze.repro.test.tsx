@@ -141,6 +141,7 @@ function Harness({ initial }: { initial: Uint8Array }): React.ReactElement {
 		slideMasters: [],
 		history: stubHistory,
 		setSlides,
+		setTemplateElementsBySlideId: noopDispatch<Record<string, PptxElement[]>>(),
 		theme,
 		bumpHistory: () => {
 			bumpCountRef.current += 1;

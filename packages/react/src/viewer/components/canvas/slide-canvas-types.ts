@@ -63,8 +63,12 @@ export interface SlideCanvasProps {
 	onCanvasMouseDown?: (e: React.MouseEvent) => void;
 	onResizePointerDown: (elementId: string, e: React.MouseEvent, handle: string) => void;
 	onAdjustmentPointerDown: (elementId: string, e: React.MouseEvent) => void;
-	onInlineEditChange: (text: string) => void;
-	onInlineEditCommit: () => void;
+	onInlineEditChange: (text: string, autoFitFontScale?: number) => void;
+	onInlineEditCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	onInlineEditCancel: () => void;
 	onTableCellSelect: (
 		cell: Omit<TableCellEditorState, 'elementId'> | null,

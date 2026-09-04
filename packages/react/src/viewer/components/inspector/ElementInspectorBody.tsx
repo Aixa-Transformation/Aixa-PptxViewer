@@ -5,6 +5,7 @@ import type {
 	ChartPptxElement,
 	MediaPptxElement,
 	PptxShapeLocks,
+	PptxTheme,
 	ShapeStyle,
 	TextStyle,
 } from 'pptx-viewer-core';
@@ -48,6 +49,8 @@ interface ElementInspectorBodyProps {
 	tableEditorState?: TableCellEditorState | null;
 	/** Map of media relationship IDs to data URLs for media preview. */
 	mediaDataUrls?: Map<string, string>;
+	/** Active presentation theme used by schema-native colour pickers. */
+	theme?: PptxTheme;
 	/** Callback to apply partial updates to the selected element. */
 	onUpdateElement: (updates: Partial<PptxElement>) => void;
 	/** Callback to apply partial updates to the element's shape style. */
@@ -85,6 +88,7 @@ export function ElementInspectorBody({
 	slides,
 	tableEditorState,
 	mediaDataUrls,
+	theme,
 	onUpdateElement,
 	onUpdateElementStyle,
 	onUpdateTextStyle,
@@ -206,6 +210,7 @@ export function ElementInspectorBody({
 				onUpdateElement={onUpdateElement}
 				onUpdateElementStyle={onUpdateElementStyle}
 				onUpdateTextStyle={onUpdateTextStyle}
+				theme={theme}
 			/>
 
 			<ActionSettingsPanel

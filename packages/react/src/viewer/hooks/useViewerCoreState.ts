@@ -113,11 +113,17 @@ export function useViewerCoreState(_input: UseViewerCoreStateInput): ViewerCoreS
 	const [inlineEditingElementId, setInlineEditingElementIdBase] = useState<string | null>(null);
 	// eslint-disable-next-line react/hook-use-state -- wrapped below to also mirror into a ref
 	const [inlineEditingText, setInlineEditingTextBase] = useState('');
+	const [inlineEditingAutoFitFontScale, setInlineEditingAutoFitFontScale] = useState<
+		number | null
+	>(null);
 	const setInlineEditingElementId: React.Dispatch<React.SetStateAction<string | null>> =
 		useCallback((value) => {
 			const resolved =
 				typeof value === 'function' ? value(inlineEditingElementIdRef.current) : value;
 			inlineEditingElementIdRef.current = resolved;
+			// A live scale belongs only to one active editor. Clear it on every
+			// editor transition so another selected text box cannot inherit it.
+			setInlineEditingAutoFitFontScale(null);
 			setInlineEditingElementIdBase(value);
 		}, []);
 	const setInlineEditingText: React.Dispatch<React.SetStateAction<string>> = useCallback(
@@ -214,6 +220,8 @@ export function useViewerCoreState(_input: UseViewerCoreStateInput): ViewerCoreS
 		setInlineEditingElementId,
 		inlineEditingText,
 		setInlineEditingText,
+		inlineEditingAutoFitFontScale,
+		setInlineEditingAutoFitFontScale,
 		editTemplateMode,
 		setEditTemplateMode,
 		newShapeType,

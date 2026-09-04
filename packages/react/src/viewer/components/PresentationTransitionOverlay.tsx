@@ -49,7 +49,8 @@ interface SlideLayerProps {
 function SlideLayer({ slide, templateElements, canvasSize }: SlideLayerProps): React.ReactElement {
 	const safeWidth = Math.max(canvasSize.width, 1);
 	const safeHeight = Math.max(canvasSize.height, 1);
-	const elements = [...templateElements, ...slide.elements];
+	const inheritedElements = slide.showMasterShapes === false ? [] : templateElements;
+	const elements = [...inheritedElements, ...slide.elements];
 
 	return (
 		<div

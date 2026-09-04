@@ -11,6 +11,47 @@ const MC_NAMESPACE = 'http://schemas.openxmlformats.org/markup-compatibility/200
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	private readonly newContentPartFallbackByXml = new Map<XmlObject, XmlObject>();
 
+	/**
+	 * Convert a Draw-tab pen/highlighter element into the standard
+	 * PresentationML content-part representation used by modern PowerPoint.
+	 *
+	 * The editor keeps the lightweight `ink` model while it is open, but new
+	 * ink must not be authored as an inline graphicFrame. PowerPoint stores
+	 * editable ink in a related InkML part selected through
+	 * `mc:AlternateContent`, with a normal custom-geometry shape as fallback.
+	 */
+	protected createContentPartInkFromInkElement(
+		el: InkPptxElement,
+		ctx: SaveSlideContext,
+	): XmlObject | undefined {
+		const strokes = el.inkPaths.flatMap((path, index) => {
+			if (!path.trim()) {
+				return [];
+			}
+			const width = el.inkWidths?.[index] ?? 2;
+			const opacity = el.inkOpacities?.[index] ?? 1;
+			return [{
+				path,
+				color: el.inkColors?.[index] ?? '#000000',
+				width: Number.isFinite(width) && width > 0 ? width : 2,
+				opacity: Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1,
+				...(el.inkPointPressures?.[index]?.length
+					? { pressures: el.inkPointPressures[index] }
+					: {}),
+			}];
+		});
+		if (strokes.length === 0) {
+			return undefined;
+		}
+		const contentPart: ContentPartPptxElement = {
+			...el,
+			type: 'contentPart',
+			inkStrokes: strokes,
+			rawXml: undefined,
+		};
+		return this.createOrUpdateContentPartInkXml(contentPart, undefined, ctx);
+	}
+
 	/** Author or update a p:contentPart and its related InkML package part. */
 	protected createOrUpdateContentPartInkXml(
 		el: ContentPartPptxElement,

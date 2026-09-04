@@ -38,10 +38,24 @@ export class PptxSlideBackgroundBuilder implements IPptxSlideBackgroundBuilder {
 			typeof init.slide.backgroundImage === 'string' ? init.slide.backgroundImage : '';
 		const hasBackgroundImage = rawBackgroundImage.length > 0;
 		const hasDataUrlBackgroundImage = hasBackgroundImage && rawBackgroundImage.startsWith('data:');
+		const explicitlyClearedBackgroundImage = init.slide.backgroundImage === '';
 		const hasBackgroundGradient =
 			typeof init.slide.backgroundGradient === 'string' && init.slide.backgroundGradient.length > 0;
 
 		const cSld = (init.slideNode['p:cSld'] || {}) as XmlObject;
+		const existingBg = cSld['p:bg'] as XmlObject | undefined;
+
+		// The loader resolves a layout/master background onto the slide model for
+		// rendering, but an inherited background must remain absent from the slide
+		// XML. Materialising that resolved colour here would freeze it as an sRGB
+		// override and make subsequent theme/master changes appear broken.
+		// Explicit editor changes set backgroundSource="slide" and therefore take
+		// the normal generation path below.
+		if (init.slide.backgroundSource === 'inherited' && existingBg === undefined) {
+			delete cSld['p:bg'];
+			init.slideNode['p:cSld'] = cSld;
+			return;
+		}
 
 		if (!(hasBackgroundColor || hasBackgroundImage || hasBackgroundGradient)) {
 			delete cSld['p:bg'];
@@ -62,10 +76,9 @@ export class PptxSlideBackgroundBuilder implements IPptxSlideBackgroundBuilder {
 		// master fallbacks in the loader (see PptxSlideLoaderService), so their
 		// presence alone must not clobber a slide-level blipFill. We only
 		// regenerate on a data-URL image (a direct override).
-		const existingBg = cSld['p:bg'] as XmlObject | undefined;
 		const existingBgPr = existingBg?.['p:bgPr'] as XmlObject | undefined;
 		const existingHasBlipFill = existingBgPr?.['a:blipFill'] !== undefined;
-		if (!hasDataUrlBackgroundImage && existingHasBlipFill) {
+		if (!hasDataUrlBackgroundImage && !explicitlyClearedBackgroundImage && existingHasBlipFill) {
 			// OOXML CT_CommonSlideData requires child order: bg, spTree, ...
 			// Reorder cSld so p:bg comes first while preserving the raw node.
 			this.reorderCSldBgFirst(cSld, existingBg!);

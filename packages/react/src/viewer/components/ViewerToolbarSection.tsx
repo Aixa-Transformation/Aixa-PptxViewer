@@ -58,6 +58,8 @@ export interface ViewerToolbarSectionProps {
 			React.SetStateAction<Record<string, PptxElement[]>>
 		>;
 		setIsDirty: React.Dispatch<React.SetStateAction<boolean>>;
+		inlineEditingElementId: string | null;
+		inlineEditingAutoFitFontScale: number | null;
 		newShapeType: SupportedShapeType;
 		setNewShapeType: React.Dispatch<React.SetStateAction<SupportedShapeType>>;
 		activeTool: DrawingTool;
@@ -432,6 +434,11 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 				redoLabel={history.redoLabel}
 				findReplaceOpen={findReplace.findReplaceOpen}
 				selectedElement={selectedElement}
+				liveAutoFitFontScale={
+					s.inlineEditingElementId === selectedElement?.id
+						? s.inlineEditingAutoFitFontScale
+						: null
+				}
 				tableEditorState={s.tableEditorState}
 				editTemplateMode={s.editTemplateMode}
 				newShapeType={s.newShapeType}
@@ -456,6 +463,15 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 				onUndo={history.handleUndo}
 				onRedo={history.handleRedo}
 				onToggleFindReplace={() => findReplace.setFindReplaceOpen(!findReplace.findReplaceOpen)}
+				onSelectAll={() => {
+					if (!activeSlide) {
+						return;
+					}
+					const elementIds = activeSlide.elements.map((element) => element.id);
+					if (elementIds.length > 0) {
+						ops.applySelection(elementIds[0], elementIds);
+					}
+				}}
 				onSetNewShapeType={s.setNewShapeType}
 				onAddTextBox={insertHandlers.handleAddTextBox}
 				onAddShape={insertHandlers.handleAddShape}
@@ -517,6 +533,7 @@ export function ViewerToolbarSection(props: ViewerToolbarSectionProps) {
 				onRunAccessibilityCheck={dialogs.handleRunAccessibilityCheck}
 				onToggleSlideSorter={() => s.setShowSlideSorter((p) => !p)}
 				onUpdateTextStyle={ops.updateSelectedTextStyle}
+				onUpdateElementStyle={ops.updateSelectedShapeStyle}
 				onTransformTextCase={ops.updateSelectedTextCase}
 				isOverflowMenuOpen={s.isOverflowMenuOpen}
 				onSetOverflowMenuOpen={s.setIsOverflowMenuOpen}

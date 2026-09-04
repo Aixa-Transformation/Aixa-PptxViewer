@@ -92,6 +92,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		} else {
 			delete slideNode['@_show'];
 		}
+		if (slide.showMasterShapes === false) {
+			slideNode['@_showMasterSp'] = '0';
+		} else if (slide.showMasterShapes === true) {
+			slideNode['@_showMasterSp'] = '1';
+		} else {
+			delete slideNode['@_showMasterSp'];
+		}
 		slideNode['p:clrMapOvr'] = buildClrMapOverrideXml(slide.clrMapOverride);
 
 		if (slide.transition !== undefined) {

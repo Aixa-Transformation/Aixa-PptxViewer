@@ -91,6 +91,7 @@ describe('viewerCoreState expected defaults', () => {
 		isDirty: false,
 		inlineEditingElementId: null,
 		inlineEditingText: '',
+		inlineEditingAutoFitFontScale: null,
 		editTemplateMode: false,
 		newShapeType: 'rect',
 		clipboardPayload: null,

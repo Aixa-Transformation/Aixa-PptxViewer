@@ -1,4 +1,4 @@
-import type { PptxElement } from 'pptx-viewer-core';
+import type { PptxElement, PptxSlide } from 'pptx-viewer-core';
 import { describe, it, expect } from 'vitest';
 
 import { shapeParams } from './ElementRenderer';
@@ -94,5 +94,28 @@ describe('shapeParams', () => {
 		// Should use defaults since hasShapeProperties returns false for image
 		expect(result.sw).toBe(0);
 		expect(result.hf).toBeFalsy();
+	});
+
+	it('uses the effective slide background for a useBgFill master shape', () => {
+		const el = makeElement({
+			shapeStyle: {
+				fillMode: 'theme',
+				fillColor: '#94B6D2',
+				useBackgroundFill: true,
+			},
+		} as Partial<PptxElement>);
+		const slide = {
+			id: 'slide-1',
+			rId: 'rId1',
+			slideNumber: 1,
+			elements: [],
+			backgroundColor: '#FFFFFF',
+		} satisfies PptxSlide;
+
+		const result = shapeParams(el, slide);
+
+		expect(result.hf).toBeTruthy();
+		expect(result.fc).toBe('#FFFFFF');
+		expect(result.backgroundFillStyle).toMatchObject({ backgroundColor: '#FFFFFF' });
 	});
 });

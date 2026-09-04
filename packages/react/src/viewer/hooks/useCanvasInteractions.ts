@@ -12,7 +12,11 @@ import type {
 	ElementContextMenuState,
 } from '../types';
 import type { ViewerMode } from '../types-core';
-import { remapTextToSegments } from '../utils/remap-text';
+import {
+	buildNormalAutoFitTextStyle,
+	resolveInlineTextCommitAutoFitScale,
+} from '../components/elements/inline-text-autofit';
+import { remapParagraphIndents, remapTextToSegments } from '../utils/remap-text';
 import type { CanvasInteractionHandlers } from './canvas-interaction-types';
 import type { EditorHistoryResult } from './useEditorHistory';
 import type { ElementOperations } from './useElementOperations';
@@ -28,6 +32,7 @@ export interface UseCanvasInteractionsInput {
 	selectedElementIds: string[];
 	selectedElementIdSet: Set<string>;
 	inlineEditingElementId: string | null;
+	inlineEditingAutoFitFontScale: number | null;
 	effectiveSelectedIds: string[];
 	elementLookup: Map<string, PptxElement>;
 	activeTool: string;
@@ -59,6 +64,24 @@ export interface UseCanvasInteractionsInput {
 	transformCommittedText?: (text: string) => string;
 }
 
+/**
+ * Blur the focused inline editor before a pointer action commits it. Native
+ * pointer-down precedes native blur, so allowing the pointer handler to commit
+ * first would unmount the editor before its final autofit scale is measured.
+ */
+export function blurActiveInlineEditor(root: ParentNode | null): boolean {
+	const editor = root?.querySelector<HTMLElement>('[data-inline-editor]');
+	const activeElement = editor?.ownerDocument.activeElement;
+	if (
+		!editor ||
+		!(activeElement === editor || (activeElement !== null && editor.contains(activeElement)))
+	) {
+		return false;
+	}
+	editor.blur();
+	return true;
+}
+
 export function useCanvasInteractions(
 	input: UseCanvasInteractionsInput,
 ): CanvasInteractionHandlers {
@@ -70,6 +93,7 @@ export function useCanvasInteractions(
 		selectedElementIds,
 		selectedElementIdSet,
 		inlineEditingElementId,
+		inlineEditingAutoFitFontScale,
 		effectiveSelectedIds,
 		elementLookup,
 		activeTool,
@@ -99,7 +123,24 @@ export function useCanvasInteractions(
 	// on the same click that selected the element (which would hide resize handles).
 	const justSelectedRef = useRef(false);
 
-	const handleInlineEditCommit = () => {
+	/**
+	 * Pointer-down runs before the browser's natural blur. Ask the active editor
+	 * to blur synchronously so it can perform its final fit measurement and pass
+	 * that exact scale into the commit. If focus has already moved (touch/browser
+	 * edge cases), the ordinary commit below falls back to the latest live scale.
+	 */
+	const commitInlineEditBeforePointerAction = () => {
+		if (blurActiveInlineEditor(canvasStageRef.current)) {
+			return;
+		}
+		handleInlineEditCommit();
+	};
+
+	const handleInlineEditCommit = (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => {
 		const editId = inlineEditingElementId;
 		if (!editId) {
 			return;
@@ -107,13 +148,36 @@ export function useCanvasInteractions(
 		const el = elementLookup.get(editId);
 		if (el && hasTextProperties(el)) {
 			// AutoCorrect runs on the typed text before it becomes segments.
+			const sourceText = committedTextOverride ?? inlineEditingText;
 			const committedText = transformCommittedText
-				? transformCommittedText(inlineEditingText)
-				: inlineEditingText;
+				? transformCommittedText(sourceText)
+				: sourceText;
 			const newSegments = remapTextToSegments(committedText, el.textSegments, el.textStyle);
+			const newParagraphIndents = remapParagraphIndents(
+				committedText,
+				el.textSegments,
+				el.paragraphIndents,
+			);
+			const committedAutoFitFontScale = resolveInlineTextCommitAutoFitScale(
+				autoFitFontScale,
+				inlineEditingAutoFitFontScale,
+			);
+			let autoFitTextStyle: TextStyle | undefined;
+			if (
+				typeof committedAutoFitFontScale === 'number' &&
+				Number.isFinite(committedAutoFitFontScale)
+			) {
+				autoFitTextStyle = buildNormalAutoFitTextStyle(
+					el.textStyle,
+					committedAutoFitFontScale,
+				);
+			}
 			ops.updateElementById(editId, {
 				text: committedText,
 				textSegments: newSegments,
+				...(newParagraphIndents ? { paragraphIndents: newParagraphIndents } : {}),
+				...(autoFitHeight !== undefined ? { height: autoFitHeight } : {}),
+				...(autoFitTextStyle ? { textStyle: autoFitTextStyle } : {}),
 			} as Partial<PptxElement>);
 			history.markDirty();
 		}
@@ -205,7 +269,7 @@ export function useCanvasInteractions(
 		// first. On touch the editor's blur can fire too late (after pointerup has
 		// run), so commit deterministically rather than relying on blur ordering.
 		if (inlineEditingElementId && inlineEditingElementId !== elementId) {
-			handleInlineEditCommit();
+			commitInlineEditBeforePointerAction();
 		}
 		const wasSelected = selectedElementIdSet.has(elementId);
 		if (!wasSelected) {
@@ -270,7 +334,7 @@ export function useCanvasInteractions(
 		// clearSelection() on pointerup, which drops inline editing without saving.
 		// Commit any in-progress edit up front so touch tap-away keeps the text.
 		if (inlineEditingElementId) {
-			handleInlineEditCommit();
+			commitInlineEditBeforePointerAction();
 		}
 		const stage = canvasStageRef.current;
 		if (!stage) {

@@ -151,6 +151,37 @@ describe('elementRenderer render termination (sample deck)', () => {
 		expect(elapsed).toBeLessThan(4000);
 	});
 
+	it('keeps corner, edge, and rotation handles visible during inline text editing', () => {
+		const textShape = {
+			id: 'inline-edit-shape',
+			type: 'shape',
+			shapeType: 'rect',
+			x: 100,
+			y: 100,
+			width: 320,
+			height: 120,
+			text: 'Editing text',
+			textStyle: { fontSize: 20 },
+			textSegments: [{ text: 'Editing text', style: { fontSize: 20 } }],
+		} as PptxElement;
+
+		act(() => {
+			root.render(
+				<ElementRenderer
+					{...makeProps({
+						element: textShape,
+						isInlineEditing: true,
+						inlineEditingText: 'Editing text',
+						onRotate: vi.fn(),
+					})}
+				/>,
+			);
+		});
+
+		expect(container.querySelectorAll('[data-resize-handle]')).toHaveLength(8);
+		expect(container.querySelector('[data-rotate-handle="true"]')).not.toBeNull();
+	});
+
 	it('renders the slide-5 table quickly (no render freeze)', () => {
 		const table = deck.slides[1].elements.find((e) => e.type === 'table');
 		expect(table).toBeDefined();

@@ -8,6 +8,9 @@ import {
 	getPendingSelectionRestore,
 	restoreSegmentSelection,
 } from '../../utils/inline-selection-utils';
+import { getListContinuationMarker } from './inline-list-enter';
+
+const LIST_CONTINUATION_CARET_PLACEHOLDER = '\u200B';
 
 /**
  * Rich inline text editor: uses a `contentEditable` div that renders the same
@@ -37,6 +40,7 @@ export function InlineTextEditor({
 	onCancel,
 	onEditChange,
 	onFormatText,
+	slideHeight: _slideHeight,
 }: {
 	initialText: string;
 	spellCheck: boolean;
@@ -48,13 +52,20 @@ export function InlineTextEditor({
 	/** Layout style from getTextLayoutStyle; provides flex vertical alignment. */
 	layoutStyle: React.CSSProperties;
 	element: PptxElement;
-	onCommit: () => void;
+	onCommit: (
+		autoFitHeight?: number,
+		committedTextOverride?: string,
+		autoFitFontScale?: number,
+	) => void;
 	onCancel: () => void;
-	onEditChange: (t: string) => void;
+	onEditChange: (t: string, autoFitFontScale?: number) => void;
 	/** Called when the user applies formatting via keyboard shortcut (Ctrl+B/I/U). */
 	onFormatText?: (updates: Partial<TextStyle>) => void;
+	/** Retained for API compatibility; font autofit keeps the shape geometry fixed. */
+	slideHeight?: number;
 }) {
 	const editorRef = useRef<HTMLDivElement>(null);
+	const pendingListParagraphsRef = useRef<Set<HTMLElement>>(new Set());
 
 	// The editor is UNCONTROLLED: its content is seeded exactly once (below) and
 	// the DOM owns the text from then on. `initialText` is updated by the parent
@@ -80,13 +91,101 @@ export function InlineTextEditor({
 		if (!el) {
 			return seed.initialText;
 		}
-		return el.innerText || '';
+		// Serialize the editor's top-level flow instead of relying on innerText.
+		// A text box can mix wrapped DrawingML paragraphs with ordinary inline runs;
+		// reading only [data-pptx-paragraph] nodes drops every unwrapped paragraph
+		// below them. Conversely, innerText inserts a phantom newline between a
+		// flex list marker and its editable content column. Walking direct children
+		// preserves both representations and inserts separators only at real
+		// paragraph boundaries.
+		{
+			const readNodeText = (node: Node): string => {
+				if (node.nodeType === Node.TEXT_NODE) {
+					return (node.textContent ?? '').replaceAll(
+						LIST_CONTINUATION_CARET_PLACEHOLDER,
+						'',
+					);
+				}
+				if (node instanceof HTMLBRElement) {
+					return '\n';
+				}
+				return Array.from(node.childNodes).map(readNodeText).join('');
+			};
+			const paragraphs: string[] = [];
+			let inlineParagraph = '';
+			const pushInlineParagraph = (): void => {
+				paragraphs.push(inlineParagraph);
+				inlineParagraph = '';
+			};
+			for (const child of Array.from(el.childNodes)) {
+				if (child instanceof HTMLBRElement) {
+					pushInlineParagraph();
+					continue;
+				}
+				if (
+					child instanceof HTMLElement &&
+					(child.hasAttribute('data-pptx-paragraph') ||
+						child.tagName === 'DIV' ||
+						child.tagName === 'P')
+				) {
+					if (inlineParagraph.length > 0) {
+						pushInlineParagraph();
+					}
+					const blockText = readNodeText(child);
+					// A lone BR is the browser's caret holder for an authored empty
+					// paragraph; the wrapper boundary already supplies its newline.
+					paragraphs.push(blockText === '\n' ? '' : blockText);
+					continue;
+				}
+				inlineParagraph += readNodeText(child);
+			}
+			if (inlineParagraph.length > 0 || paragraphs.length === 0) {
+				paragraphs.push(inlineParagraph);
+			}
+			return paragraphs.join('\n');
+		}
 	}, [seed]);
 
-	// Sync text to parent on every input via ref (no re-render)
+	const removeListContinuationCaretPlaceholder = useCallback(() => {
+		const editor = editorRef.current;
+		if (!editor) {
+			return;
+		}
+		const selection = window.getSelection();
+		const activeRange = selection?.rangeCount ? selection.getRangeAt(0) : undefined;
+		for (const content of editor.querySelectorAll<HTMLElement>(
+			'[data-pptx-list-continuation-content="true"]',
+		)) {
+			for (const node of Array.from(content.childNodes)) {
+				if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.includes(LIST_CONTINUATION_CARET_PLACEHOLDER)) {
+					continue;
+				}
+				const previousText = node.textContent;
+				const previousOffset =
+					activeRange?.startContainer === node ? activeRange.startOffset : undefined;
+				node.textContent = previousText.replaceAll(LIST_CONTINUATION_CARET_PLACEHOLDER, '');
+				if (selection && activeRange && previousOffset !== undefined) {
+					const placeholdersBeforeCaret = previousText
+						.slice(0, previousOffset)
+						.split(LIST_CONTINUATION_CARET_PLACEHOLDER).length - 1;
+					activeRange.setStart(
+						node,
+						Math.max(0, Math.min(node.textContent?.length ?? 0, previousOffset - placeholdersBeforeCaret)),
+					);
+					activeRange.collapse(true);
+					selection.removeAllRanges();
+					selection.addRange(activeRange);
+				}
+			}
+		}
+	}, []);
+
+	// Sync text to the parent on every input. The authored font size and the
+	// shape geometry both stay fixed; overflowing text simply spills out.
 	const handleInput = useCallback(() => {
+		removeListContinuationCaretPlaceholder();
 		onEditChange(extractText());
-	}, [extractText, onEditChange]);
+	}, [extractText, onEditChange, removeListContinuationCaretPlaceholder]);
 
 	// When the caret sits at a soft word-wrap boundary (no explicit line break,
 	// just CSS wrapping), the space that separates the two words is still part
@@ -116,6 +215,346 @@ export function InlineTextEditor({
 		trimRange.setStart(startContainer, startOffset - 1);
 		trimRange.setEnd(startContainer, startOffset);
 		trimRange.deleteContents();
+	}, []);
+
+	// Chromium creates a bare nested <div> when Enter is pressed in an ordinary
+	// contentEditable paragraph. That temporary block does not carry the
+	// DrawingML paragraph's line-height or spacing, so the live editor reports
+	// that the content fits; after blur, remapTextToSegments restores those
+	// paragraph metrics and the final line can be clipped below the fixed box.
+	// Split the authored wrapper ourselves and clone its metrics so live autofit
+	// measures the same paragraph topology that view mode will render.
+	const insertPlainParagraphBreak = useCallback((): boolean => {
+		const editor = editorRef.current;
+		const selection = window.getSelection();
+		if (!editor || !selection || selection.rangeCount === 0) {
+			return false;
+		}
+		const range = selection.getRangeAt(0);
+		const startElement =
+			range.startContainer instanceof Element
+				? range.startContainer
+				: range.startContainer.parentElement;
+		const paragraph = startElement?.closest<HTMLElement>('[data-pptx-paragraph]');
+		if (
+			!paragraph ||
+			!editor.contains(paragraph) ||
+			paragraph.hasAttribute('data-pptx-list-seg-idx') ||
+			(!range.collapsed && !paragraph.contains(range.endContainer))
+		) {
+			return false;
+		}
+
+		if (!range.collapsed) {
+			range.deleteContents();
+		}
+		const trailingRange = document.createRange();
+		trailingRange.selectNodeContents(paragraph);
+		trailingRange.setStart(range.startContainer, range.startOffset);
+		const trailingContent = trailingRange.extractContents();
+		const makeCaretPlaceholder = (): HTMLSpanElement => {
+			const placeholder = document.createElement('span');
+			placeholder.dataset.pptxPlainCaretPlaceholder = 'true';
+			placeholder.textContent = LIST_CONTINUATION_CARET_PLACEHOLDER;
+			return placeholder;
+		};
+		if (!(paragraph.textContent ?? '').replaceAll(LIST_CONTINUATION_CARET_PLACEHOLDER, '')) {
+			paragraph.append(makeCaretPlaceholder());
+		}
+
+		const nextParagraph = paragraph.cloneNode(false) as HTMLElement;
+		nextParagraph.removeAttribute('data-pptx-list-seg-idx');
+		nextParagraph.removeAttribute('data-pptx-list-number');
+		const caretPlaceholder = makeCaretPlaceholder();
+		nextParagraph.append(caretPlaceholder, trailingContent);
+		paragraph.insertAdjacentElement('afterend', nextParagraph);
+
+		const caretText = caretPlaceholder.firstChild;
+		if (!caretText) {
+			return false;
+		}
+		const caretRange = document.createRange();
+		caretRange.setStart(caretText, LIST_CONTINUATION_CARET_PLACEHOLDER.length);
+		caretRange.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(caretRange);
+		return true;
+	}, []);
+
+	// Native contentEditable Enter creates browser-specific block markup. In a
+	// bullet paragraph Chromium commonly exposes that as two line breaks, which
+	// remaps to an unintended empty PowerPoint paragraph and makes the list jump.
+	// Clone the actual paragraph + marker DOM instead, so the live continuation
+	// keeps the authored hanging indent and marker width. The commit path then
+	// rebuilds it as structural OOXML (`a:buChar` / `a:buAutoNum`).
+	const insertListParagraphBreak = useCallback((): boolean => {
+		const editor = editorRef.current;
+		const selection = window.getSelection();
+		if (!editor || !selection || !selection.isCollapsed || selection.rangeCount === 0) {
+			return false;
+		}
+
+		const range = selection.getRangeAt(0);
+		if (!editor.contains(range.startContainer)) {
+			return false;
+		}
+		const startElement =
+			range.startContainer.nodeType === Node.ELEMENT_NODE
+				? (range.startContainer as Element)
+				: range.startContainer.parentElement;
+		const paragraph = startElement?.closest<HTMLElement>('[data-pptx-paragraph]');
+		if (!paragraph || !editor.contains(paragraph) || !hasTextProperties(element)) {
+			return false;
+		}
+		const trailingRange = document.createRange();
+		trailingRange.selectNodeContents(paragraph);
+		trailingRange.setStart(range.startContainer, range.startOffset);
+
+		const markerIndex = Number(paragraph.dataset.pptxListSegIdx);
+		if (!Number.isInteger(markerIndex) || markerIndex < 0) {
+			return false;
+		}
+		const currentListNumberValue = paragraph.dataset.pptxListNumber;
+		const currentListNumber = Number(currentListNumberValue);
+		const hasCurrentListNumber =
+			currentListNumberValue !== undefined && Number.isFinite(currentListNumber);
+		const marker = getListContinuationMarker(
+			element.textSegments?.[markerIndex],
+			hasCurrentListNumber ? currentListNumber : undefined,
+		);
+		const markerElement = paragraph.querySelector<HTMLElement>(
+			`[data-seg-idx="${markerIndex}"]`,
+		);
+		if (!marker || !markerElement) {
+			return false;
+		}
+		const sourceMarkerSegment = element.textSegments?.[markerIndex];
+		const markerWidth = markerElement.style.width.trim();
+		const isRtlList = window.getComputedStyle(paragraph).direction === 'rtl';
+		const prepareParagraphBox = (target: HTMLElement): void => {
+			// The editor is a column flex container. Explicit sizing is required for
+			// an emptied source paragraph as well as its clone: after an Enter at the
+			// beginning of an imported list item, Chromium otherwise shrinks the
+			// original flex item to the number-marker width.
+			target.style.alignSelf = 'stretch';
+			target.style.width = 'auto';
+			target.style.minWidth = '0';
+			target.style.maxWidth = '100%';
+			target.style.boxSizing = 'border-box';
+		};
+		prepareParagraphBox(paragraph);
+
+		const leadingRange = document.createRange();
+		leadingRange.selectNodeContents(paragraph);
+		leadingRange.setEnd(range.startContainer, range.startOffset);
+		const markerText = markerElement.textContent ?? marker;
+		const leadingParagraphText = leadingRange
+			.toString()
+			.replaceAll(LIST_CONTINUATION_CARET_PLACEHOLDER, '');
+		const leadingContentText = leadingParagraphText.startsWith(markerText)
+			? leadingParagraphText.slice(markerText.length)
+			: leadingParagraphText;
+		const splitAtParagraphStart = leadingContentText.length === 0;
+		const paragraphContentText = (paragraph.textContent ?? '')
+			.replaceAll(LIST_CONTINUATION_CARET_PLACEHOLDER, '')
+			.slice(markerText.length);
+		if (pendingListParagraphsRef.current.has(paragraph) && !paragraphContentText.trim()) {
+			// PowerPoint exits a list when Enter is pressed on an already-empty list
+			// item. Keep one plain paragraph and its caret instead of cloning another
+			// empty marker that can disturb the surrounding list on blur.
+			markerElement.remove();
+			paragraph.removeAttribute('data-pptx-list-seg-idx');
+			paragraph.style.removeProperty('margin-left');
+			paragraph.style.removeProperty('text-indent');
+			const plainContent = paragraph.querySelector<HTMLElement>(
+				'[data-pptx-list-continuation-content="true"]',
+			);
+			if (plainContent) {
+				plainContent.style.display = 'block';
+				plainContent.style.width = '100%';
+				plainContent.style.minWidth = '0';
+				plainContent.style.maxWidth = '100%';
+				plainContent.style.textIndent = '0';
+				plainContent.style.removeProperty('flex');
+				plainContent.style.removeProperty('align-self');
+			}
+			paragraph.style.display = 'block';
+			paragraph.style.width = 'auto';
+			paragraph.style.removeProperty('flex-direction');
+			paragraph.style.removeProperty('align-items');
+			paragraph.style.removeProperty('gap');
+			pendingListParagraphsRef.current.delete(paragraph);
+			return true;
+		}
+
+		const markerClone = markerElement.cloneNode(true) as HTMLElement;
+		markerClone.textContent = marker;
+		const activeSegment = startElement?.closest<HTMLElement>('[data-seg-idx]');
+		const contentTemplate =
+			activeSegment && activeSegment !== markerElement
+				? activeSegment
+				: Array.from(
+						paragraph.querySelectorAll<HTMLElement>('[data-seg-idx]'),
+					).find((node) => node !== markerElement);
+		const prepareContentRun = (content: HTMLElement): HTMLElement => {
+			content.dataset.pptxListContinuationContent = 'true';
+			// Imported numbered paragraphs commonly include an empty formatting run
+			// between the marker and visible text. Make the editable run the flexible
+			// text column instead of relying on inline width arithmetic. Chromium can
+			// otherwise reapply the paragraph's negative hanging indent while typing,
+			// shifting the run under the marker and wrapping it every few characters.
+			content.style.display = 'block';
+			content.style.flex = '1 1 auto';
+			content.style.alignSelf = 'stretch';
+			content.style.width = 'auto';
+			content.style.minWidth = '0';
+			content.style.maxWidth = '100%';
+			content.style.boxSizing = 'border-box';
+			content.style.textIndent = '0';
+			content.style.overflowWrap = 'break-word';
+			content.style.wordBreak = 'normal';
+			content.style.whiteSpace = 'pre-wrap';
+			return content;
+		};
+		const prepareProvisionalListLayout = (
+			target: HTMLElement,
+			targetMarker: HTMLElement,
+			content: HTMLElement,
+		): void => {
+			// Recreate the DrawingML hanging indent as two explicit flex columns.
+			// The marker owns the indent width and the editable content owns all
+			// remaining width. Resetting the paragraph's negative text-indent is the
+			// important part: it prevents each newly typed line from jumping back to
+			// the left edge of the shape.
+			target.style.display = 'flex';
+			target.style.flexDirection = isRtlList ? 'row-reverse' : 'row';
+			target.style.alignItems = 'flex-start';
+			target.style.gap = '0';
+			target.style.width = '100%';
+			target.style.marginLeft = '0';
+			target.style.marginRight = '0';
+			target.style.textIndent = '0';
+			target.style.boxSizing = 'border-box';
+
+			targetMarker.style.flex = markerWidth ? `0 0 ${markerWidth}` : '0 0 auto';
+			if (markerWidth) {
+				targetMarker.style.width = markerWidth;
+				targetMarker.style.minWidth = markerWidth;
+				targetMarker.style.maxWidth = markerWidth;
+			}
+			prepareContentRun(content);
+		};
+		// Keep the caret on the bullet's first line. A <br> placeholder makes
+		// Chromium insert the first typed text after a forced line break, where
+		// the hanging indent can leave only a marker-width column.
+		const caretPlaceholder = document.createTextNode(LIST_CONTINUATION_CARET_PLACEHOLDER);
+		// Extract everything after the caret before inserting the continuation.
+		// This handles Enter in the middle of a bullet paragraph. Letting Chromium
+		// split the contentEditable natively creates a nested block inside the run
+		// span; that block inherits the marker-sized box and wraps every few letters.
+		const trailingContent = trailingRange.extractContents();
+
+		const nextParagraph = paragraph.cloneNode(false) as HTMLElement;
+		prepareParagraphBox(nextParagraph);
+		if (hasCurrentListNumber) {
+			nextParagraph.dataset.pptxListNumber = String(currentListNumber + 1);
+		}
+
+		if (splitAtParagraphStart) {
+			// PowerPoint keeps the caret in the newly-created empty bullet before
+			// the previous text. Reuse the original run for that caret and move the
+			// complete old content into the following paragraph.
+			const currentContent = prepareContentRun(
+				contentTemplate && paragraph.contains(contentTemplate)
+					? contentTemplate
+					: document.createElement('span'),
+			);
+			currentContent.replaceChildren(caretPlaceholder);
+			if (!paragraph.contains(currentContent)) {
+				paragraph.append(currentContent);
+			}
+			prepareProvisionalListLayout(paragraph, markerElement, currentContent);
+			nextParagraph.append(markerClone, trailingContent);
+			pendingListParagraphsRef.current.add(paragraph);
+		} else {
+			// At the middle/end, the current paragraph retains its leading text and
+			// the caret starts the continuation immediately before the moved tail.
+			const continuationContent = prepareContentRun(
+				contentTemplate
+					? (contentTemplate.cloneNode(false) as HTMLElement)
+					: document.createElement('span'),
+			);
+			continuationContent.replaceChildren(caretPlaceholder, trailingContent);
+			nextParagraph.append(markerClone, continuationContent);
+			prepareProvisionalListLayout(nextParagraph, markerClone, continuationContent);
+			pendingListParagraphsRef.current.add(nextParagraph);
+		}
+		paragraph.insertAdjacentElement('afterend', nextParagraph);
+
+		// Keep the live numbering correct immediately. The structural remap repeats
+		// this during commit/save, but without this pass the following authored item
+		// temporarily keeps the same visible number as the inserted continuation.
+		if (sourceMarkerSegment?.bulletInfo?.autoNumType) {
+			let following = nextParagraph.nextElementSibling as HTMLElement | null;
+			while (following?.hasAttribute('data-pptx-paragraph')) {
+				const followingMarkerIndex = Number(following.dataset.pptxListSegIdx);
+				const followingSource = Number.isInteger(followingMarkerIndex)
+					? element.textSegments?.[followingMarkerIndex]
+					: undefined;
+				if (
+					followingSource?.bulletInfo?.autoNumType !==
+					sourceMarkerSegment.bulletInfo.autoNumType
+				) {
+					break;
+				}
+				const followingMarker = following.querySelector<HTMLElement>(
+					`[data-seg-idx="${followingMarkerIndex}"]`,
+				);
+				const followingListNumberValue = following.dataset.pptxListNumber;
+				const followingListNumber = Number(followingListNumberValue);
+				const hasFollowingListNumber =
+					followingListNumberValue !== undefined && Number.isFinite(followingListNumber);
+				const incrementedMarker = getListContinuationMarker(
+					followingSource,
+					hasFollowingListNumber ? followingListNumber : undefined,
+				);
+				if (followingMarker && incrementedMarker) {
+					followingMarker.textContent = incrementedMarker;
+					if (hasFollowingListNumber) {
+						following.dataset.pptxListNumber = String(followingListNumber + 1);
+					}
+				}
+				following = following.nextElementSibling as HTMLElement | null;
+			}
+		}
+
+		const caretRange = document.createRange();
+		caretRange.setStart(caretPlaceholder, LIST_CONTINUATION_CARET_PLACEHOLDER.length);
+		caretRange.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(caretRange);
+		return true;
+	}, [element]);
+
+	const removeEmptyPendingListParagraphs = useCallback(() => {
+		for (const paragraph of pendingListParagraphsRef.current) {
+			const markerIndex = paragraph.dataset.pptxListSegIdx;
+			const marker = markerIndex !== undefined
+				? paragraph.querySelector<HTMLElement>(`[data-seg-idx="${markerIndex}"]`)
+				: null;
+			const paragraphText = (paragraph.textContent ?? '').replaceAll(
+				LIST_CONTINUATION_CARET_PLACEHOLDER,
+				'',
+			);
+			const markerText = marker?.textContent ?? '';
+			const contentText = paragraphText.startsWith(markerText)
+				? paragraphText.slice(markerText.length)
+				: paragraphText;
+			if (!contentText.trim()) {
+				paragraph.remove();
+			}
+		}
+		pendingListParagraphsRef.current.clear();
 	}, []);
 
 	// Auto-focus on mount and place cursor at end
@@ -193,6 +632,12 @@ export function InlineTextEditor({
 				...wrapperStyle,
 				cursor: 'text',
 				minHeight: '1em',
+				whiteSpace: 'pre-wrap',
+				overflowWrap: 'break-word',
+				wordBreak: 'normal',
+				// The authored font size never shrinks to fit, so overflowing text has
+				// to stay readable outside the shape instead of being clipped.
+				overflow: 'visible',
 			}}
 			// Touch surfaces drive canvas drag/marquee through onPointerDown (see
 			// useCanvasEventHandlers.handleStagePointerDown). Without stopping it
@@ -203,8 +648,11 @@ export function InlineTextEditor({
 			onClick={(e) => e.stopPropagation()}
 			onInput={handleInput}
 			onBlur={() => {
-				onEditChange(extractText());
-				onCommit();
+				removeEmptyPendingListParagraphs();
+				removeListContinuationCaretPlaceholder();
+				const committedText = extractText();
+				onEditChange(committedText);
+				onCommit(undefined, committedText);
 			}}
 			onKeyDown={(e) => {
 				// Inline formatting shortcuts (Ctrl/Cmd + B/I/U)
@@ -236,12 +684,24 @@ export function InlineTextEditor({
 				}
 				if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
 					e.preventDefault();
-					onEditChange(extractText());
-					onCommit();
+					removeEmptyPendingListParagraphs();
+					removeListContinuationCaretPlaceholder();
+					const committedText = extractText();
+					onEditChange(committedText);
+					onCommit(undefined, committedText);
 					return;
 				}
 				if (e.key === 'Enter') {
 					trimTrailingSpaceBeforeCaret();
+					if (!e.shiftKey) {
+						const insertedParagraph =
+							insertListParagraphBreak() || insertPlainParagraphBreak();
+						if (insertedParagraph) {
+							e.preventDefault();
+							e.stopPropagation();
+							onEditChange(extractText());
+						}
+					}
 				}
 			}}
 			// Prevent paste from inserting HTML: paste as plain text only

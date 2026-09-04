@@ -24,7 +24,7 @@ export interface MobileChromeOverlayProps {
 /**
  * Mobile-only floating chrome that owns the bottom action bar and the slide
  * pane sheet. The inspector / comments / notes already render as bottom
- * sheets via `max-md:` styling on their existing components, so this overlay
+ * sheets through their existing components, so this overlay
  * only needs to manage the slides pane (which is hidden inline on mobile).
  */
 export function MobileChromeOverlay(props: MobileChromeOverlayProps): React.ReactElement {

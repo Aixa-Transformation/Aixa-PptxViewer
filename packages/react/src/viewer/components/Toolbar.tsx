@@ -70,7 +70,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 			{showRibbon && (
 				<div
 					role='tablist'
-					className='flex items-center border-b border-border/60 px-1 max-md:overflow-x-auto max-md:scrollbar-none'
+					className='flex items-center border-b border-border/60 px-1  '
 				>
 					{TOOLBAR_SECTIONS.filter((s) => isTabVisible(s.id)).map((s) => (
 						<button
@@ -80,7 +80,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							aria-selected={toolbarSection === s.id}
 							onClick={() => onSetToolbarSection(s.id)}
 							className={cn(
-								'relative px-3.5 py-2 text-[12px] font-medium whitespace-nowrap transition-colors max-md:min-h-[36px] max-md:px-3',
+								'relative px-3.5 py-2 text-[12px] font-medium whitespace-nowrap transition-colors  ',
 								toolbarSection === s.id
 									? s.id === 'file'
 										? 'text-white bg-primary/80 rounded-sm'
@@ -138,7 +138,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 			{showRibbon && (
 				<div
 					className={cn(
-						'flex min-h-[82px] items-stretch gap-0 overflow-x-auto px-1 py-0.5 max-md:min-h-0 max-md:px-1 max-md:py-0.5 flex-nowrap [&>*]:shrink-0',
+						'flex min-h-[82px] items-stretch gap-0 overflow-x-auto px-1 py-0.5    flex-nowrap [&>*]:shrink-0',
 						isNarrowViewport && !isCompactToolbarOpen && 'hidden',
 					)}
 				>
@@ -185,6 +185,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onInsertSlideFromLayout={p.onInsertSlideFromLayout}
 							onApplyLayout={p.onApplyLayout}
 							selectedElement={p.selectedElement}
+							liveAutoFitFontScale={p.liveAutoFitFontScale}
 							onUpdateTextStyle={p.onUpdateTextStyle}
 							themeFonts={p.themeFonts}
 							embeddedFontFamilies={p.embeddedFontFamilies}
@@ -217,13 +218,19 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 						<TextSection
 							canEdit={p.canEdit}
 							selectedElement={p.selectedElement}
+							liveAutoFitFontScale={p.liveAutoFitFontScale}
 							tableEditorState={p.tableEditorState}
 							onUpdateTextStyle={p.onUpdateTextStyle}
 							onTransformTextCase={p.onTransformTextCase}
 						/>
 					)}
 
-					{sHome && <EditingSection onToggleFindReplace={p.onToggleFindReplace} />}
+					{sHome && (
+						<EditingSection
+							onToggleFindReplace={p.onToggleFindReplace}
+							onSelectAll={p.onSelectAll}
+						/>
+					)}
 
 					{sHome && (
 						<DrawingGroup
@@ -234,6 +241,7 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 							onAddShape={p.onAddShape}
 							onMoveLayer={p.onMoveLayer}
 							onMoveLayerToEdge={p.onMoveLayerToEdge}
+							onUpdateElementStyle={p.onUpdateElementStyle}
 						/>
 					)}
 
@@ -285,6 +293,10 @@ export function Toolbar(p: ToolbarProps): React.ReactElement {
 
 					{sTrn && (
 						<TransitionsSection
+							canEdit={p.canEdit}
+							activeSlide={p.activeSlide}
+							onTransitionChange={p.onTransitionChange}
+							onApplyTransitionToAll={p.onApplyTransitionToAll}
 							isInspectorPaneOpen={p.isInspectorPaneOpen}
 							onToggleInspector={p.onToggleInspector}
 						/>

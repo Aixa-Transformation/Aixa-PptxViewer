@@ -225,6 +225,20 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 			// Extract shape style + determine element type
 			const shapeStyle = this.extractShapeStyle(effectiveSpPr, styleNode);
+			// `useBgFill` lives on p:sp (not p:spPr). PowerPoint deliberately
+			// ignores the shape's normal fillRef when this flag is set and paints
+			// the geometry with the effective background of the descendant slide.
+			// Preserve that semantic marker instead of resolving it eagerly: master
+			// and layout shapes can be reused by slides with different backgrounds.
+			const ownUseBgFill = shape['@_useBgFill'];
+			const inheritedUseBgFill = inheritedPlaceholder?.shape?.['@_useBgFill'];
+			const useBackgroundFill =
+				ownUseBgFill !== undefined
+					? this.parseBooleanAttr(ownUseBgFill)
+					: this.parseBooleanAttr(inheritedUseBgFill);
+			if (useBackgroundFill) {
+				shapeStyle.useBackgroundFill = true;
+			}
 			const hasText = text.trim().length > 0;
 			const isPlainRect = (!prstGeom || prstGeom === 'rect') && !custGeom;
 			const hasVisibleStyle =

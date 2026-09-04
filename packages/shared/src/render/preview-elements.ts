@@ -36,7 +36,8 @@ export function buildPreviewElements(
 	options?: BuildPreviewElementsOptions,
 ): PptxElement[] {
 	const cap = options?.cap ?? DEFAULT_PREVIEW_ELEMENT_CAP;
-	const merged = [...templateElements, ...slide.elements];
+	const inherited = slide.showMasterShapes === false ? [] : templateElements;
+	const merged = [...inherited, ...slide.elements];
 	if (cap > 0 && merged.length > cap) {
 		return merged.slice(0, cap);
 	}

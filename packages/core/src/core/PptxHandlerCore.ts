@@ -528,6 +528,8 @@ export class PptxHandlerCore {
 	 * owning layout/master `p:spTree`.
 	 *
 	 * @param slideId - The slide's archive path (the `PptxSlide.id`).
+	 * @param layoutPath - Optional layout to resolve against, for slides that were
+	 *   inserted during the session and have no cached relationships yet.
 	 * @returns Master + layout elements with prefixed ids (may be empty).
 	 *
 	 * @example
@@ -541,8 +543,11 @@ export class PptxHandlerCore {
 	 * }
 	 * ```
 	 */
-	public async getTemplateElementsForSlide(slideId: string): Promise<PptxElement[]> {
-		return this.runtime.getTemplateElementsForSlide(slideId);
+	public async getTemplateElementsForSlide(
+		slideId: string,
+		layoutPath?: string,
+	): Promise<PptxElement[]> {
+		return this.runtime.getTemplateElementsForSlide(slideId, layoutPath);
 	}
 
 	/**

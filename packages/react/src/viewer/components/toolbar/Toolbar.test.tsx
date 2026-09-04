@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
 
 import type { ToolbarProps } from './toolbar-types';
+import type { TransitionsSectionProps } from './DesignTransitionsReviewSection';
 
 // Mock react-i18next since some sub-components use useTranslation
 // oxlint-disable-next-line prefer-ending-with-an-expect
@@ -337,6 +338,7 @@ function createMockToolbarProps(overrides: Partial<ToolbarProps> = {}): ToolbarP
 		onUndo: vi.fn<() => void>(),
 		onRedo: vi.fn<() => void>(),
 		onToggleFindReplace: vi.fn<() => void>(),
+		onSelectAll: vi.fn<() => void>(),
 		onSetNewShapeType: vi.fn<() => void>(),
 		onAddTextBox: vi.fn<() => void>(),
 		onAddShape: vi.fn<() => void>(),
@@ -387,6 +389,7 @@ function createMockToolbarProps(overrides: Partial<ToolbarProps> = {}): ToolbarP
 		onRunAccessibilityCheck: vi.fn<() => void>(),
 		onToggleSlideSorter: vi.fn<() => void>(),
 		onUpdateTextStyle: vi.fn<() => void>(),
+		onUpdateElementStyle: vi.fn<() => void>(),
 		onTransformTextCase: vi.fn<() => void>(),
 		isOverflowMenuOpen: false,
 		onSetOverflowMenuOpen: vi.fn<() => void>(),
@@ -428,6 +431,8 @@ function createMockToolbarProps(overrides: Partial<ToolbarProps> = {}): ToolbarP
 		onOpenBroadcastDialog: vi.fn<() => void>(),
 		onToggleSubtitles: vi.fn<() => void>(),
 		showSubtitles: false,
+		onTransitionChange: vi.fn<ToolbarProps['onTransitionChange']>(),
+		onApplyTransitionToAll: vi.fn<() => void>(),
 		...overrides,
 	};
 }
@@ -438,7 +443,13 @@ const { HomeSection } = await import('./HomeSection');
 const { FileSection } = await import('./FileSection');
 const { InsertSection } = await import('./InsertSection');
 const { DrawSection } = await import('./DrawSection');
-const { DesignSection, TransitionsSection } = await import('./DesignTransitionsReviewSection');
+const {
+	DesignSection,
+	TransitionsSection,
+	formatAdvanceAfter,
+	formatTransitionDuration,
+	parseTransitionTimeInput,
+} = await import('./DesignTransitionsReviewSection');
 const { ReviewSection } = await import('./ReviewSection');
 const { AnimationsSection } = await import('./AnimationsSection');
 const { SlideShowSection } = await import('./SlideShowSection');
@@ -635,6 +646,80 @@ describe('toolbar - Home tab', () => {
 			}),
 		);
 		expect(html).toContain('>24</span>');
+	});
+
+	it('font size display follows the selected element autofit scale', () => {
+		const html = render(
+			React.createElement(HomeSection, {
+				canEdit: true,
+				clipboardPayload: null,
+				onCopy: vi.fn<() => void>(),
+				onCut: vi.fn<() => void>(),
+				onPaste: vi.fn<() => void>(),
+				layoutOptions: [],
+				onInsertSlideFromLayout: vi.fn<() => void>(),
+				selectedElement: {
+					id: 'shape-1',
+					type: 'shape',
+					text: 'Autofit text',
+					textStyle: { fontSize: 24, autoFitFontScale: 0.75 },
+					textSegments: [{ text: 'Autofit text', style: { fontSize: 24 } }],
+				} as never,
+				onUpdateTextStyle: vi.fn<() => void>(),
+			}),
+		);
+		expect(html).toContain('>18</span>');
+	});
+
+	it('font size display follows the live inline-editing scale', () => {
+		const html = render(
+			React.createElement(HomeSection, {
+				canEdit: true,
+				clipboardPayload: null,
+				onCopy: vi.fn<() => void>(),
+				onCut: vi.fn<() => void>(),
+				onPaste: vi.fn<() => void>(),
+				layoutOptions: [],
+				onInsertSlideFromLayout: vi.fn<() => void>(),
+				selectedElement: {
+					id: 'shape-1',
+					type: 'shape',
+					text: 'Live autofit text',
+					textStyle: { fontSize: 24, autoFitFontScale: 0.75 },
+					textSegments: [{ text: 'Live autofit text', style: { fontSize: 24 } }],
+				} as never,
+				liveAutoFitFontScale: 0.5,
+				onUpdateTextStyle: vi.fn<() => void>(),
+			}),
+		);
+		expect(html).toContain('>12</span>');
+	});
+
+	it('font size display is always a whole number', () => {
+		const html = render(
+			React.createElement(HomeSection, {
+				canEdit: true,
+				clipboardPayload: null,
+				onCopy: vi.fn<() => void>(),
+				onCut: vi.fn<() => void>(),
+				onPaste: vi.fn<() => void>(),
+				layoutOptions: [],
+				onInsertSlideFromLayout: vi.fn<() => void>(),
+				selectedElement: {
+					id: 'shape-1',
+					type: 'shape',
+					text: 'Fractional authored font size',
+					textStyle: { fontSize: 58.67, autoFitFontScale: 0.75 },
+					textSegments: [
+						{ text: 'Fractional authored font size', style: { fontSize: 58.67 } },
+					],
+				} as never,
+				onUpdateTextStyle: vi.fn<() => void>(),
+			}),
+		);
+		expect(html).toContain('>44</span>');
+		expect(html).not.toContain('>44.00</span>');
+		expect(html).not.toContain('>58.67</span>');
 	});
 
 	it('paste is disabled when no clipboard payload', () => {
@@ -986,12 +1071,27 @@ describe('toolbar - Design tab', () => {
 // ===========================================================================
 
 describe('toolbar - Transitions tab', () => {
+	const createTransitionProps = (
+		overrides: Partial<TransitionsSectionProps> = {},
+	): TransitionsSectionProps => ({
+		canEdit: true,
+		activeSlide: {
+			id: 'slide-1',
+			rId: 'rId1',
+			slideNumber: 1,
+			elements: [],
+			transition: { type: 'fade', durationMs: 750, advanceOnClick: true },
+		},
+		onTransitionChange: vi.fn<TransitionsSectionProps['onTransitionChange']>(),
+		onApplyTransitionToAll: vi.fn<() => void>(),
+		isInspectorPaneOpen: false,
+		onToggleInspector: vi.fn<() => void>(),
+		...overrides,
+	});
+
 	it('renders Preview button', () => {
 		const html = render(
-			React.createElement(TransitionsSection, {
-				isInspectorPaneOpen: false,
-				onToggleInspector: vi.fn<() => void>(),
-			}),
+			React.createElement(TransitionsSection, createTransitionProps()),
 		);
 		expect(html).toContain('title="Preview transition"');
 		expect(html).toContain('>Preview</button>');
@@ -999,10 +1099,7 @@ describe('toolbar - Transitions tab', () => {
 
 	it('renders transition presets (None, Fade, Push, Wipe, etc.)', () => {
 		const html = render(
-			React.createElement(TransitionsSection, {
-				isInspectorPaneOpen: false,
-				onToggleInspector: vi.fn<() => void>(),
-			}),
+			React.createElement(TransitionsSection, createTransitionProps()),
 		);
 		const presets = ['None', 'Fade', 'Push', 'Wipe', 'Split', 'Reveal', 'Cut', 'Cover', 'Uncover'];
 		for (const preset of presets) {
@@ -1013,21 +1110,16 @@ describe('toolbar - Transitions tab', () => {
 
 	it('renders Duration input', () => {
 		const html = render(
-			React.createElement(TransitionsSection, {
-				isInspectorPaneOpen: false,
-				onToggleInspector: vi.fn<() => void>(),
-			}),
+			React.createElement(TransitionsSection, createTransitionProps()),
 		);
 		expect(html).toContain('Duration:');
 		expect(html).toContain('title="Transition duration in seconds"');
+		expect(html).toContain('value="00.75"');
 	});
 
 	it('renders Apply to All button', () => {
 		const html = render(
-			React.createElement(TransitionsSection, {
-				isInspectorPaneOpen: false,
-				onToggleInspector: vi.fn<() => void>(),
-			}),
+			React.createElement(TransitionsSection, createTransitionProps()),
 		);
 		expect(html).toContain('title="Apply transition to all slides"');
 		expect(html).toContain('Apply to All');
@@ -1035,10 +1127,7 @@ describe('toolbar - Transitions tab', () => {
 
 	it('renders Inspector button', () => {
 		const html = render(
-			React.createElement(TransitionsSection, {
-				isInspectorPaneOpen: false,
-				onToggleInspector: vi.fn<() => void>(),
-			}),
+			React.createElement(TransitionsSection, createTransitionProps()),
 		);
 		expect(html).toContain('title="Open Inspector for full transition options"');
 		expect(html).toContain('>Inspector</button>');
@@ -1046,14 +1135,35 @@ describe('toolbar - Transitions tab', () => {
 
 	it('inspector button has active styling when pane is open', () => {
 		const html = render(
-			React.createElement(TransitionsSection, {
-				isInspectorPaneOpen: true,
-				onToggleInspector: vi.fn<() => void>(),
-			}),
+			React.createElement(
+				TransitionsSection,
+				createTransitionProps({ isInspectorPaneOpen: true }),
+			),
 		);
 		expect(html).toMatch(
 			/bg-primary[^"]*"[^>]*title="Open Inspector for full transition options"/u,
 		);
+	});
+
+	it('reflects the active slide transition and disables editing when read-only', () => {
+		const html = render(
+			React.createElement(
+				TransitionsSection,
+				createTransitionProps({ canEdit: false }),
+			),
+		);
+		expect(html).toMatch(/border-primary[^>]*>Fade<\/button>/u);
+		expect(html).toMatch(/disabled=""[^>]*title="Fade transition"/u);
+	});
+
+	it('parses and formats transition timing inputs safely', () => {
+		expect(parseTransitionTimeInput('0.50')).toBe(500);
+		expect(parseTransitionTimeInput('01:02.50')).toBe(62_500);
+		expect(parseTransitionTimeInput('1:02:03.25')).toBe(3_723_250);
+		expect(parseTransitionTimeInput('00:60.00')).toBeNull();
+		expect(parseTransitionTimeInput('not-a-time')).toBeNull();
+		expect(formatTransitionDuration(750)).toBe('00.75');
+		expect(formatAdvanceAfter(62_500)).toBe('01:02.50');
 	});
 });
 

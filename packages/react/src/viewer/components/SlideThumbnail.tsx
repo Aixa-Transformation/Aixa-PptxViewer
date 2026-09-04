@@ -113,6 +113,9 @@ function arePropsEqual(prev: SlideThumbnailProps, next: SlideThumbnailProps): bo
 	if (prev.slide.backgroundPattern !== next.slide.backgroundPattern) {
 		return false;
 	}
+	if (prev.slide.showMasterShapes !== next.slide.showMasterShapes) {
+		return false;
+	}
 	if (prev.templateElements !== next.templateElements) {
 		return false;
 	}

@@ -1,9 +1,9 @@
-import type { PptxElement } from 'pptx-viewer-core';
+import type { PptxElement, ShapeStyle } from 'pptx-viewer-core';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuLayers, LuPaintBucket, LuPenLine, LuShapes, LuSparkles } from 'react-icons/lu';
 
-import { SHAPE_PRESETS } from '../../constants';
+import { SHAPE_PRESETS, SHAPE_QUICK_STYLES } from '../../constants';
 import type { SupportedShapeType } from '../../types-core';
 import { cn } from '../../utils';
 import { RibbonMenu } from './RibbonMenu';
@@ -17,7 +17,7 @@ export interface DrawingGroupProps {
 	onAddShape: () => void;
 	onMoveLayer: (direction: string) => void;
 	onMoveLayerToEdge: (direction: string) => void;
-	onUpdateElementStyle?: (style: Record<string, unknown>) => void;
+	onUpdateElementStyle?: (style: Partial<ShapeStyle>) => void;
 }
 
 const FILL_COLORS = [
@@ -43,10 +43,12 @@ export function DrawingGroup(p: DrawingGroupProps): React.ReactElement {
 	const [arrangeOpen, setArrangeOpen] = useState(false);
 	const [fillOpen, setFillOpen] = useState(false);
 	const [outlineOpen, setOutlineOpen] = useState(false);
+	const [quickStylesOpen, setQuickStylesOpen] = useState(false);
 	const shapesRef = useRef<HTMLDivElement>(null);
 	const arrangeRef = useRef<HTMLDivElement>(null);
 	const fillRef = useRef<HTMLDivElement>(null);
 	const outlineRef = useRef<HTMLDivElement>(null);
+	const quickStylesRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		if (!shapesOpen) {
@@ -100,6 +102,19 @@ export function DrawingGroup(p: DrawingGroupProps): React.ReactElement {
 		return () => document.removeEventListener('mousedown', handler);
 	}, [outlineOpen]);
 
+	useEffect(() => {
+		if (!quickStylesOpen) {
+			return;
+		}
+		const handler = (e: MouseEvent) => {
+			if (quickStylesRef.current && !quickStylesRef.current.contains(e.target as Node)) {
+				setQuickStylesOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handler);
+		return () => document.removeEventListener('mousedown', handler);
+	}, [quickStylesOpen]);
+
 	return (
 		<>
 			<div className='flex flex-col items-center gap-0.5'>
@@ -136,6 +151,49 @@ export function DrawingGroup(p: DrawingGroupProps): React.ReactElement {
 											{s.icon}
 											{t(s.i18nKey)}
 										</button>
+									))}
+								</div>
+							</RibbonMenu>
+						)}
+					</div>
+
+					{/* Quick Styles */}
+					<div className='relative' ref={quickStylesRef}>
+						<button
+							type='button'
+							disabled={!p.canEdit || !p.selectedElement}
+							className={pill}
+							title={t('pptx.shape.quickStyles')}
+							onClick={() => setQuickStylesOpen((v) => !v)}
+						>
+							<LuSparkles className={ic} />
+							{t('pptx.shape.quickStyles')}
+						</button>
+						{quickStylesOpen && (
+							<RibbonMenu anchorRef={quickStylesRef} className='w-64 pt-1'>
+								<div className='grid grid-cols-6 gap-1 rounded-lg border border-border bg-popover p-2 shadow-2xl backdrop-blur-lg'>
+									{SHAPE_QUICK_STYLES.map((quickStyle) => (
+										<button
+											key={quickStyle.name}
+											type='button'
+											aria-label={quickStyle.name}
+											title={quickStyle.name}
+											className='h-7 rounded border border-border transition-transform hover:scale-105 hover:border-primary'
+											style={{
+												background:
+													quickStyle.style.fillGradient ||
+													quickStyle.style.fillColor ||
+													'transparent',
+												boxShadow: quickStyle.style.shadowColor
+													? `${quickStyle.style.shadowOffsetX ?? 2}px ${quickStyle.style.shadowOffsetY ?? 2}px ${quickStyle.style.shadowBlur ?? 4}px ${quickStyle.style.shadowColor}`
+													: undefined,
+												borderColor: quickStyle.style.strokeColor,
+											}}
+											onClick={() => {
+												p.onUpdateElementStyle?.(quickStyle.style);
+												setQuickStylesOpen(false);
+											}}
+										/>
 									))}
 								</div>
 							</RibbonMenu>
@@ -226,7 +284,7 @@ export function DrawingGroup(p: DrawingGroupProps): React.ReactElement {
 											style={{ backgroundColor: c }}
 											title={c}
 											onClick={() => {
-												p.onUpdateElementStyle?.({ fill: c });
+												p.onUpdateElementStyle?.({ fillMode: 'solid', fillColor: c });
 												setFillOpen(false);
 											}}
 										/>
@@ -260,7 +318,10 @@ export function DrawingGroup(p: DrawingGroupProps): React.ReactElement {
 											style={{ backgroundColor: c }}
 											title={c}
 											onClick={() => {
-												p.onUpdateElementStyle?.({ outlineColor: c });
+												p.onUpdateElementStyle?.({
+													strokeFillMode: 'solid',
+													strokeColor: c,
+												});
 												setOutlineOpen(false);
 											}}
 										/>
@@ -269,16 +330,6 @@ export function DrawingGroup(p: DrawingGroupProps): React.ReactElement {
 							</RibbonMenu>
 						)}
 					</div>
-
-					{/* Shape Effects (placeholder) */}
-					<button
-						type='button'
-						disabled
-						className={pill}
-						title={t('pptx.drawing.shapeEffectsUnavailable')}
-					>
-						<LuSparkles className={ic} />
-					</button>
 				</div>
 				<span className='text-[9px] text-muted-foreground leading-none'>Drawing</span>
 			</div>

@@ -109,6 +109,19 @@ export class PptxHandlerRuntime {
 	/** Raw parsed master XML objects keyed by master archive path. */
 	protected masterXmlMap: Map<string, XmlObject> = new Map();
 
+	/** Semantic snapshots used to distinguish real template edits from XML normalisation. */
+	protected templateElementBaselines: WeakMap<PptxElement, string> = new WeakMap();
+
+	/** Template parts changed by inherited elements during the current save. */
+	protected dirtyTemplateLayoutPaths: Set<string> = new Set();
+	protected dirtyTemplateMasterPaths: Set<string> = new Set();
+
+	/** Direct layout/master background edits waiting to be persisted. */
+	protected pendingTemplateBackgroundColors: Map<string, string | undefined> = new Map();
+
+	/** Baselines committed only after package generation succeeds. */
+	protected pendingTemplateElementBaselines: Map<PptxElement, string> = new Map();
+
 	/** Placeholder defaults from layouts, keyed by layout path -> placeholder key. */
 	protected layoutPlaceholderDefaultsCache: Map<string, Map<string, PlaceholderDefaults>> =
 		new Map();

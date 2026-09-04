@@ -168,19 +168,17 @@ export interface AutoFitResult {
 /**
  * Compute the auto-fit font-size / line-height overrides for a text block.
  *
- * Mirrors the React `getTextStyleForElement` auto-fit branch:
+ * Only the values authored in the file are honoured; nothing is recomputed from
+ * the current text, so editing a shape never changes its font size:
  *  - `normAutofit` with an explicit `fontScale` (0 < scale < 1) applies that
  *    exact percentage to the base font size (floored at 6px).
- *  - otherwise `spAutoFit` (shrink-to-fit) heuristically estimates how many
- *    lines the text needs and shrinks the font when the estimate overflows the
- *    available height (scale floored at 0.5, font floored at 6px).
  *  - `lnSpcReduction` from `normAutofit` reduces the line-height multiplier.
  *
  * Returns an empty object when auto-fit is off or no override is needed; the
  * caller spreads the result over its own CSS object.
  */
 export function computeAutoFitTextStyle(input: AutoFitInput): AutoFitResult {
-	const { textStyle: ts, text, width, height, bodyInsetVertical, hasItalicRuns } = input;
+	const { textStyle: ts, hasItalicRuns } = input;
 	if (!ts?.autoFit) {
 		return {};
 	}
@@ -191,20 +189,6 @@ export function computeAutoFitTextStyle(input: AutoFitInput): AutoFitResult {
 	// normAutofit with explicit fontScale: use the exact percentage.
 	if (ts.autoFitFontScale !== undefined && ts.autoFitFontScale > 0 && ts.autoFitFontScale < 1) {
 		result.fontSize = Math.max(6, Math.round(baseFontSize * ts.autoFitFontScale));
-	} else if (ts.autoFitMode !== 'normal') {
-		// spAutoFit (shrink): heuristic estimation.
-		const textLength = text.length;
-		const lineHeight = ts.lineSpacingExactPt
-			? ts.lineSpacingExactPt / baseFontSize
-			: ts.lineSpacing || (hasItalicRuns ? 1.35 : 1.25);
-		const approxCharsPerLine = Math.max(1, Math.floor(width / (baseFontSize * 0.6)));
-		const estimatedLines = Math.max(1, Math.ceil(textLength / approxCharsPerLine));
-		const requiredHeight = estimatedLines * baseFontSize * lineHeight;
-		const availableHeight = height - bodyInsetVertical;
-		if (requiredHeight > availableHeight && availableHeight > 0) {
-			const scale = Math.max(0.5, availableHeight / requiredHeight);
-			result.fontSize = Math.max(6, Math.round(baseFontSize * scale));
-		}
 	}
 
 	// normAutofit with lnSpcReduction: reduce line height.

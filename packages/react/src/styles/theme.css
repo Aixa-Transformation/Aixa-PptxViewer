@@ -79,6 +79,20 @@
  * Thin, subtle scrollbars that match the dark theme. Uses both the
  * WebKit pseudo-elements and the standard scrollbar-* properties.
  */
+[data-pptx-viewer] {
+	/*
+	 * Slide text is positioned against the fixed PowerPoint canvas geometry.
+	 * Browser text autosizing (most noticeably inside responsive iframes and on
+	 * touch/mobile browsers) may enlarge only the glyphs while leaving the
+	 * authored text box untouched.  That changes line wrapping and clips text
+	 * even though the exported PPTX is correct.  Keep the browser from applying
+	 * a second, presentation-unaware font scale; the viewer already scales the
+	 * complete slide canvas as one unit.
+	 */
+	-webkit-text-size-adjust: none !important;
+	text-size-adjust: none !important;
+}
+
 :where([data-pptx-viewer]) {
 	scrollbar-width: thin;
 	scrollbar-color: var(--pptx-border, #374151) transparent;

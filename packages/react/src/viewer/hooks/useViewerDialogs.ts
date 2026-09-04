@@ -7,7 +7,11 @@ import type { PptxPresentationProperties } from 'pptx-viewer-core';
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 import { useDialogCustomShows } from './useDialogCustomShows';
-import { isMobileViewport } from './useIsMobile';
+import {
+	DESKTOP_ONLY_VIEWER_LAYOUT,
+	deriveViewerBreakpoints,
+	detectMobileRuntime,
+} from './useIsMobile';
 import type { UseViewerDialogsInput, ViewerDialogsResult } from './viewer-dialog-types';
 
 /** Coarse-pointer (touch) check, mirroring useIsMobile. */
@@ -26,7 +30,6 @@ export function useViewerDialogs(input: UseViewerDialogsInput): ViewerDialogsRes
 		slides,
 		activeSlide,
 		canvasSize,
-		containerRef,
 		customShows,
 		activeCustomShowId,
 		setCustomShows,
@@ -67,51 +70,36 @@ export function useViewerDialogs(input: UseViewerDialogsInput): ViewerDialogsRes
 	const [embedFontsEnabled, setEmbedFontsEnabled] = useState(false);
 
 	// ── Narrow viewport ───────────────────────────────────────────────
-	// Initialize from window width so the value is correct even before the
-	// containerRef attaches (the viewer renders LoadingState first, which
-	// short-circuits the ref). The effect upgrades to a ResizeObserver once
-	// the container is mounted, and falls back to window resize otherwise.
+	// Chrome follows the browser viewport rather than the embedded editor box.
+	// Host sidebars and split panes can narrow that box on desktop and must not
+	// make the viewer jump to its mobile toolbar.
 	const [isNarrowViewport, setIsNarrowViewport] = useState(() =>
-		typeof window !== 'undefined'
-			? isMobileViewport(window.innerWidth, window.innerHeight, viewportIsTouch())
+		!DESKTOP_ONLY_VIEWER_LAYOUT && typeof window !== 'undefined'
+			? deriveViewerBreakpoints(
+					window.innerWidth,
+					window.innerHeight,
+					viewportIsTouch(),
+					detectMobileRuntime(),
+				)
+					.isMobile
 			: false,
 	);
 	useEffect(() => {
 		const handleWindow = () =>
 			setIsNarrowViewport(
-				isMobileViewport(window.innerWidth, window.innerHeight, viewportIsTouch()),
+				!DESKTOP_ONLY_VIEWER_LAYOUT &&
+					deriveViewerBreakpoints(
+						window.innerWidth,
+						window.innerHeight,
+						viewportIsTouch(),
+						detectMobileRuntime(),
+					).isMobile,
 			);
-
-		// Poll briefly until the container mounts (it does not exist while
-		// LoadingState is shown), then attach a ResizeObserver to it.
-		let observer: ResizeObserver | null = null;
-		let raf = 0;
-		const attach = () => {
-			const el = containerRef.current;
-			if (!el) {
-				raf = requestAnimationFrame(attach);
-				return;
-			}
-			observer = new ResizeObserver((entries) => {
-				const entry = entries[0];
-				if (entry) {
-					setIsNarrowViewport(
-						isMobileViewport(entry.contentRect.width, entry.contentRect.height, viewportIsTouch()),
-					);
-				}
-			});
-			observer.observe(el);
-			setIsNarrowViewport(isMobileViewport(el.clientWidth, el.clientHeight, viewportIsTouch()));
-		};
-		attach();
 
 		window.addEventListener('resize', handleWindow);
 		return () => {
-			cancelAnimationFrame(raf);
-			observer?.disconnect();
 			window.removeEventListener('resize', handleWindow);
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// ── Signature strip warning ───────────────────────────────────────

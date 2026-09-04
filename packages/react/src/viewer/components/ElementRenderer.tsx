@@ -42,6 +42,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 	// oxlint-disable-next-line prefer-arrow-callback -- named fn gives the memo component its displayName
 	function ElementRendererInner({
 		element: el,
+		slideHeight,
 		activeSlide,
 		isSelected,
 		isInlineEditing,
@@ -97,11 +98,11 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 			onUpdateSmartArtElement,
 		});
 		const chartUpdateHandler = smartArtUpdateHandler;
-		const { hf, fc, sw, sc } = shapeParams(el);
+		const { hf, fc, sw, sc, backgroundFillStyle } = shapeParams(el, activeSlide);
 		const elementLocks = el.locks;
 		const isTxt = isEditableTextElement(el) && !elementLocks?.noTextEdit;
 		const txtSE = hasTextProperties(el) ? el.textStyle : undefined;
-		const ss = getShapeVisualStyle(
+		const baseShapeVisualStyle = getShapeVisualStyle(
 			el,
 			hf,
 			fc,
@@ -110,6 +111,9 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 			animationState?.animatesFill,
 			animationState?.animatesStroke,
 		);
+		const ss = backgroundFillStyle
+			? { ...baseShapeVisualStyle, ...backgroundFillStyle }
+			: baseShapeVisualStyle;
 		const ts = getTextStyleForElement(el, DEFAULT_TEXT_COLOR);
 		const vs = renderVectorShape(
 			el,
@@ -289,6 +293,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 					canEditChart,
 					onUpdateChartElement: chartUpdateHandler,
 					onFormatText,
+					slideHeight,
 				})}
 				{(el.actionClick || el.actionHover) && canInteract && (
 					<ActionIndicator
@@ -302,7 +307,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 						hasUrl={Boolean(el.actionClick.url)}
 					/>
 				)}
-				{effectiveShowResizeHandles && !effectiveIsInlineEditing && (
+				{effectiveShowResizeHandles && (
 					<ResizeHandles
 						elementId={el.id}
 						adjustmentHandleDescriptor={adjH}

@@ -10,6 +10,7 @@ import {
 import { stripParentDirSegments } from '../../utils/strip-parent-dir-segments';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimePlaceholderDefaults';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
+import { fingerprintTemplateElement } from './template-element-fingerprint';
 
 export function parseHeaderFooterFlags(
 	hf: XmlObject | undefined,
@@ -357,6 +358,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				// but could be added here if needed.
 			}
 
+			for (const element of elements) {
+				this.templateElementBaselines.set(
+					element,
+					fingerprintTemplateElement(element),
+				);
+			}
 			this.masterCache.set(masterPath, elements);
 			return elements;
 		} catch (e) {

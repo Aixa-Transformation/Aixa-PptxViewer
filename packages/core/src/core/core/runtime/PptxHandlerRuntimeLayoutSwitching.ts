@@ -363,6 +363,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				lp.cxEmu,
 				lp.cyEmu,
 				newLayoutPath,
+				lp.shapeXml,
 			);
 			if (emptyElement) {
 				resultElements.push(emptyElement);
@@ -439,6 +440,56 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	// ── Empty placeholder creation ──────────────────────────────────────
 
 	/**
+	 * Read the prompt text a layout/master placeholder shows when it is empty
+	 * ("Click to add title"). Duplicated from `extractPlaceholderDefaultsFromShape`
+	 * because that mixin sits higher in the chain than this one.
+	 */
+	private readPlaceholderPromptText(shapeXml: XmlObject | undefined): string | undefined {
+		const txBody = xmlPath(shapeXml, 'p:txBody');
+		if (!txBody) {
+			return undefined;
+		}
+		const parts: string[] = [];
+		for (const paragraph of this.ensureArray(txBody['a:p']) as XmlObject[]) {
+			if (!paragraph) {
+				continue;
+			}
+			const runs = [
+				...(this.ensureArray(paragraph['a:r']) as XmlObject[]),
+				...(this.ensureArray(paragraph['a:fld']) as XmlObject[]),
+			];
+			for (const run of runs) {
+				if (run?.['a:t'] !== undefined) {
+					parts.push(String(run['a:t']));
+				}
+			}
+			if (paragraph['a:t'] !== undefined) {
+				parts.push(String(paragraph['a:t']));
+			}
+		}
+		const promptText = parts.join('').trim();
+		return promptText.length > 0 ? promptText : undefined;
+	}
+
+	private defaultPlaceholderPromptText(type: string | undefined): string {
+		switch (type) {
+			case 'title':
+			case 'ctrtitle':
+				return 'Click to add title';
+			case 'subtitle':
+				return 'Click to add subtitle';
+			case 'pic':
+				return 'Click to add picture';
+			case 'chart':
+				return 'Click to add chart';
+			case 'tbl':
+				return 'Click to add table';
+			default:
+				return 'Click to add text';
+		}
+	}
+
+	/**
 	 * Create a minimal text element representing an empty placeholder
 	 * from the new layout. The element has the correct position/size and
 	 * a `rawXml` with a `p:ph` reference so that the save pipeline
@@ -451,6 +502,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		cxEmu: number,
 		cyEmu: number,
 		_layoutPath: string,
+		layoutShapeXml?: XmlObject,
 	): PptxElement | null {
 		if (cxEmu <= 0 || cyEmu <= 0) {
 			return null;
@@ -498,6 +550,11 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			width: Math.round(cxEmu / EMU_PER_PX),
 			height: Math.round(cyEmu / EMU_PER_PX),
 			text: '',
+			// Without a prompt an empty placeholder renders nothing at all, so the
+			// inserted layout looks like it has no text areas.
+			promptText:
+				this.readPlaceholderPromptText(layoutShapeXml) ??
+				this.defaultPlaceholderPromptText(phInfo.type),
 			rawXml,
 		};
 		(element as PptxElement & { _layoutSwitchGenerated?: boolean })._layoutSwitchGenerated = true;

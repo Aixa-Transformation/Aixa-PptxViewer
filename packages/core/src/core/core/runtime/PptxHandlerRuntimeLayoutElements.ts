@@ -3,26 +3,36 @@ import { stripParentDirSegments } from '../../utils/strip-parent-dir-segments';
 import { xmlAttr, xmlChild, xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeAuxiliaryMasterElements';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
+import { fingerprintTemplateElement } from './template-element-fingerprint';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
-	protected async getLayoutElements(slidePath: string): Promise<PptxElement[]> {
-		// Get the slide's relationship file to find the layout
-		const slideRels = this.slideRelsMap.get(slidePath);
-		if (!slideRels) {
-			return [];
-		}
+	protected async getLayoutElements(
+		slidePath: string,
+		layoutPathOverride?: string,
+	): Promise<PptxElement[]> {
+		// A slide inserted during the session has no archive path yet, so its
+		// relationships are not cached. Callers that already know the chosen
+		// layout pass it here instead of getting an empty template layer back.
+		let layoutPath: string | undefined = layoutPathOverride;
 
-		// Find the slideLayout relationship
-		let layoutPath: string | undefined;
-		for (const [, target] of slideRels.entries()) {
-			if (target.includes('slideLayout')) {
-				const slideDir = slidePath.substring(0, slidePath.lastIndexOf('/') + 1);
-				layoutPath = target.startsWith('/')
-					? target.substring(1)
-					: target.startsWith('..')
-						? this.resolvePath(slideDir, target)
-						: `ppt/${stripParentDirSegments(target)}`;
-				break;
+		if (!layoutPath) {
+			// Get the slide's relationship file to find the layout
+			const slideRels = this.slideRelsMap.get(slidePath);
+			if (!slideRels) {
+				return [];
+			}
+
+			// Find the slideLayout relationship
+			for (const [, target] of slideRels.entries()) {
+				if (target.includes('slideLayout')) {
+					const slideDir = slidePath.substring(0, slidePath.lastIndexOf('/') + 1);
+					layoutPath = target.startsWith('/')
+						? target.substring(1)
+						: target.startsWith('..')
+							? this.resolvePath(slideDir, target)
+							: `ppt/${stripParentDirSegments(target)}`;
+					break;
+				}
 			}
 		}
 
@@ -230,6 +240,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			this.currentSlideClrMapOverride = prevClrMapOverride;
 
 			const allElements = [...masterElements, ...elements];
+			for (const element of elements) {
+				this.templateElementBaselines.set(
+					element,
+					fingerprintTemplateElement(element),
+				);
+			}
 
 			this.layoutCache.set(layoutPath, allElements);
 			return allElements;

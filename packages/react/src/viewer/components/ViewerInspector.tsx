@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { UseCommentsResult } from '../hooks/useComments-helpers';
 import type { CanvasSize, ViewerMode, TableCellEditorState } from '../types';
+import { cn } from '../utils';
 import type { InspectorTab } from './inspector/inspector-pane-types';
 import { InspectorPane } from './InspectorPane';
 
@@ -34,6 +35,7 @@ import { InspectorPane } from './InspectorPane';
 /* ------------------------------------------------------------------ */
 
 export interface ViewerInspectorProps {
+	isMobile: boolean;
 	hiddenActions?: readonly ToolbarActionId[];
 	isOpen: boolean;
 	canEdit: boolean;
@@ -58,6 +60,12 @@ export interface ViewerInspectorProps {
 	onMoveLayerToEdge: (direction: string) => void;
 	onDeleteElement: () => void;
 	onUpdateSlide: (updates: Partial<PptxSlide>) => void;
+	onUpdateAllSlidesBackground: (
+		updates: Pick<
+			PptxSlide,
+			'backgroundColor' | 'backgroundImage' | 'backgroundGradient' | 'backgroundSource'
+		>,
+	) => void;
 	presentationProperties: PptxPresentationProperties;
 	onUpdatePresentationProperties: (updates: Partial<PptxPresentationProperties>) => void;
 	notesMaster?: PptxNotesMaster;
@@ -88,6 +96,7 @@ export interface ViewerInspectorProps {
 /* ------------------------------------------------------------------ */
 
 export function ViewerInspector({
+	isMobile,
 	isOpen,
 	canEdit,
 	mode,
@@ -111,6 +120,7 @@ export function ViewerInspector({
 	onMoveLayerToEdge,
 	onDeleteElement,
 	onUpdateSlide,
+	onUpdateAllSlidesBackground,
 	presentationProperties,
 	onUpdatePresentationProperties,
 	notesMaster,
@@ -162,10 +172,14 @@ export function ViewerInspector({
 			data-pptx-inspector
 			role='complementary'
 			aria-label={t('pptx.inspector.properties')}
-			className='h-full flex-shrink-0 max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:z-30'
-			style={panelWidth ? { width: panelWidth } : undefined}
+			className={cn(
+				'h-full flex-shrink-0',
+				isMobile && 'absolute inset-x-0 bottom-0 top-auto z-30',
+			)}
+			style={!isMobile && panelWidth ? { width: panelWidth } : undefined}
 		>
 			<InspectorPane
+				isMobile={isMobile}
 				hiddenActions={hiddenActions}
 				isOpen={isOpen}
 				canEdit={canEdit}
@@ -183,6 +197,7 @@ export function ViewerInspector({
 				onUpdateTextStyle={onUpdateTextStyle}
 				onUpdateElement={onUpdateElement}
 				onUpdateSlide={onUpdateSlide}
+				onUpdateAllSlidesBackground={onUpdateAllSlidesBackground}
 				onSelectElement={(id) => onApplySelection(id)}
 				onMoveLayer={onMoveLayer}
 				onMoveLayerToEdge={onMoveLayerToEdge}

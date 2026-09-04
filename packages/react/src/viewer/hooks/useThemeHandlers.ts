@@ -1,5 +1,6 @@
 import { buildThemeColorMap, reResolveSlideColors } from 'pptx-viewer-core';
 import type {
+	PptxElement,
 	PptxSlide,
 	PptxTheme,
 	PptxThemeColorScheme,
@@ -26,6 +27,10 @@ export interface UseThemeHandlersInput {
 	history: EditorHistoryResult;
 	/** Current live slides, re-coloured in place on a scheme-colour change. */
 	setSlides: React.Dispatch<React.SetStateAction<PptxSlide[]>>;
+	/** Inherited master/layout elements rendered in a separate canvas layer. */
+	setTemplateElementsBySlideId: React.Dispatch<
+		React.SetStateAction<Record<string, PptxElement[]>>
+	>;
 	/** Current theme, used to derive the previous colour map for re-resolution. */
 	theme: PptxTheme | undefined;
 	/**
@@ -33,6 +38,26 @@ export interface UseThemeHandlersInput {
 	 * theme re-colour lands as a single undoable entry (mirrors the AI path).
 	 */
 	bumpHistory: () => void;
+}
+
+/** Re-colour the separately stored master/layout canvas layer in place. */
+export function reResolveTemplateElementsBySlideId(
+	templateElementsBySlideId: Record<string, PptxElement[]>,
+	oldColorMap: Record<string, string>,
+	newColorScheme: PptxThemeColorScheme,
+): Record<string, PptxElement[]> {
+	let changed = false;
+	const next: Record<string, PptxElement[]> = {};
+	for (const [slideId, elements] of Object.entries(templateElementsBySlideId)) {
+		const [remapped] = reResolveSlideColors(
+			[{ id: slideId, elements } as PptxSlide],
+			oldColorMap,
+			newColorScheme,
+		);
+		next[slideId] = remapped.elements;
+		changed ||= remapped.elements !== elements;
+	}
+	return changed ? next : templateElementsBySlideId;
 }
 
 export interface ThemeHandlersResult {
@@ -68,6 +93,7 @@ export function useThemeHandlers(input: UseThemeHandlersInput): ThemeHandlersRes
 		slideMasters,
 		history,
 		setSlides,
+		setTemplateElementsBySlideId,
 		theme,
 		bumpHistory,
 	} = input;
@@ -116,6 +142,9 @@ export function useThemeHandlers(input: UseThemeHandlersInput): ThemeHandlersRes
 		// as a single undoable entry.
 		const previousMap = theme?.colorScheme ? buildThemeColorMap(theme.colorScheme) : {};
 		setSlides((prev) => reResolveSlideColors(prev, previousMap, colorScheme));
+		setTemplateElementsBySlideId((prev) =>
+			reResolveTemplateElementsBySlideId(prev, previousMap, colorScheme),
+		);
 		setTheme((prev) => (prev ? { ...prev, colorScheme } : { colorScheme }));
 		bumpHistory();
 		history.markDirty();

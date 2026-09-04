@@ -117,6 +117,10 @@ export function useEditorOperations(input: UseEditorOperationsInput): EditorOper
 		setSelectedElementId: state.setSelectedElementId,
 		setSelectedElementIds: state.setSelectedElementIds,
 		setInlineEditingElementId: state.setInlineEditingElementId,
+		inlineEditingElementId: state.inlineEditingElementId,
+		inlineEditingAutoFitFontScale: state.inlineEditingAutoFitFontScale,
+		inlineEditingText: state.inlineEditingText,
+		setInlineEditingText: state.setInlineEditingText,
 		setContextMenuState: state.setContextMenuState,
 	});
 
@@ -218,6 +222,7 @@ export function useEditorOperations(input: UseEditorOperationsInput): EditorOper
 		ops,
 		history,
 		handlerRef,
+		setTemplateElementsBySlideId: state.setTemplateElementsBySlideId,
 	});
 
 	const tableOps = useTableOperations({

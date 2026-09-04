@@ -12,7 +12,10 @@ import { getKinsokuLineBreakStyles } from './kinsoku-styles';
 import { wrapWithTextBuildAnimation } from './text-animation';
 import type { ParagraphEntry } from './text-animation';
 import type { FieldSubstitutionContext } from './text-field-substitution';
-import { resolveParagraphSpacing } from './text-paragraph-spacing';
+import {
+	resolveParagraphSpacing,
+	scaleAbsoluteParagraphLineHeight,
+} from './text-paragraph-spacing';
 import type { ElementFindHighlights } from './text-segment-helpers';
 import { renderSingleSegment } from './text-segment-render';
 
@@ -200,6 +203,10 @@ export function renderTextSegments(
 			!bulletInfo.none &&
 			hasVisibleTextContent &&
 			!hasDuplicateAuthoredAutoNumber;
+		const displayedAutoNumber =
+			hasBullet && bulletInfo?.autoNumType
+				? (bulletInfo.autoNumStartAt ?? 1) + (bulletInfo.paragraphIndex ?? 0)
+				: undefined;
 		const paraRtl = resolveParagraphRtl(paraSegments, elementRtl);
 		const isRtlParagraph = paraRtl === true;
 
@@ -248,16 +255,16 @@ export function renderTextSegments(
 		// with the text. Keeping authored spcBef/spcAft at their original size
 		// accumulates excessive gaps in long bullet lists even though the glyphs
 		// themselves have been reduced.
-		const hasAuthoredParagraphLineSpacing =
-			paraProps?.lineSpacing !== undefined || paraProps?.lineSpacingExactPt !== undefined;
-		if (!hasAuthoredParagraphLineSpacing) {
-			if (typeof spacing.marginTop === 'number') {
-				spacing.marginTop *= paragraphAutoFitScale;
-			}
-			if (typeof spacing.marginBottom === 'number') {
-				spacing.marginBottom *= paragraphAutoFitScale;
-			}
+		if (typeof spacing.marginTop === 'number') {
+			spacing.marginTop *= paragraphAutoFitScale;
 		}
+		if (typeof spacing.marginBottom === 'number') {
+			spacing.marginBottom *= paragraphAutoFitScale;
+		}
+		spacing.lineHeight = scaleAbsoluteParagraphLineHeight(
+			spacing.lineHeight,
+			paragraphAutoFitScale,
+		);
 		// `normAutofit/@lnSpcReduction` reduces the resolved paragraph line
 		// multiplier in addition to scaling the run font. Paragraph wrappers own
 		// their line-height, so the body-level auto-fit style cannot apply this for
@@ -313,6 +320,20 @@ export function renderTextSegments(
 		}
 		if (paraTextIndent !== undefined) {
 			paraStyle.textIndent = paraTextIndent;
+		}
+		if (hasBullet) {
+			// `overflow-wrap: break-word` moves an oversized unbroken word to the
+			// next line when an inline marker consumes part of the first line. The
+			// live editor uses a marker column + flexible text column, so the same
+			// word starts beside the marker while editing and jumps below it on blur.
+			// `anywhere` contributes break opportunities to min-content sizing and
+			// keeps the first authored characters on the marker's line, matching
+			// PowerPoint and the editor without changing ordinary word wrapping.
+			paraStyle.overflowWrap = 'anywhere';
+			paraStyle.wordBreak = 'normal';
+			paraStyle.minWidth = 0;
+			paraStyle.maxWidth = '100%';
+			paraStyle.boxSizing = 'border-box';
 		}
 		if (paraRtl !== undefined) {
 			paraStyle.direction = paraRtl ? 'rtl' : 'ltr';
@@ -388,7 +409,13 @@ export function renderTextSegments(
 		}
 
 		return (
-			<div key={`${element.id}-para-${paraIndex}`} data-pptx-paragraph style={paraStyle}>
+			<div
+				key={`${element.id}-para-${paraIndex}`}
+				data-pptx-paragraph
+				data-pptx-list-seg-idx={hasBullet ? firstSeg.globalIndex : undefined}
+				data-pptx-list-number={displayedAutoNumber}
+				style={paraStyle}
+			>
 				{wrappedContent}
 			</div>
 		);

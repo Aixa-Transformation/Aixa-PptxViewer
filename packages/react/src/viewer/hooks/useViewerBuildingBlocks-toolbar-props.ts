@@ -134,6 +134,10 @@ export function buildToolbarProps(input: BuildToolbarPropsInput): ToolbarProps {
 		redoLabel: history.redoLabel,
 		findReplaceOpen: findReplace.findReplaceOpen,
 		selectedElement,
+		liveAutoFitFontScale:
+			s.inlineEditingElementId === selectedElement?.id
+				? s.inlineEditingAutoFitFontScale
+				: null,
 		tableEditorState: s.tableEditorState,
 		editTemplateMode: s.editTemplateMode,
 		newShapeType: s.newShapeType,
@@ -158,6 +162,15 @@ export function buildToolbarProps(input: BuildToolbarPropsInput): ToolbarProps {
 		onUndo: history.handleUndo,
 		onRedo: history.handleRedo,
 		onToggleFindReplace: () => findReplace.setFindReplaceOpen(!findReplace.findReplaceOpen),
+		onSelectAll: () => {
+			if (!activeSlide) {
+				return;
+			}
+			const elementIds = activeSlide.elements.map((element) => element.id);
+			if (elementIds.length > 0) {
+				ops.applySelection(elementIds[0], elementIds);
+			}
+		},
 		onSetNewShapeType: s.setNewShapeType,
 		onAddTextBox: insertHandlers.handleAddTextBox,
 		onAddShape: insertHandlers.handleAddShape,
@@ -226,6 +239,7 @@ export function buildToolbarProps(input: BuildToolbarPropsInput): ToolbarProps {
 		onRunAccessibilityCheck: dialogs.handleRunAccessibilityCheck,
 		onToggleSlideSorter: () => s.setShowSlideSorter((p) => !p),
 		onUpdateTextStyle: ops.updateSelectedTextStyle,
+		onUpdateElementStyle: ops.updateSelectedShapeStyle,
 		onTransformTextCase: ops.updateSelectedTextCase,
 		isOverflowMenuOpen: s.isOverflowMenuOpen,
 		onSetOverflowMenuOpen: s.setIsOverflowMenuOpen,

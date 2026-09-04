@@ -2,6 +2,40 @@ import type { PptxElement } from 'pptx-viewer-core';
 import { describe, it, expect, vi } from 'vitest';
 
 import type { CanvasInteractionHandlers } from './canvas-interaction-types';
+import { blurActiveInlineEditor } from './useCanvasInteractions';
+
+describe('blurActiveInlineEditor', () => {
+	it('blurs the focused editor so blur commits its final fitted scale first', () => {
+		const blur = vi.fn<() => void>();
+		const editor = {
+			ownerDocument: { activeElement: null as unknown },
+			contains: vi.fn(() => false),
+			blur,
+		};
+		editor.ownerDocument.activeElement = editor;
+		const root = {
+			querySelector: vi.fn(() => editor),
+		};
+
+		expect(blurActiveInlineEditor(root as unknown as ParentNode)).toBeTruthy();
+		expect(blur).toHaveBeenCalledOnce();
+	});
+
+	it('leaves an unfocused editor for the live-scale fallback commit', () => {
+		const blur = vi.fn<() => void>();
+		const editor = {
+			ownerDocument: { activeElement: {} },
+			contains: vi.fn(() => false),
+			blur,
+		};
+		const root = {
+			querySelector: vi.fn(() => editor),
+		};
+
+		expect(blurActiveInlineEditor(root as unknown as ParentNode)).toBeFalsy();
+		expect(blur).not.toHaveBeenCalled();
+	});
+});
 
 // ---------------------------------------------------------------------------
 // useCanvasInteractions is a complex hook that produces event handlers.
