@@ -16,6 +16,30 @@ const ensureArray = (value: unknown): unknown[] => {
 describe('pptxShapeIdValidator', () => {
 	const validator = new PptxShapeIdValidator();
 
+	it('repairs timestamps without spreading them to groups/duplicates and preserves references', () => {
+		const ids = ['1', '1788524999615', '0', '4294967295', '2', '2', '2.5', '-1'];
+		const shapes = ids.map((id) => ({ 'p:nvSpPr': { 'p:cNvPr': { '@_id': id } } }));
+		const tree = { 'p:sp': shapes };
+		const root = {
+			'p:cSld': { 'p:spTree': tree },
+			'p:timing': { 'p:spTgt': { '@_spid': ids[1] }, 'p:cTn': { '@_id': ids[1] } },
+			'a:stCxn': { '@_id': ids[1] },
+			'a:endCxn': { '@_id': '2' },
+		};
+		const remapped = new Map<string, string>();
+		expect(validator.validateAndDeduplicateIds(tree, ensureArray, root, remapped)).toBe(5);
+		const repaired = shapes.map((s) => s['p:nvSpPr']['p:cNvPr']['@_id']);
+		expect(new Set(repaired).size).toBe(ids.length);
+		expect(
+			repaired.every((id) => /^\d+$/.test(id) && Number(id) > 0 && Number(id) <= 4294967295),
+		).toBe(true);
+		expect(root['p:timing']['p:spTgt']['@_spid']).toBe(repaired[1]);
+		expect(root['a:stCxn']['@_id']).toBe(repaired[1]);
+		expect(root['a:endCxn']['@_id']).toBe('2');
+		expect(root['p:timing']['p:cTn']['@_id']).toBe(ids[1]);
+		expect(validator.validateAndDeduplicateIds(tree, ensureArray, root)).toBe(0);
+	});
+
 	it('should return 0 when all IDs are unique', () => {
 		const spTree: XmlObject = {
 			'p:sp': [

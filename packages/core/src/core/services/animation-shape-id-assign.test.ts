@@ -16,6 +16,15 @@ function el(id: string, shapeId?: string): PptxElement {
 }
 
 describe('remapEditorAnimationsToShapeIds', () => {
+	it('allocates in a free gap at the UInt32 ceiling and ignores invalid timestamps', () => {
+		const target = el('new');
+		const out = remapEditorAnimationsToShapeIds(
+			[el('max', '4294967295'), el('bad', '1788524999615'), target],
+			[{ elementId: 'new', entrance: 'fadeIn' }],
+		);
+		expect(target.shapeId).toBe('2');
+		expect(out[0].elementId).toBe('2');
+	});
 	it('remaps elementId to an existing element.shapeId (real-file element)', () => {
 		const elements = [el('slide1-shape-0', '2'), el('slide1-shape-1', '3')];
 		const anims: PptxElementAnimation[] = [{ elementId: 'slide1-shape-1', entrance: 'fadeIn' }];

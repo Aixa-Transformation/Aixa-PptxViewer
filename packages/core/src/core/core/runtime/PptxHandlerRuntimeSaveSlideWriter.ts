@@ -6,6 +6,8 @@ import { applyActiveXControlsToSlide, SHAPE_TREE_ELEMENT_TAGS } from '../../util
 import { saveModernSlideComments } from '../../utils/modern-comment-package';
 import { saveSlideSynchronization } from '../../utils/slide-synchronization';
 import { buildClrMapOverrideXml } from '../../utils/theme-override-utils';
+import { canonicalizePlaceholderTypes } from '../../utils/placeholder-validation';
+import { remapElementShapeIds, remapShapeIdReferences } from '../../utils/shape-ids';
 import { PptxSlideRelationshipRegistry, PptxShapeIdValidator } from '../builders';
 import type { PptxSaveState, IPptxSlideRelationshipRegistry } from '../builders';
 import type { PptxSaveConstants } from '../factories';
@@ -335,13 +337,23 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.wrapNewZoomEnvelopes(spTree, collectors.zooms);
 
 		// Validate and deduplicate shape IDs to prevent MS Office corruption
-		const reassigned = shapeIdValidator.validateAndDeduplicateIds(spTree, (v) =>
-			this.ensureArray(v),
+		const repairedIds = new Map<string, string>();
+		const reassigned = shapeIdValidator.validateAndDeduplicateIds(
+			spTree,
+			(v) => this.ensureArray(v),
+			slideNode,
+			repairedIds,
 		);
+		remapElementShapeIds(
+			slide.elements.filter((el) => !this.isTemplateElementId(el.id)),
+			repairedIds,
+		);
+		remapShapeIdReferences(slide.rawTiming, repairedIds);
+		canonicalizePlaceholderTypes(slideNode);
 		if (reassigned > 0) {
 			this.compatibilityService.reportWarning({
 				code: 'SHAPE_ID_DEDUPLICATED',
-				message: `Reassigned ${reassigned} duplicate shape ID(s) on slide '${slide.id}'.`,
+				message: `Reassigned ${reassigned} invalid or duplicate shape ID(s) on slide '${slide.id}'.`,
 				scope: 'save',
 				slideId: slide.id,
 			});
@@ -370,6 +382,9 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// slide was never parsed for controls, so leave any raw passthrough
 		// intact rather than wiping it.
 		if (slide.activeXControls !== undefined) {
+			for (const control of slide.activeXControls) {
+				if (control.shapeId) control.shapeId = repairedIds.get(control.shapeId) ?? control.shapeId;
+			}
 			applyActiveXControlsToSlide(xmlObj, slide.activeXControls);
 		}
 

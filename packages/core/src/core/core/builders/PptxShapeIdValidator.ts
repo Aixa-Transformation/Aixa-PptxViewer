@@ -1,4 +1,9 @@
 import type { XmlObject } from '../../types';
+import {
+	createShapeIdAllocator,
+	parseShapeId,
+	remapShapeIdReferences,
+} from '../../utils/shape-ids';
 
 /**
  * Shape ID uniqueness validator for OOXML slide shape trees.
@@ -54,7 +59,12 @@ function collectCnvPrNodes(
 }
 
 export interface IPptxShapeIdValidator {
-	validateAndDeduplicateIds(spTree: XmlObject, ensureArray: (value: unknown) => unknown[]): number;
+	validateAndDeduplicateIds(
+		spTree: XmlObject,
+		ensureArray: (value: unknown) => unknown[],
+		referenceRoot?: XmlObject,
+		remappedIds?: Map<string, string>,
+	): number;
 }
 
 /**
@@ -65,6 +75,8 @@ export class PptxShapeIdValidator implements IPptxShapeIdValidator {
 	public validateAndDeduplicateIds(
 		spTree: XmlObject,
 		ensureArray: (value: unknown) => unknown[],
+		referenceRoot: XmlObject = spTree,
+		remappedIds: Map<string, string> = new Map(),
 	): number {
 		const cNvPrNodes: XmlObject[] = [];
 		collectCnvPrNodes(spTree, cNvPrNodes, ensureArray);
@@ -73,34 +85,29 @@ export class PptxShapeIdValidator implements IPptxShapeIdValidator {
 			return 0;
 		}
 
-		// Collect all used IDs and find duplicates
+		// Reserve every valid ID before allocating. Invalid IDs must never seed
+		// allocation: one timestamp used to make all duplicate/group IDs overflow.
+		const allocate = createShapeIdAllocator(cNvPrNodes.map((node) => node['@_id']));
 		const usedIds = new Set<number>();
-		const duplicates: XmlObject[] = [];
-		let maxId = 0;
-
+		let reassigned = 0;
 		for (const cNvPr of cNvPrNodes) {
-			const idRaw = Number.parseInt(String(cNvPr['@_id'] ?? '0'), 10);
-			const id = Number.isFinite(idRaw) ? idRaw : 0;
-			if (id > maxId) {
-				maxId = id;
-			}
-
-			if (id === 0 || usedIds.has(id)) {
-				duplicates.push(cNvPr);
+			const oldId = String(cNvPr['@_id'] ?? '').trim();
+			const id = parseShapeId(oldId);
+			if (id === undefined || usedIds.has(id)) {
+				const replacement = allocate();
+				cNvPr['@_id'] = replacement;
+				reassigned += 1;
+				// Duplicate valid IDs are ambiguous: references keep targeting the
+				// first original shape. For invalid IDs, consistently target the first
+				// repaired occurrence. Zero/missing IDs are unassigned sentinels.
+				if (id === undefined && oldId && oldId !== '0' && !remappedIds.has(oldId)) {
+					remappedIds.set(oldId, replacement);
+				}
 			} else {
 				usedIds.add(id);
 			}
 		}
-
-		// Reassign duplicate IDs
-		let reassigned = 0;
-		for (const cNvPr of duplicates) {
-			maxId += 1;
-			cNvPr['@_id'] = String(maxId);
-			usedIds.add(maxId);
-			reassigned += 1;
-		}
-
+		remapShapeIdReferences(referenceRoot, remappedIds);
 		return reassigned;
 	}
 }

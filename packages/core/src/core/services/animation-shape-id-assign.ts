@@ -17,6 +17,7 @@
  * @module services/animation-shape-id-assign
  */
 import type { PptxElement, PptxElementAnimation } from '../types';
+import { createShapeIdAllocator, elementShapeIds } from '../utils/shape-ids';
 
 /** Flatten an element tree (following group children) into a single list. */
 function flattenElements(elements: readonly PptxElement[], out: PptxElement[]): void {
@@ -26,20 +27,6 @@ function flattenElements(elements: readonly PptxElement[], out: PptxElement[]): 
 			flattenElements(el.children, out);
 		}
 	}
-}
-
-/** Largest numeric `shapeId` currently present across all elements. */
-function maxShapeId(elements: readonly PptxElement[]): number {
-	let max = 0;
-	for (const el of elements) {
-		if (el.shapeId !== undefined) {
-			const n = Number.parseInt(el.shapeId, 10);
-			if (Number.isFinite(n) && n > max) {
-				max = n;
-			}
-		}
-	}
-	return max;
 }
 
 /**
@@ -69,7 +56,7 @@ export function remapEditorAnimationsToShapeIds(
 		byId.set(el.id, el);
 	}
 
-	let nextId = Math.max(maxShapeId(flat), reservedMaxId) + 1;
+	const allocateShapeId = createShapeIdAllocator([...elementShapeIds(elements), reservedMaxId]);
 
 	/** Resolve an `element.id` reference to a native cNvPr id, minting if needed. */
 	const resolve = (elementId: string): string | undefined => {
@@ -78,8 +65,7 @@ export function remapEditorAnimationsToShapeIds(
 			return undefined;
 		}
 		if (el.shapeId === undefined) {
-			el.shapeId = String(nextId);
-			nextId += 1;
+			el.shapeId = allocateShapeId();
 		}
 		return el.shapeId;
 	};

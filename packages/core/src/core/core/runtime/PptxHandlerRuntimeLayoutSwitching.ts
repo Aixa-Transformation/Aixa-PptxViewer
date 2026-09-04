@@ -1,6 +1,8 @@
 import { EMU_PER_PX } from '../../constants';
 import { XmlObject, PptxElement } from '../../types';
 import { cloneXmlObject } from '../../utils/clone-utils';
+import { canonicalPlaceholderType } from '../../utils/placeholder-validation';
+import { createShapeIdAllocator, elementShapeIds } from '../../utils/shape-ids';
 import { xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeTextEditing';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
@@ -69,7 +71,10 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 * Extract all placeholders from a layout's `p:spTree`, returning
 	 * their placeholder info and their transform (position/size in EMU).
 	 */
-	protected extractLayoutPlaceholders(layoutXml: XmlObject, layoutPath?: string): Array<{
+	protected extractLayoutPlaceholders(
+		layoutXml: XmlObject,
+		layoutPath?: string,
+	): Array<{
 		phInfo: PlaceholderInfo;
 		xEmu: number;
 		yEmu: number;
@@ -115,13 +120,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			const masterPath = layoutPath ? this.resolveMasterPathForLayout(layoutPath) : undefined;
 			const masterContext = masterPath
 				? this.findPlaceholderInShapeTree(
-					xmlPath(this.masterXmlMap.get(masterPath), 'p:sldMaster', 'p:cSld', 'p:spTree'),
-					phInfo,
-				)
+						xmlPath(this.masterXmlMap.get(masterPath), 'p:sldMaster', 'p:cSld', 'p:spTree'),
+						phInfo,
+					)
 				: undefined;
 			const inheritedShape = masterContext?.shape ?? masterContext?.picture;
 			const resolvedShape = inheritedShape
-				? this.mergeXmlObjects(inheritedShape, shape) ?? shape
+				? (this.mergeXmlObjects(inheritedShape, shape) ?? shape)
 				: shape;
 
 			// Get transform
@@ -239,17 +244,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// Keep placeholders as an array. A layout may legally contain multiple
 		// placeholders with the same type (and occasionally an omitted idx), so
 		// a Map would silently discard all but the last one.
-		const targetPlaceholders: Array<
-			{
-				phInfo: PlaceholderInfo;
-				xEmu: number;
-				yEmu: number;
-				cxEmu: number;
-				cyEmu: number;
-				shapeXml: XmlObject;
-				matched: boolean;
-			}
-		> = [];
+		const targetPlaceholders: Array<{
+			phInfo: PlaceholderInfo;
+			xEmu: number;
+			yEmu: number;
+			cxEmu: number;
+			cyEmu: number;
+			shapeXml: XmlObject;
+			matched: boolean;
+		}> = [];
 		for (const lp of layoutPlaceholders) {
 			targetPlaceholders.push({ ...lp, matched: false });
 		}
@@ -344,6 +347,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		}
 
 		// Add empty placeholders from the new layout that were not matched
+		const allocateShapeId = createShapeIdAllocator(elementShapeIds(resultElements));
 		for (const lp of targetPlaceholders) {
 			if (lp.matched) {
 				continue;
@@ -365,6 +369,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				lp.cyEmu,
 				newLayoutPath,
 				lp.shapeXml,
+				allocateShapeId(),
 			);
 			if (emptyElement) {
 				resultElements.push(emptyElement);
@@ -385,7 +390,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const ph = (nvPr['p:ph'] as XmlObject | undefined) ?? {};
 		nvPr['p:ph'] = ph;
 		if (phInfo.type) {
-			ph['@_type'] = phInfo.type;
+			ph['@_type'] = canonicalPlaceholderType(phInfo.type);
 		} else {
 			delete ph['@_type'];
 		}
@@ -501,9 +506,10 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	 * generated placeholder starts at the layout's own font instead of the
 	 * generic viewer default (and never shifts afterwards).
 	 */
-	private readPlaceholderRunDefaults(
-		shapeXml: XmlObject | undefined,
-	): { fontSize?: number; fontFamily?: string } {
+	private readPlaceholderRunDefaults(shapeXml: XmlObject | undefined): {
+		fontSize?: number;
+		fontFamily?: string;
+	} {
 		const defRPr =
 			xmlPath(shapeXml, 'p:txBody', 'a:lstStyle', 'a:lvl1pPr', 'a:defRPr') ??
 			xmlPath(shapeXml, 'p:txBody', 'a:p', 'a:endParaRPr') ??
@@ -532,6 +538,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		cyEmu: number,
 		_layoutPath: string,
 		layoutShapeXml?: XmlObject,
+		shapeId = '2',
 	): PptxElement | null {
 		if (cxEmu <= 0 || cyEmu <= 0) {
 			return null;
@@ -539,7 +546,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 		const phNode: XmlObject = {};
 		if (phInfo.type) {
-			phNode['@_type'] = phInfo.type;
+			phNode['@_type'] = canonicalPlaceholderType(phInfo.type);
 		}
 		if (phInfo.idx !== undefined) {
 			phNode['@_idx'] = phInfo.idx;
@@ -549,7 +556,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const rawXml: XmlObject = {
 			'p:nvSpPr': {
 				'p:cNvPr': {
-					'@_id': String(Date.now() + Math.floor(Math.random() * 10000)),
+					'@_id': shapeId,
 					'@_name': `Placeholder ${phInfo.type || 'content'}`,
 				},
 				'p:cNvSpPr': {
@@ -575,6 +582,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const element: PptxElement = {
 			type: 'text' as const,
 			id: `ph-${phInfo.type || 'content'}-${phInfo.idx || '0'}-${Date.now()}`,
+			shapeId,
 			x: Math.round(xEmu / EMU_PER_PX),
 			y: Math.round(yEmu / EMU_PER_PX),
 			width: Math.round(cxEmu / EMU_PER_PX),
@@ -590,8 +598,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		};
 		// Lets consumers resolve the theme's major vs minor font for a box that
 		// carries no authored run properties yet.
-		(element as PptxElement & { placeholderType?: string }).placeholderType =
-			phInfo.type ?? 'body';
+		(element as PptxElement & { placeholderType?: string }).placeholderType = phInfo.type ?? 'body';
 		return markGeneratedPlaceholder(element);
 	}
 
@@ -633,6 +640,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 		const skipTypes = new Set(['dt', 'ftr', 'sldnum', 'hdr']);
 		const generated: PptxElement[] = [];
+		const allocateShapeId = createShapeIdAllocator(elementShapeIds(slideElements));
 		for (const lp of this.extractLayoutPlaceholders(layoutXml, layoutPath)) {
 			if (lp.phInfo.type && skipTypes.has(lp.phInfo.type)) {
 				continue;
@@ -650,6 +658,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				lp.cyEmu,
 				layoutPath,
 				lp.shapeXml,
+				allocateShapeId(),
 			);
 			if (element) {
 				element.id = `${slidePath}-ph-${key}`;

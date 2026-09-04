@@ -1,3 +1,5 @@
+import { visitXmlObjects } from './shape-ids';
+
 /**
  * OOXML placeholder type enum validation.
  *
@@ -81,4 +83,26 @@ export function normalizePlaceholderType(type: string | undefined): string {
  */
 export function getValidPlaceholderTypes(): ReadonlySet<string> {
 	return VALID_PLACEHOLDER_TYPES;
+}
+
+const CANONICAL_PLACEHOLDER_TYPES = new Map(
+	[...VALID_PLACEHOLDER_TYPES].map((type) => [type.toLowerCase(), type]),
+);
+
+/** Internal matching is case-insensitive; OOXML serialization is not. */
+export function canonicalPlaceholderType(type: string): string {
+	return CANONICAL_PLACEHOLDER_TYPES.get(type.trim().toLowerCase()) ?? type;
+}
+
+export function canonicalizePlaceholderTypes(root: unknown): number {
+	let changed = 0;
+	visitXmlObjects(root, (node, tag) => {
+		if (tag !== 'p:ph' || typeof node['@_type'] !== 'string') return;
+		const canonical = canonicalPlaceholderType(node['@_type']);
+		if (canonical !== node['@_type']) {
+			node['@_type'] = canonical;
+			changed += 1;
+		}
+	});
+	return changed;
 }

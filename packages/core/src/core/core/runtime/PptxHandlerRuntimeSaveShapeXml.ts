@@ -469,9 +469,14 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			xfrmAttrs['@_flipV'] = '1';
 		}
 
+		const groupNv = group.rawXml?.['p:nvGrpSpPr'] as XmlObject | undefined;
+		const groupProperties = groupNv?.['p:cNvPr'] as XmlObject | undefined;
 		const grpXml: XmlObject = {
 			'p:nvGrpSpPr': {
-				'p:cNvPr': { '@_id': '0', '@_name': group.id },
+				'p:cNvPr': {
+					'@_id': group.shapeId ?? groupProperties?.['@_id'] ?? '0',
+					'@_name': group.id,
+				},
 				'p:cNvGrpSpPr': {},
 				'p:nvPr': {},
 			},
@@ -518,6 +523,22 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			}
 
 			// Group children with preserved raw XML bypass the ordinary top-level
+			// writer, including its animation-target ID synchronization.
+			if (child.shapeId !== undefined) {
+				for (const key of [
+					'p:nvSpPr',
+					'p:nvPicPr',
+					'p:nvCxnSpPr',
+					'p:nvGrpSpPr',
+					'p:nvGraphicFramePr',
+				]) {
+					const nv = xml[key] as XmlObject | undefined;
+					const properties = nv?.['p:cNvPr'] as XmlObject | undefined;
+					if (properties) properties['@_id'] = child.shapeId;
+				}
+			}
+
+			// Group children with preserved raw XML bypass the ordinary top-level
 			// element writer. Apply model geometry when possible, then recursively
 			// repair any older invalid nested preset values that remain.
 			this.applyGeometryUpdate(xml, child);
@@ -525,8 +546,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 			// Update child transform — coordinates are relative to group
 			const childXfrm = ((xml['p:spPr'] as XmlObject | undefined)?.['a:xfrm'] || xml['p:xfrm']) as
-				| XmlObject
-				| undefined;
+				XmlObject | undefined;
 			if (childXfrm) {
 				if (!childXfrm['a:off']) {
 					childXfrm['a:off'] = {};

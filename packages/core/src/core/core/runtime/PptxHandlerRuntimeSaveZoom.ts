@@ -1,5 +1,6 @@
 import type { XmlObject, ZoomPptxElement } from '../../types';
 import { generateFontGuid } from '../../utils/font-deobfuscation';
+import { createShapeIdAllocator, elementShapeIds } from '../../utils/shape-ids';
 import type { SaveSlideContext } from './PptxHandlerRuntimeSaveElementEmbedding';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeSaveInk';
 
@@ -98,16 +99,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		if (el.shapeId !== undefined) {
 			return;
 		}
-		let max = 1;
-		for (const element of ctx.slide.elements) {
-			if (element !== el && element.shapeId !== undefined) {
-				const numericId = Number.parseInt(element.shapeId, 10);
-				if (Number.isFinite(numericId)) {
-					max = Math.max(max, numericId);
-				}
-			}
-		}
-		el.shapeId = String(max + 1);
+		el.shapeId = createShapeIdAllocator(elementShapeIds(ctx.slide.elements))();
 	}
 
 	protected ensureZoomPreviewRelationship(
@@ -118,11 +110,9 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const slideZoomObject = shape?.['pslz:sldZmObj'] as XmlObject | undefined;
 		const sectionZoomObject = shape?.['psezm:sectionZmObj'] as XmlObject | undefined;
 		const zoomProperties = (slideZoomObject?.['pslz:zmPr'] ?? sectionZoomObject?.['psezm:zmPr']) as
-			| XmlObject
-			| undefined;
+			XmlObject | undefined;
 		const blip = (zoomProperties?.['p166:blipFill'] as XmlObject | undefined)?.['a:blip'] as
-			| XmlObject
-			| undefined;
+			XmlObject | undefined;
 		let relationshipId = String(blip?.['@_r:embed'] ?? '').trim() || undefined;
 		let imagePath = el.imagePath;
 		if (typeof el.imageData === 'string') {

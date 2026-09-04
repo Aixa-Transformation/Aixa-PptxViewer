@@ -1,7 +1,14 @@
 import { XmlObject, PptxSlide } from '../../types';
 import type { OoxmlConformanceClass } from '../../utils';
 import { persistModernCommentPackage } from '../../utils/modern-comment-package';
-import { PptxSaveStateBuilder } from '../builders';
+import { PptxSaveStateBuilder, PptxShapeIdValidator } from '../builders';
+import { canonicalizePlaceholderTypes } from '../../utils/placeholder-validation';
+import {
+	parseShapeId,
+	remapElementShapeIds,
+	remapShapeIdReferences,
+	visitXmlObjects,
+} from '../../utils/shape-ids';
 import { createPptxSaveConstants } from '../factories';
 import type { PptxHandlerSaveOptions } from '../types';
 import { slidesPerPageToPrintOutput } from './pptx-print-properties';
@@ -284,6 +291,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 		const outputFormat = options?.outputFormat ?? 'pptx';
 		await this.applyOutputFormatOverrides(outputFormat);
+		await this.repairStructuralIdsForSave(slides);
 
 		// ── Strict conformance conversion ────────────────────────
 		// If the effective conformance is Strict, we need to convert all
@@ -320,6 +328,69 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		this.dirtyTemplateMasterPaths.clear();
 		this.pendingTemplateBackgroundColors.clear();
 		return output;
+	}
+
+	/** Last export gate also covers untouched slides imported from older broken builds.
+	 * Only rewrite parts needing repair; valid layout/master XML stays byte-identical.
+	 */
+	private async repairStructuralIdsForSave(slides: PptxSlide[]): Promise<void> {
+		const validator = new PptxShapeIdValidator();
+		for (const path of Object.keys(this.zip.files)) {
+			if (
+				!/^ppt\/(slides|slideLayouts|slideMasters|notesSlides|notesMasters|handoutMasters)\/[^/]+\.xml$/.test(
+					path,
+				)
+			)
+				continue;
+			const xml = await this.zip.file(path)?.async('string');
+			if (!xml) continue;
+			const data = this.parser.parse(xml) as XmlObject;
+			let invalid = false;
+			visitXmlObjects(data, (node, tag) => {
+				if (tag === 'p:cNvPr' && parseShapeId(node['@_id'], true) === undefined) invalid = true;
+			});
+			const casingChanges = canonicalizePlaceholderTypes(data);
+			if (!invalid && casingChanges === 0) continue;
+			const repairedIds = new Map<string, string>();
+			if (invalid) {
+				for (const value of Object.values(data)) {
+					const root = value as XmlObject | undefined;
+					const tree = (root?.['p:cSld'] as XmlObject | undefined)?.['p:spTree'] as
+						XmlObject | undefined;
+					if (tree)
+						validator.validateAndDeduplicateIds(
+							tree,
+							(v) => this.ensureArray(v),
+							data,
+							repairedIds,
+						);
+				}
+				// Never hand callers an archive still containing an out-of-range ID.
+				visitXmlObjects(data, (node, tag) => {
+					if (tag === 'p:cNvPr' && parseShapeId(node['@_id'], true) === undefined) {
+						throw new Error(`Cannot export ${path}: invalid shape ID ${String(node['@_id'])}.`);
+					}
+				});
+			}
+			const slide = slides.find((entry) => entry.id === path);
+			if (slide) {
+				remapElementShapeIds(
+					slide.elements.filter((el) => !this.isTemplateElementId(el.id)),
+					repairedIds,
+				);
+				remapShapeIdReferences(slide.rawTiming, repairedIds);
+				for (const control of slide.activeXControls ?? []) {
+					if (control.shapeId)
+						control.shapeId = repairedIds.get(control.shapeId) ?? control.shapeId;
+				}
+				this.slideMap.set(path, data);
+			} else if (this.layoutXmlMap.has(path)) {
+				this.layoutXmlMap.set(path, data);
+			} else if (this.masterXmlMap.has(path)) {
+				this.masterXmlMap.set(path, data);
+			}
+			this.zip.file(path, this.builder.build(data));
+		}
 	}
 
 	/**

@@ -63,7 +63,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		}
 		this.publishMasterCollectors(partPath, spTree, collectors);
 		this.reapplyAlternateContentEnvelopes(spTree, collectors);
-		shapeIdValidator.validateAndDeduplicateIds(spTree, (value) => this.ensureArray(value));
+		shapeIdValidator.validateAndDeduplicateIds(spTree, (value) => this.ensureArray(value), data);
 
 		relsRoot['Relationship'] = relationships;
 		relsData['Relationships'] = relsRoot;
