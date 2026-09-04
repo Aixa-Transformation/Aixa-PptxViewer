@@ -111,6 +111,15 @@ export interface PptxSlideLoaderParams {
 	applyThemeOverrideState: (override: PptxSlideLoaderThemeOverride) => () => void;
 	/** Retrieve parsed layout elements inherited by a slide. */
 	getLayoutElements: (slidePath: string) => Promise<PptxElement[]>;
+	/**
+	 * Build empty prompt placeholders for the layout placeholders a slide omits,
+	 * so the editor shows the same clickable text areas PowerPoint does.
+	 */
+	buildMissingLayoutPlaceholders?: (
+		slidePath: string,
+		slideElements: PptxElement[],
+		layoutPath: string,
+	) => Promise<PptxElement[]>;
 	/** Parse a slide XML object into an array of presentation elements. */
 	parseSlide: (slideXml: XmlObject, slidePath: string) => Promise<PptxElement[]>;
 	/** Extract media timing metadata from a slide's XML. */

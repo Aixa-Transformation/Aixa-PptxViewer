@@ -433,6 +433,8 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			loadThemeOverride: (partBasePath) => this.loadThemeOverride(partBasePath),
 			applyThemeOverrideState: (override) => this.applyThemeOverrideState(override),
 			getLayoutElements: (slidePath) => this.getLayoutElements(slidePath),
+			buildMissingLayoutPlaceholders: (slidePath, slideElements, layoutPath) =>
+				this.buildMissingLayoutPlaceholders(slidePath, slideElements, layoutPath),
 			parseSlide: (slideXml, slidePath) => this.parseSlide(slideXml, slidePath),
 			extractMediaTimingMap: (slideXml, slidePath) =>
 				this.extractMediaTimingMap(slideXml, slidePath),

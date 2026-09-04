@@ -335,77 +335,60 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		return undefined;
 	}
 
-	protected async getLayoutBackgroundImage(slidePath: string): Promise<string | undefined> {
-		const slideRels = this.slideRelsMap.get(slidePath);
-		if (!slideRels) {
+	protected async getLayoutBackgroundImage(
+		slidePath: string,
+		layoutPathOverride?: string,
+	): Promise<string | undefined> {
+		const layoutPath = layoutPathOverride ?? this.resolveLayoutPathForSlide(slidePath);
+		if (!layoutPath) {
 			return undefined;
 		}
 
-		for (const [, target] of slideRels.entries()) {
-			if (target.includes('slideLayout')) {
-				const slideDir = slidePath.substring(0, slidePath.lastIndexOf('/') + 1);
-				const layoutPath = target.startsWith('/')
-					? target.substring(1)
-					: target.startsWith('..')
-						? this.resolvePath(slideDir, target)
-						: `ppt/${stripParentDirSegments(target)}`;
-
-				try {
-					const layoutXmlObj = await this.resolveCachedLayoutXml(layoutPath);
-					if (layoutXmlObj) {
-						// We need to load layout rels to resolve images
-						const layoutRelsPath = `${layoutPath.replace('slideLayouts/', 'slideLayouts/_rels/')}.rels`;
-						await this.loadSlideRelationships(layoutPath, layoutRelsPath);
-
-						const bg = this.extractBackgroundImage(layoutXmlObj, layoutPath, 'p:sldLayout');
-
-						if (bg) {
-							return bg;
-						}
-
-						// Fallback to Master
-						return this.getMasterBackgroundImage(layoutPath);
-					}
-				} catch {
-					// Ignore
-				}
-				break;
+		try {
+			const layoutXmlObj = await this.resolveCachedLayoutXml(layoutPath);
+			if (!layoutXmlObj) {
+				return undefined;
 			}
+			// We need to load layout rels to resolve images
+			const layoutRelsPath = `${layoutPath.replace('slideLayouts/', 'slideLayouts/_rels/')}.rels`;
+			await this.loadSlideRelationships(layoutPath, layoutRelsPath);
+
+			const bg = this.extractBackgroundImage(layoutXmlObj, layoutPath, 'p:sldLayout');
+			if (bg) {
+				return bg;
+			}
+
+			// Fallback to Master
+			return this.getMasterBackgroundImage(layoutPath);
+		} catch {
+			// Ignore
 		}
 		return undefined;
 	}
 
-	protected async getLayoutBackgroundColor(slidePath: string): Promise<string | undefined> {
-		const slideRels = this.slideRelsMap.get(slidePath);
-		if (!slideRels) {
+	protected async getLayoutBackgroundColor(
+		slidePath: string,
+		layoutPathOverride?: string,
+	): Promise<string | undefined> {
+		const layoutPath = layoutPathOverride ?? this.resolveLayoutPathForSlide(slidePath);
+		if (!layoutPath) {
 			return undefined;
 		}
 
-		for (const [, target] of slideRels.entries()) {
-			if (target.includes('slideLayout')) {
-				const slideDir = slidePath.substring(0, slidePath.lastIndexOf('/') + 1);
-				const layoutPath = target.startsWith('/')
-					? target.substring(1)
-					: target.startsWith('..')
-						? this.resolvePath(slideDir, target)
-						: `ppt/${stripParentDirSegments(target)}`;
-
-				try {
-					const layoutXmlObj = await this.resolveCachedLayoutXml(layoutPath);
-					if (layoutXmlObj) {
-						const layoutBg = this.extractBackgroundColor(layoutXmlObj, 'p:sldLayout');
-						if (layoutBg) {
-							return layoutBg;
-						}
-
-						// Fallback to master background colour
-						return this.getMasterBackgroundColor(layoutPath);
-					}
-				} catch {
-					// Ignore
-				}
-				break;
+		try {
+			const layoutXmlObj = await this.resolveCachedLayoutXml(layoutPath);
+			if (!layoutXmlObj) {
+				return undefined;
 			}
+			const layoutBg = this.extractBackgroundColor(layoutXmlObj, 'p:sldLayout');
+			if (layoutBg) {
+				return layoutBg;
+			}
+
+			// Fallback to master background colour
+			return this.getMasterBackgroundColor(layoutPath);
+		} catch {
+			// Ignore
 		}
 		return undefined;
 	}

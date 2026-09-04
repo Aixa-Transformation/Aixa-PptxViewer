@@ -4,6 +4,7 @@ import { cloneXmlObject } from '../../utils/clone-utils';
 import { xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeTextEditing';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
+import { isEmptyGeneratedPlaceholder, markGeneratedPlaceholder } from './transient-placeholder';
 
 /**
  * Layout-switching helpers for the PptxHandlerRuntime mixin chain.
@@ -258,11 +259,11 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		for (const element of elements) {
 			const metadata = element as PptxElement & {
 				_layoutSwitchOriginal?: PptxElement;
-				_layoutSwitchGenerated?: boolean;
 			};
-			// Empty placeholders created by a previous layout are transient. Keeping
-			// them on the next switch duplicates boxes and causes visible overlap.
-			if (metadata._layoutSwitchGenerated) continue;
+			// Placeholders generated for a previous layout are transient while they
+			// stay empty; keeping them would duplicate boxes on the next switch. Once
+			// the user has typed into one it is ordinary slide content.
+			if (isEmptyGeneratedPlaceholder(element)) continue;
 			// Always remap from the canonical pre-switch element. This makes A -> B
 			// -> A reversible and prevents transforms/placeholder identities from
 			// accumulating across repeated layout selections.
@@ -557,8 +558,74 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				this.defaultPlaceholderPromptText(phInfo.type),
 			rawXml,
 		};
-		(element as PptxElement & { _layoutSwitchGenerated?: boolean })._layoutSwitchGenerated = true;
+		// Lets consumers resolve the theme's major vs minor font for a box that
+		// carries no authored run properties yet.
+		(element as PptxElement & { placeholderType?: string }).placeholderType =
+			phInfo.type ?? 'body';
+		return markGeneratedPlaceholder(element);
+	}
 
-		return element;
+	/**
+	 * Build empty placeholder elements for every placeholder a layout declares
+	 * that the slide itself does not contain.
+	 *
+	 * A `.pptx` only stores the placeholders that were actually filled in, so a
+	 * freshly authored slide has nothing to click into even though its layout
+	 * defines a title and body. PowerPoint shows those as prompt boxes; this
+	 * reproduces them for the load path the same way a layout switch does.
+	 */
+	protected async buildMissingLayoutPlaceholders(
+		slidePath: string,
+		slideElements: PptxElement[],
+		layoutPath: string,
+	): Promise<PptxElement[]> {
+		let layoutXml = this.layoutXmlMap.get(layoutPath);
+		if (!layoutXml) {
+			try {
+				const layoutXmlStr = await this.zip.file(layoutPath)?.async('string');
+				if (!layoutXmlStr) {
+					return [];
+				}
+				layoutXml = this.parser.parse(layoutXmlStr) as XmlObject;
+				this.layoutXmlMap.set(layoutPath, layoutXml);
+			} catch {
+				return [];
+			}
+		}
+
+		const taken = new Set<string>();
+		for (const element of slideElements) {
+			const phInfo = this.getElementPlaceholderInfo(element);
+			if (phInfo) {
+				taken.add(this.buildPlaceholderMatchKey(phInfo));
+			}
+		}
+
+		const skipTypes = new Set(['dt', 'ftr', 'sldnum', 'hdr']);
+		const generated: PptxElement[] = [];
+		for (const lp of this.extractLayoutPlaceholders(layoutXml, layoutPath)) {
+			if (lp.phInfo.type && skipTypes.has(lp.phInfo.type)) {
+				continue;
+			}
+			const key = this.buildPlaceholderMatchKey(lp.phInfo);
+			if (taken.has(key)) {
+				continue;
+			}
+			taken.add(key);
+			const element = this.createEmptyPlaceholderElement(
+				lp.phInfo,
+				lp.xEmu,
+				lp.yEmu,
+				lp.cxEmu,
+				lp.cyEmu,
+				layoutPath,
+				lp.shapeXml,
+			);
+			if (element) {
+				element.id = `${slidePath}-ph-${key}`;
+				generated.push(element);
+			}
+		}
+		return generated;
 	}
 }

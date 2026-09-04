@@ -209,14 +209,21 @@ export function SlidesGroup(p: SlidesGroupProps): React.ReactElement {
 											<button
 												key={lo.path}
 												type='button'
+												// Re-applying the active layout rebuilds the slide's
+												// placeholders and background for no gain, so it is inert.
+												disabled={isActive}
 												aria-current={isActive ? 'true' : undefined}
+												title={isActive ? t('pptx.master.layout') : lo.name}
 												className={cn(
-													'relative flex min-w-0 flex-col items-center gap-1 rounded border-[3px] p-1 text-xs text-foreground transition-colors hover:bg-muted',
+													'relative flex min-w-0 flex-col items-center gap-1 rounded border-[3px] p-1 text-xs text-foreground transition-colors',
 													isActive
-														? 'border-blue-600 bg-blue-50 shadow-[0_0_0_2px_rgba(37,99,235,0.25)] dark:bg-blue-950/40'
-														: 'border-transparent',
+														? 'cursor-default border-blue-600 bg-blue-50 shadow-[0_0_0_2px_rgba(37,99,235,0.25)] dark:bg-blue-950/40'
+														: 'border-transparent hover:bg-muted',
 												)}
 												onClick={() => {
+													if (isActive) {
+														return;
+													}
 													p.onApplyLayout?.(lo.path);
 													setLayoutMenuOpen(false);
 												}}

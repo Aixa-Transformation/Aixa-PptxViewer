@@ -54,8 +54,8 @@ export function extractFontInfo(
 	themeFonts?: { heading?: string; body?: string },
 	liveAutoFitFontScale?: number | null,
 ): { fontFamily: string; fontSize: string } {
-	const placeholderType = (element as { placeholderType?: string } | null | undefined)?.placeholderType;
-	const isHeading = placeholderType === 'title' || placeholderType === 'ctrTitle';
+	const placeholderType = (element as { placeholderType?: string } | null | undefined)?.placeholderType?.toLowerCase();
+	const isHeading = placeholderType === 'title' || placeholderType === 'ctrtitle';
 	const defaultFontFamily =
 		(isHeading ? themeFonts?.heading : themeFonts?.body) ??
 		themeFonts?.body ??

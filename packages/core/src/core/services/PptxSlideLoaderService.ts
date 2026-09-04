@@ -206,7 +206,17 @@ export class PptxSlideLoaderService implements IPptxSlideLoaderService {
 			]);
 
 			// Merge layout elements (behind) with slide elements (on top)
-			const elements = [...layoutElements, ...slideElements];
+			// A slide only stores the placeholders that were filled in, so the ones
+			// it omits are rebuilt from the layout as empty prompt boxes.
+			const missingPlaceholders =
+				layoutPathForOverride && params.buildMissingLayoutPlaceholders
+					? await params.buildMissingLayoutPlaceholders(
+							path,
+							slideElements,
+							layoutPathForOverride,
+						)
+					: [];
+			const elements = [...layoutElements, ...slideElements, ...missingPlaceholders];
 			const slideRoot = slideXmlObj['p:sld'] as XmlObject | undefined;
 			const commonSlideData = slideRoot?.['p:cSld'] as XmlObject | undefined;
 			const hasOwnBackground =

@@ -6,37 +6,29 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	/**
 	 * Retrieve the background gradient from a layout, falling back to master.
 	 */
-	protected async getLayoutBackgroundGradient(slidePath: string): Promise<string | undefined> {
-		const slideRels = this.slideRelsMap.get(slidePath);
-		if (!slideRels) {
+	protected async getLayoutBackgroundGradient(
+		slidePath: string,
+		layoutPathOverride?: string,
+	): Promise<string | undefined> {
+		const layoutPath = layoutPathOverride ?? this.resolveLayoutPathForSlide(slidePath);
+		if (!layoutPath) {
 			return undefined;
 		}
 
-		for (const [, target] of slideRels.entries()) {
-			if (target.includes('slideLayout')) {
-				const slideDir = slidePath.substring(0, slidePath.lastIndexOf('/') + 1);
-				const layoutPath = target.startsWith('/')
-					? target.substring(1)
-					: target.startsWith('..')
-						? this.resolvePath(slideDir, target)
-						: `ppt/${stripParentDirSegments(target)}`;
-
-				try {
-					const layoutXmlObj = await this.resolveCachedLayoutXml(layoutPath);
-					if (layoutXmlObj) {
-						const layoutGrad = this.extractBackgroundGradient(layoutXmlObj, 'p:sldLayout');
-						if (layoutGrad) {
-							return layoutGrad;
-						}
-
-						// Fallback to master
-						return this.getMasterBackgroundGradient(layoutPath);
-					}
-				} catch {
-					// Ignore
-				}
-				break;
+		try {
+			const layoutXmlObj = await this.resolveCachedLayoutXml(layoutPath);
+			if (!layoutXmlObj) {
+				return undefined;
 			}
+			const layoutGrad = this.extractBackgroundGradient(layoutXmlObj, 'p:sldLayout');
+			if (layoutGrad) {
+				return layoutGrad;
+			}
+
+			// Fallback to master
+			return this.getMasterBackgroundGradient(layoutPath);
+		} catch {
+			// Ignore
 		}
 		return undefined;
 	}

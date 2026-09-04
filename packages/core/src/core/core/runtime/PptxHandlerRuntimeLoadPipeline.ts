@@ -634,8 +634,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			String((sldLayout?.['p:cSld'] as XmlObject | undefined)?.['@_name'] || '').trim() ||
 			layoutPath;
 
-		// Try to resolve background from the new layout
-		const layoutBgColor = this.extractBackgroundColor(layoutXml, 'p:sldLayout');
+		// Try to resolve background from the new layout, falling back to its
+		// master exactly as the initial load does.
+		const layoutBgColor =
+			this.extractBackgroundColor(layoutXml, 'p:sldLayout') ??
+			(await this.getLayoutBackgroundColor(slidePath, layoutPath));
+		const layoutBgGradient = await this.getLayoutBackgroundGradient(slidePath, layoutPath);
+		const layoutBgImage = await this.getLayoutBackgroundImage(slidePath, layoutPath);
 
 		// ── 5. Update the slide object ──────────────────────────────────
 		const updated: PptxSlide = {
@@ -646,11 +651,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			isDirty: true,
 		};
 
-		// Apply layout background if slide doesn't have its own
+		// Only a slide that has no `p:bg` of its own inherits from the layout, and
+		// then all three background facets have to move together: keeping the old
+		// layout's picture or gradient under the new layout's colour is what made
+		// re-applying a layout look like the background had been wiped.
 		if (!slide.rawXml || !this.extractBackgroundColor(slide.rawXml)) {
-			if (layoutBgColor) {
-				updated.backgroundColor = layoutBgColor;
-			}
+			updated.backgroundColor = layoutBgColor ?? slide.backgroundColor;
+			updated.backgroundGradient = layoutBgGradient;
+			updated.backgroundImage = layoutBgImage;
+			updated.backgroundSource = 'inherited';
 		}
 
 		slides[slideIndex] = updated;

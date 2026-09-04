@@ -17,6 +17,7 @@ import {
 	ensureMathNamespaceOnSlideRoot,
 	slideContainsMathElement,
 } from './table-structural-ops';
+import { isEmptyGeneratedPlaceholder } from './transient-placeholder';
 
 const shapeIdValidator = new PptxShapeIdValidator();
 
@@ -282,6 +283,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		};
 
 		slide.elements.forEach((el) => {
+			// Placeholders the loader materialised from the layout are editor
+			// affordances; writing the untouched ones back would add empty shapes
+			// the source deck never had.
+			if (isEmptyGeneratedPlaceholder(el)) {
+				return;
+			}
 			this.processSlideElement(el, collectors, ctx);
 		});
 
