@@ -23,6 +23,24 @@ distributed package for licensing and attribution details.
 - `packages/core`: Framework-independent PPTX engine
 - `packages/shared`: Internal logic shared by viewer packages
 
+## Build a local package archive
+
+With dependencies installed, run from the repository root:
+
+```sh
+npm run pack:tgz
+```
+
+This builds the core, shared, and React packages, then creates
+`aixa-transformation-pptx-viewer-<version>.tgz` in the repository root. The version
+comes from `packages/react/package.json`; it is not incremented automatically.
+Rebuilding the same version replaces its existing archive. Nothing is published
+to npm, and a failed build stops packaging.
+
+From `packages/react`, `npm run pack` runs the same workflow. The final pack step
+skips lifecycle scripts because the build has already run, avoiding an extra
+`prepack` build.
+
 ## License
 
 Licensed under the Apache License 2.0. See the package-level `LICENSE` and

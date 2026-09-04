@@ -19,6 +19,7 @@
     "packages/react"
   ],
   "scripts": {
-    "build": "npm run build --workspace pptx-viewer-core && npm run build --workspace pptx-viewer-shared && npm run build --workspace @aixa-transformation/pptx-viewer"
+    "build": "npm run build --workspace pptx-viewer-core && npm run build --workspace pptx-viewer-shared && npm run build --workspace @aixa-transformation/pptx-viewer",
+    "pack:tgz": "npm run build && npm pack --workspace @aixa-transformation/pptx-viewer --ignore-scripts --pack-destination ."
   }
 }

@@ -80,7 +80,7 @@
 		"typecheck": "tsc --noEmit --pretty",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"pack": "bun run build && bun pm pack"
+		"pack": "npm --prefix ../.. run pack:tgz"
 	},
 	"dependencies": {
 		"clsx": "^2.1.1",
