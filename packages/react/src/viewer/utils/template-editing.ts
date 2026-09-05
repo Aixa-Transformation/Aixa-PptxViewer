@@ -16,7 +16,12 @@
  *
  * @module utils/template-editing
  */
-import type { PptxElement, PptxSlide } from 'pptx-viewer-core';
+import {
+	isBackgroundPreservedArtwork,
+	isBackgroundOverridePlaceholder,
+	type PptxElement,
+	type PptxSlide,
+} from 'pptx-viewer-core';
 import { isTemplateElement } from 'pptx-viewer-shared';
 
 // The clone-id builder (template-prefix aware paste/duplicate ids) moved to
@@ -47,11 +52,30 @@ export function partitionTemplateElements(slides: PptxSlide[]): TemplatePartitio
 	const templateElementsBySlideId: Record<string, PptxElement[]> = {};
 	const nextSlides = slides.map((slide) => {
 		const template = slide.elements.filter((el) => isTemplateElement(el));
-		if (template.length === 0) {
+		const hasInternalBackgroundArtwork = slide.elements.some(
+			(el) => isBackgroundOverridePlaceholder(el) || isBackgroundPreservedArtwork(el),
+		);
+		if (template.length === 0 && !hasInternalBackgroundArtwork) {
 			return slide;
 		}
-		templateElementsBySlideId[slide.id] = template;
-		return { ...slide, elements: slide.elements.filter((el) => !isTemplateElement(el)) };
+		if (template.length > 0) templateElementsBySlideId[slide.id] = template;
+		return {
+			...slide,
+			// The PPTX writer may set showMasterSp=0 internally to suppress a
+			// full-canvas layout picture, then preserve the visible logo/artwork as
+			// slide-owned shapes. Present that as "graphics shown" in the editor;
+			// otherwise the restored checkbox would appear checked even though the
+			// preserved logo is visibly present.
+			...(slide.elements.some((el) => isBackgroundPreservedArtwork(el))
+				? { showMasterShapes: true }
+				: {}),
+			elements: slide.elements.filter(
+				(el) =>
+					!isTemplateElement(el) &&
+					!isBackgroundOverridePlaceholder(el) &&
+					!isBackgroundPreservedArtwork(el),
+			),
+		};
 	});
 	return { slides: nextSlides, templateElementsBySlideId };
 }

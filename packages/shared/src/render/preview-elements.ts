@@ -1,4 +1,8 @@
-import type { PptxElement, PptxSlide } from 'pptx-viewer-core';
+import {
+	isFullSlidePicturePlaceholder,
+	type PptxElement,
+	type PptxSlide,
+} from 'pptx-viewer-core';
 
 /**
  * Composition helper for slide previews and sidebar thumbnails.
@@ -26,6 +30,27 @@ export interface BuildPreviewElementsOptions {
 }
 
 /**
+ * Resolve the template layer shown for a slide. An explicit slide background
+ * replaces the inherited background itself, so master/layout graphics remain
+ * visible above it (including logos). Without an override, the native PPTX
+ * showMasterShapes flag is honoured as usual.
+ */
+export function getVisibleTemplateElements(
+	slide: PptxSlide | undefined,
+	templateElements: readonly PptxElement[] = [],
+): readonly PptxElement[] {
+	const hasExplicitBackground =
+		slide?.backgroundSource === 'slide' ||
+		(slide?.backgroundSource === undefined &&
+			Boolean(slide?.backgroundColor || slide?.backgroundImage || slide?.backgroundGradient));
+	if (slide?.showMasterShapes === false) return [];
+	if (hasExplicitBackground) {
+		return templateElements.filter((element) => !isFullSlidePicturePlaceholder(element));
+	}
+	return templateElements;
+}
+
+/**
  * Ordered, capped element list for a slide preview/thumbnail. Inherited
  * template (layout/master) elements come first so slide-owned elements paint
  * on top, matching {@link import('./template-editing').buildSaveSlides}.
@@ -36,8 +61,19 @@ export function buildPreviewElements(
 	options?: BuildPreviewElementsOptions,
 ): PptxElement[] {
 	const cap = options?.cap ?? DEFAULT_PREVIEW_ELEMENT_CAP;
-	const inherited = slide.showMasterShapes === false ? [] : templateElements;
-	const merged = [...inherited, ...slide.elements];
+	const inherited = getVisibleTemplateElements(slide, templateElements);
+	const hasExplicitBackground =
+		slide.backgroundSource === 'slide' ||
+		(slide.backgroundSource === undefined &&
+			Boolean(slide.backgroundColor || slide.backgroundImage || slide.backgroundGradient));
+	const slideOwned = hasExplicitBackground
+		? slide.elements.filter(
+				(element) =>
+					!element.id.startsWith('slide-layout-artwork-') ||
+					!isFullSlidePicturePlaceholder(element),
+			)
+		: slide.elements;
+	const merged = [...inherited, ...slideOwned];
 	if (cap > 0 && merged.length > cap) {
 		return merged.slice(0, cap);
 	}

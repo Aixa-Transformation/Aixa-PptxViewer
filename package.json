@@ -1,6 +1,6 @@
 {
   "name": "@aixa-transformation/pptx-viewer-workspace",
-	"version": "2.0.80",
+	"version": "2.0.83",
   "description": "Aixa Ltd PowerPoint viewer and editor monorepo.",
   "private": true,
   "license": "Apache-2.0",
@@ -19,7 +19,7 @@
     "packages/react"
   ],
   "scripts": {
-    "build": "npm run build --workspace pptx-viewer-core && npm run build --workspace pptx-viewer-shared && npm run build --workspace @aixa-transformation/pptx-viewer",
-    "pack:tgz": "npm run build && npm pack --workspace @aixa-transformation/pptx-viewer --ignore-scripts --pack-destination ."
+    "build": "bun run --cwd packages/core build && bun run --cwd packages/shared build && bun run --cwd packages/react build:bundle",
+    "pack:tgz": "bun run build && npm pack --workspace @aixa-transformation/pptx-viewer --ignore-scripts --pack-destination ."
   }
 }

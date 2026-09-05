@@ -16,7 +16,7 @@ describe('getDeckBackgroundPatch', () => {
 			backgroundImage: 'data:image/png;base64,AAAA',
 			backgroundGradient: undefined,
 			backgroundSource: 'slide',
-			showMasterShapes: undefined,
+			showMasterShapes: true,
 		});
 	});
 
@@ -32,7 +32,7 @@ describe('getDeckBackgroundPatch', () => {
 			backgroundImage: '',
 			backgroundGradient: undefined,
 			backgroundSource: 'slide',
-			showMasterShapes: undefined,
+			showMasterShapes: true,
 		});
 	});
 
@@ -44,5 +44,17 @@ describe('getDeckBackgroundPatch', () => {
 			backgroundSource: 'inherited',
 			showMasterShapes: false,
 		});
+	});
+
+	it('retains an explicit hide-background-graphics choice with a slide background', () => {
+		expect(
+			getDeckBackgroundPatch({
+				id: 's',
+				elements: [],
+				backgroundColor: '#AABBCC',
+				backgroundSource: 'slide',
+				showMasterShapes: false,
+			}),
+		).toMatchObject({ backgroundSource: 'slide', showMasterShapes: false });
 	});
 });

@@ -41,6 +41,82 @@ describe('buildPreviewElements', () => {
 		expect(result.map((e) => e.id)).toStrictEqual(['s1']);
 	});
 
+	it('honours hide-background-graphics even when a slide has an explicit background', () => {
+		const slide = {
+			...makeSlide([makeElement('s1')]),
+			showMasterShapes: false,
+			backgroundSource: 'slide',
+			backgroundImage: 'data:image/png;base64,AAAA',
+		};
+		const backgroundPlaceholder = {
+			...makeElement('background'),
+			type: 'shape',
+			x: 0,
+			y: 0,
+			width: 1280,
+			height: 720,
+			placeholderType: 'pic',
+		} as PptxElement;
+		const result = buildPreviewElements(slide, [backgroundPlaceholder, makeElement('logo')]);
+		expect(result.map((e) => e.id)).toStrictEqual(['s1']);
+	});
+
+	it('removes a materialised full-slide layout picture binding above a slide background', () => {
+		const generatedBackground = {
+			...makeElement('slide-layout-artwork-pic-13-1'),
+			type: 'shape',
+			x: 0,
+			y: 0,
+			width: 1280,
+			height: 720,
+			placeholderType: 'pic',
+		} as PptxElement;
+		const slide = {
+			...makeSlide([generatedBackground, makeElement('s1')]),
+			backgroundSource: 'slide' as const,
+			backgroundColor: '#FFD400',
+		};
+		expect(buildPreviewElements(slide).map((e) => e.id)).toStrictEqual(['s1']);
+	});
+
+	it('removes an ordinary full-slide layout picture above an explicit background', () => {
+		const layoutBackground = {
+			...makeElement('layout-background-picture'),
+			type: 'picture',
+			x: 0,
+			y: 0,
+			width: 1280,
+			height: 720,
+		} as PptxElement;
+		const slide = {
+			...makeSlide([makeElement('s1')]),
+			backgroundSource: 'slide' as const,
+			backgroundColor: '#FFD400',
+		};
+		expect(buildPreviewElements(slide, [layoutBackground]).map((e) => e.id)).toStrictEqual([
+			's1',
+		]);
+	});
+
+	it('keeps partial picture placeholders available with a slide background', () => {
+		const slide = {
+			...makeSlide([makeElement('s1')]),
+			backgroundSource: 'slide' as const,
+			backgroundColor: '#FFFFFF',
+		};
+		const picturePlaceholder = {
+			...makeElement('picture-slot'),
+			type: 'shape',
+			x: 700,
+			y: 40,
+			width: 500,
+			height: 600,
+			placeholderType: 'pic',
+		} as PptxElement;
+		const result = buildPreviewElements(slide, [picturePlaceholder]);
+		expect(result.map((e) => e.id)).toStrictEqual(['picture-slot', 's1']);
+	});
+
 	it('does not mutate the slide element array', () => {
 		const owned = [makeElement('s1')];
 		const slide = makeSlide(owned);

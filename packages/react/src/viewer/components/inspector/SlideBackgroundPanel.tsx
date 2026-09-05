@@ -33,7 +33,16 @@ export type SlideBackgroundPatch = Pick<
 	| 'showMasterShapes'
 >;
 
+function hasExplicitSlideBackground(slide: PptxSlide): boolean {
+	return (
+		slide.backgroundSource === 'slide' ||
+		(slide.backgroundSource === undefined &&
+			Boolean(slide.backgroundColor || slide.backgroundImage || slide.backgroundGradient))
+	);
+}
+
 export function getDeckBackgroundPatch(activeSlide: PptxSlide): SlideBackgroundPatch {
+	const hasExplicitBackground = hasExplicitSlideBackground(activeSlide);
 	return {
 		backgroundColor: activeSlide.backgroundColor,
 		// An empty string is an intentional image removal. It lets the PPTX
@@ -45,7 +54,9 @@ export function getDeckBackgroundPatch(activeSlide: PptxSlide): SlideBackgroundP
 			activeSlide.backgroundColor || activeSlide.backgroundImage || activeSlide.backgroundGradient
 				? 'slide'
 				: 'inherited',
-		showMasterShapes: activeSlide.showMasterShapes,
+		// New background overrides default to retaining template artwork, but an
+		// explicit choice in the visible "Hide background graphics" control wins.
+		showMasterShapes: activeSlide.showMasterShapes ?? (hasExplicitBackground ? true : undefined),
 	};
 }
 
@@ -85,6 +96,7 @@ export function SlideBackgroundPanel({
 								backgroundImage: '',
 								backgroundGradient: undefined,
 								backgroundSource: 'slide',
+								showMasterShapes: true,
 							})
 						}
 					/>
@@ -111,11 +123,12 @@ export function SlideBackgroundPanel({
 								const reader = new FileReader();
 								reader.onload = () => {
 									if (typeof reader.result === 'string') {
-										onUpdateSlide({
-											backgroundImage: reader.result,
-											backgroundGradient: undefined,
-											backgroundSource: 'slide',
-										});
+									onUpdateSlide({
+										backgroundImage: reader.result,
+										backgroundGradient: undefined,
+										backgroundSource: 'slide',
+										showMasterShapes: true,
+									});
 									}
 								};
 								reader.readAsDataURL(file);

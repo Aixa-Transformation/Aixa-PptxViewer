@@ -35,7 +35,7 @@ async function click(container: HTMLElement, text: string) {
 }
 
 describe('appearance Apply buttons', () => {
-	it('background applies current/all, including image and graphics visibility, without editing masters', async () => {
+	it('background applies current/all and keeps the background-graphics control visible', async () => {
 		const apply = vi.fn();
 		const master = vi.fn();
 		const update = vi.fn();
@@ -53,6 +53,7 @@ describe('appearance Apply buttons', () => {
 				onSetTemplateBackground={master}
 			/>,
 		);
+		expect(panel.textContent).toContain('Hide background graphics');
 		await click(panel, 'Apply to Current Slide');
 		expect(apply).toHaveBeenLastCalledWith(
 			expect.objectContaining({

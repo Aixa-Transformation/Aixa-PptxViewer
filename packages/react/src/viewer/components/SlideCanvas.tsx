@@ -1,4 +1,5 @@
 import { getShapeAdjustmentHandleDescriptor } from '../utils';
+import { getVisibleTemplateElements } from 'pptx-viewer-shared';
 import { getReactSlideBackgroundStyle } from '../utils/slide-background-style';
 /** SlideCanvas: Central canvas area for the PowerPoint editor. */
 import type { SlideCanvasProps } from './canvas/canvas-types';
@@ -116,7 +117,7 @@ export function SlideCanvas({
 	// finger gestures manipulate elements instead of scrolling the page.
 	const isEditableCanvas = (mode === 'edit' || mode === 'master') && canEdit;
 	const hasEditableForegroundElements = (activeSlide?.elements.length ?? 0) > 1;
-	const visibleTemplateElements = activeSlide?.showMasterShapes === false ? [] : templateElements;
+	const visibleTemplateElements = getVisibleTemplateElements(activeSlide, templateElements);
 
 	/* ── Stable callback refs ──────────────────────────────────────── */
 	const {

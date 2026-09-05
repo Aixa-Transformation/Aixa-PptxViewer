@@ -1,5 +1,5 @@
 import { remapEditorAnimationsToShapeIds } from '../../services';
-import { XmlObject, PptxComment, PptxSlide } from '../../types';
+import { XmlObject, PptxComment, PptxElement, PptxSlide } from '../../types';
 import type { MediaPptxElement } from '../../types';
 import type { AlternateContentBlock } from '../../utils';
 import { applyActiveXControlsToSlide, SHAPE_TREE_ELEMENT_TAGS } from '../../utils';
@@ -12,6 +12,12 @@ import {
 } from '../../services/slide-transition-xml';
 import { canonicalizePlaceholderTypes } from '../../utils/placeholder-validation';
 import { remapElementShapeIds, remapShapeIdReferences } from '../../utils/shape-ids';
+import {
+	createBackgroundPreservedArtwork,
+	isBackgroundPreservedArtwork,
+	isBackgroundOverridePlaceholder,
+	isFullSlidePicturePlaceholder,
+} from '../../utils/background-override-placeholder';
 import { PptxSlideRelationshipRegistry, PptxShapeIdValidator } from '../builders';
 import type { PptxSaveState, IPptxSlideRelationshipRegistry } from '../builders';
 import type { PptxSaveConstants } from '../factories';
@@ -29,6 +35,29 @@ import {
 } from './transient-placeholder';
 
 const shapeIdValidator = new PptxShapeIdValidator();
+
+function rewriteEmbeddedImageRelationshipIds(
+	node: unknown,
+	relationshipId: string,
+	parentKey = '',
+): void {
+	if (Array.isArray(node)) {
+		for (const child of node) {
+			rewriteEmbeddedImageRelationshipIds(child, relationshipId, parentKey);
+		}
+		return;
+	}
+	if (!node || typeof node !== 'object') return;
+	const objectNode = node as XmlObject;
+	if (parentKey === 'a:blip' || parentKey === 'asvg:svgBlip') {
+		objectNode['@_r:embed'] = relationshipId;
+	}
+	for (const [key, child] of Object.entries(objectNode)) {
+		if (child && typeof child === 'object') {
+			rewriteEmbeddedImageRelationshipIds(child, relationshipId, key);
+		}
+	}
+}
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	protected resolveModernCommentAuthorId(comment: PptxComment): string {
@@ -102,13 +131,36 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		} else {
 			delete slideNode['@_show'];
 		}
-		if (slide.showMasterShapes === false) {
+		const hasExplicitBackground =
+			slide.backgroundSource === 'slide' ||
+			(slide.backgroundSource === undefined &&
+				Boolean(slide.backgroundColor || slide.backgroundImage || slide.backgroundGradient));
+		const hasFullSlideTemplateOverlay = slide.elements.some(
+			(element) =>
+				(this.isTemplateElementId(element.id) ||
+					element.id.startsWith('slide-layout-artwork-')) &&
+				isFullSlidePicturePlaceholder(element),
+		);
+		const isolateBackgroundFromTemplate =
+			hasExplicitBackground && hasFullSlideTemplateOverlay && slide.showMasterShapes !== false;
+		const effectiveShowMasterShapes = slide.showMasterShapes === false
+			? false
+			: isolateBackgroundFromTemplate
+				? false
+				: hasExplicitBackground
+				? true
+				: slide.showMasterShapes;
+		if (effectiveShowMasterShapes === false) {
 			slideNode['@_showMasterSp'] = '0';
-		} else if (slide.showMasterShapes === true) {
+		} else if (effectiveShowMasterShapes === true) {
 			slideNode['@_showMasterSp'] = '1';
 		} else {
 			delete slideNode['@_showMasterSp'];
 		}
+		const slideElementsToSave = slide.elements.filter(
+			(element) =>
+				!isBackgroundOverridePlaceholder(element) && !isBackgroundPreservedArtwork(element),
+		);
 		slideNode['p:clrMapOvr'] = buildClrMapOverrideXml(slide.clrMapOverride);
 
 		if (slide.transition !== undefined) {
@@ -131,7 +183,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const shapeIdAnimations =
 			slide.animations !== undefined
 				? remapEditorAnimationsToShapeIds(
-						slide.elements,
+						slideElementsToSave,
 						slide.animations,
 						this.maxCnvPrId(this.ensureSlideTree(xmlObj)),
 					)
@@ -146,14 +198,14 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				slide.rawTiming,
 			);
 			if (generatedTiming) {
-				this.applyMediaTimingToRawTiming(generatedTiming, slide.elements);
+				this.applyMediaTimingToRawTiming(generatedTiming, slideElementsToSave);
 				slideNode['p:timing'] = generatedTiming;
 			} else if (slide.rawTiming) {
-				this.applyMediaTimingToRawTiming(slide.rawTiming, slide.elements);
+				this.applyMediaTimingToRawTiming(slide.rawTiming, slideElementsToSave);
 				slideNode['p:timing'] = slide.rawTiming;
 			}
 		} else if (slide.rawTiming) {
-			this.applyMediaTimingToRawTiming(slide.rawTiming, slide.elements);
+			this.applyMediaTimingToRawTiming(slide.rawTiming, slideElementsToSave);
 			slideNode['p:timing'] = slide.rawTiming;
 		}
 		xmlObj['p:sld'] = slideNode;
@@ -248,7 +300,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 		// Pre-resolve non-data-URL media sources
 		const resolvedMediaBytes = new Map<string, { bytes: Uint8Array; extension: string }>();
-		for (const el of slide.elements) {
+		for (const el of slideElementsToSave) {
 			if (el.type !== 'media') {
 				continue;
 			}
@@ -294,12 +346,47 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			slideAudioRelationshipType: constants.slideAudioRelationshipType,
 		};
 
-		slide.elements.forEach((el) => {
+		slideElementsToSave.forEach((el) => {
 			// Placeholders the loader materialised from the layout are editor
 			// affordances; writing the untouched ones back would add empty shapes
 			// the source deck never had.
 			if (isEmptyGeneratedPlaceholder(el) && !shouldPersistGeneratedPlaceholder(el)) {
 				return;
+			}
+			if (isolateBackgroundFromTemplate) {
+				const isGeneratedLayoutArtwork = el.id.startsWith('slide-layout-artwork-');
+				if (
+					(this.isTemplateElementId(el.id) || isGeneratedLayoutArtwork) &&
+					isFullSlidePicturePlaceholder(el)
+				) {
+					// PowerPoint renders the layout's own fill even when a matching
+					// slide placeholder has no fill. Hide template graphics for this
+					// slide and omit the materialised full-slide binding altogether.
+					if (this.isTemplateElementId(el.id)) {
+						this.processSlideElement(el, collectors, ctx);
+					}
+					return;
+				}
+				if (this.isTemplateElementId(el.id)) {
+					// `showMasterSp=0` also hides the layout/master logo. Preserve all
+					// remaining artwork as ordinary slide-owned shapes while keeping
+					// the selected layout relationship unchanged.
+					const preserved = createBackgroundPreservedArtwork(el) as PptxElement & {
+						imagePath?: string;
+						svgPath?: string;
+					};
+					const mediaPath = preserved.svgPath || preserved.imagePath;
+					if (mediaPath && preserved.rawXml) {
+						const relationshipId = slideRelationshipRegistry.nextRelationshipId();
+						slideRelationshipRegistry.upsertRelationship(
+							relationshipId,
+							constants.slideImageRelationshipType,
+							mediaPath.replace(/^ppt\//u, '../'),
+						);
+						rewriteEmbeddedImageRelationshipIds(preserved.rawXml, relationshipId);
+					}
+					this.processSlideElement(preserved, collectors, ctx);
+				}
 			}
 			this.processSlideElement(el, collectors, ctx);
 		});
@@ -355,7 +442,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			repairedIds,
 		);
 		remapElementShapeIds(
-			slide.elements.filter((el) => !this.isTemplateElementId(el.id)),
+			slideElementsToSave.filter((el) => !this.isTemplateElementId(el.id)),
 			repairedIds,
 		);
 		remapShapeIdReferences(slide.rawTiming, repairedIds);

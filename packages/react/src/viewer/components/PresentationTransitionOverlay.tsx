@@ -1,4 +1,5 @@
 import type { PptxElement, PptxSlide, PptxSlideTransition } from 'pptx-viewer-core';
+import { getVisibleTemplateElements } from 'pptx-viewer-shared';
 /**
  * Overlay rendered during slide transitions in presentation mode.
  *
@@ -49,7 +50,7 @@ interface SlideLayerProps {
 function SlideLayer({ slide, templateElements, canvasSize }: SlideLayerProps): React.ReactElement {
 	const safeWidth = Math.max(canvasSize.width, 1);
 	const safeHeight = Math.max(canvasSize.height, 1);
-	const inheritedElements = slide.showMasterShapes === false ? [] : templateElements;
+	const inheritedElements = getVisibleTemplateElements(slide, templateElements);
 	const elements = [...inheritedElements, ...slide.elements];
 
 	return (

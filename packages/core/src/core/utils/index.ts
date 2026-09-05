@@ -31,6 +31,16 @@ export {
 export { createTemplateShapeRawXml, createTemplateConnectorRawXml } from './element-xml-builders';
 
 export {
+	BACKGROUND_PRESERVED_ARTWORK_NAME_PREFIX,
+	BACKGROUND_OVERRIDE_PLACEHOLDER_NAME_PREFIX,
+	createBackgroundPreservedArtwork,
+	createBackgroundOverridePlaceholder,
+	isBackgroundPreservedArtwork,
+	isBackgroundOverridePlaceholder,
+	isFullSlidePicturePlaceholder,
+} from './background-override-placeholder';
+
+export {
 	extractColorChoiceXml,
 	colorsEqual,
 	buildSrgbColorChoice,

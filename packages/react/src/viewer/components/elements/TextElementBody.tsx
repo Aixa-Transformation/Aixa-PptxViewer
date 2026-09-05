@@ -30,6 +30,26 @@ export function shouldRenderTextBody(
 }
 
 /**
+ * Some corporate templates put multi-sentence authoring directions inside a
+ * picture placeholder's custom prompt. PowerPoint treats that text as editing
+ * chrome, not slide content. Keep concise prompts such as "Click to add
+ * picture", but suppress verbose instructions so they do not cover the slide.
+ */
+export function shouldSuppressVerbosePicturePrompt(el: PptxElement): boolean {
+	if (!hasTextProperties(el) || !el.promptText || el.promptText.trim().length < 80) return false;
+	const raw = el.rawXml;
+	if (!raw || typeof raw !== 'object') return false;
+	const nonVisual = (raw['p:nvSpPr'] || raw['p:nvPicPr']) as
+		| Record<string, unknown>
+		| undefined;
+	const nvProperties = nonVisual?.['p:nvPr'] as Record<string, unknown> | undefined;
+	const placeholder = nvProperties?.['p:ph'] as Record<string, unknown> | undefined;
+	const placeholderType = String(placeholder?.['@_type'] ?? '').toLowerCase();
+	const customPrompt = String(placeholder?.['@_hasCustomPrompt'] ?? '').toLowerCase();
+	return placeholderType === 'pic' && (customPrompt === '1' || customPrompt === 'true');
+}
+
+/**
  * PowerPoint keeps chevron text inside the rectangular portion between the
  * rear notch and the arrow tip.  Rendering text over the full shape bounds
  * clips the first words against the notch and changes the authored wrapping.
@@ -137,12 +157,12 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 	// show/export, so passive/read-only rendering must do the same.
 	const textProperties = hasTextProperties(el) ? el : undefined;
 	const hasActualText = Boolean(textProperties?.text) || Boolean(textProperties?.textSegments?.length);
-	const shouldRenderText = shouldRenderTextBody(
-		isTxtEl,
-		hasActualText,
-		textProperties?.promptText,
-		isPresentationPassive,
-	);
+	const suppressVerbosePrompt = shouldSuppressVerbosePicturePrompt(el);
+	const visiblePromptText = suppressVerbosePrompt ? undefined : textProperties?.promptText;
+	const shouldRenderText =
+		hasActualText ||
+		(!suppressVerbosePrompt &&
+			shouldRenderTextBody(isTxtEl, hasActualText, visiblePromptText, isPresentationPassive));
 
 	// PowerPoint slide show/export omits placeholder prompt chrome. A layout can
 	// still use that same placeholder shape as visible artwork (for example a
@@ -156,7 +176,7 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 	// clickable area. The double outline reads against both dark and light
 	// backgrounds without depending on the theme colours.
 	const emptyPlaceholderStyle: React.CSSProperties | undefined =
-		!hasActualText && textProperties?.promptText && !isPresentationPassive
+		!hasActualText && visiblePromptText && !isPresentationPassive
 			? {
 					outline: '1px dashed rgba(127, 127, 127, 0.9)',
 					outlineOffset: '-1px',

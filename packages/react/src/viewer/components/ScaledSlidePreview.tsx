@@ -1,4 +1,5 @@
 import type { PptxElement, PptxSlide } from 'pptx-viewer-core';
+import { getVisibleTemplateElements } from 'pptx-viewer-shared';
 /**
  * ScaledSlidePreview: renders a slide at any size by scaling the native
  * canvas dimensions into a container-determined bounding box.
@@ -54,7 +55,7 @@ function ScaledSlidePreviewImpl({
 	const safeCanvasHeight = Math.max(canvasSize.height, 1);
 	const scale = containerWidth > 0 ? containerWidth / safeCanvasWidth : 0.2;
 	const previewHeight = Math.max(40, Math.round(safeCanvasHeight * scale));
-	const inheritedElements = slide.showMasterShapes === false ? [] : templateElements;
+	const inheritedElements = getVisibleTemplateElements(slide, templateElements);
 	const previewElements = [...inheritedElements, ...slide.elements].slice(0, 80);
 
 	return (

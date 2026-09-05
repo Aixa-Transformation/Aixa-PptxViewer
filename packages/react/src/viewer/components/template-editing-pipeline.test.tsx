@@ -219,6 +219,33 @@ describe('the template layer is gated by edit-template mode', () => {
 		expect(html).not.toContain('Click icon to add picture');
 		expect(html).toContain('background-color:#DDE3E7');
 	});
+
+	it('hides verbose custom picture-placeholder instructions in the editor', () => {
+		const instructions =
+			'To add a picture, please right click the image placeholder and bring it to front. ' +
+			'Then use Reset to send the picture to the background.';
+		const placeholder = makeElement({
+			id: 'layout-placeholder-shape-1',
+			text: '',
+			promptText: instructions,
+			shapeStyle: { fillColor: '#DDE3E7' },
+			rawXml: {
+				'p:nvSpPr': {
+					'p:nvPr': {
+						'p:ph': { '@_type': 'pic', '@_hasCustomPrompt': '1' },
+					},
+				},
+			},
+		});
+		const html = renderElement({
+			element: placeholder,
+			canInteract: true,
+			showPlaceholderChrome: true,
+		});
+
+		expect(html).not.toContain('To add a picture');
+		expect(html).toContain('background-color:#DDE3E7');
+	});
 });
 
 // ---------------------------------------------------------------------------

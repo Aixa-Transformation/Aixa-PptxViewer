@@ -45,7 +45,11 @@ export interface PropertyHandlersResult {
 	handleUpdateAllSlidesBackground: (
 		updates: Pick<
 			PptxSlide,
-			'backgroundColor' | 'backgroundImage' | 'backgroundGradient' | 'backgroundSource'
+			| 'backgroundColor'
+			| 'backgroundImage'
+			| 'backgroundGradient'
+			| 'backgroundSource'
+			| 'showMasterShapes'
 		>,
 	) => void;
 	handleUpdatePresentationProperties: (updates: Partial<PptxPresentationProperties>) => void;
@@ -102,7 +106,7 @@ export function usePropertyHandlers(input: UsePropertyHandlersInput): PropertyHa
 
 	const handleUpdateSlide = (updates: Partial<PptxSlide>) => {
 		ops.updateSlides((prev) =>
-			prev.map((s, i) => (i === activeSlideIndex ? { ...s, ...updates } : s)),
+			prev.map((s, i) => (i === activeSlideIndex ? { ...s, ...updates, isDirty: true } : s)),
 		);
 		history.markDirty();
 	};
@@ -110,10 +114,16 @@ export function usePropertyHandlers(input: UsePropertyHandlersInput): PropertyHa
 	const handleUpdateAllSlidesBackground = (
 		updates: Pick<
 			PptxSlide,
-			'backgroundColor' | 'backgroundImage' | 'backgroundGradient' | 'backgroundSource'
+			| 'backgroundColor'
+			| 'backgroundImage'
+			| 'backgroundGradient'
+			| 'backgroundSource'
+			| 'showMasterShapes'
 		>,
 	) => {
-		ops.updateSlides((prev) => prev.map((slide) => ({ ...slide, ...updates })));
+		ops.updateSlides((prev) =>
+			prev.map((slide) => ({ ...slide, ...updates, isDirty: true })),
+		);
 		history.markDirty();
 	};
 
