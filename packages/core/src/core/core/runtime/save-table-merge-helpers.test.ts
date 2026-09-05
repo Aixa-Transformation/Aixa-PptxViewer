@@ -4,6 +4,7 @@ import type { XmlObject } from '../../types';
 import {
 	serializeCellMergeAttributes,
 	serializeTablePropertyFlags,
+	DEFAULT_POWERPOINT_TABLE_STYLE_ID,
 	replaceFirstTextValueInTree,
 	buildChartPoints,
 } from './save-table-merge-helpers';
@@ -155,6 +156,18 @@ describe('serializeTablePropertyFlags', () => {
 		const tblPr = tbl['a:tblPr'] as XmlObject;
 		expect(tblPr['@_rtl']).toBe('1');
 		expect(tblPr['@_bandRow']).toBe('1');
+	});
+
+	it('normalizes a self-closing a:tblPr parsed as an empty string', () => {
+		const tbl: XmlObject = {
+			'a:tblPr': '',
+		};
+		serializeTablePropertyFlags(tbl, { bandedRows: true });
+		const tblPr = tbl['a:tblPr'] as XmlObject;
+		expect(tblPr).toMatchObject({
+			'@_bandRow': '1',
+			'a:tableStyleId': DEFAULT_POWERPOINT_TABLE_STYLE_ID,
+		});
 	});
 });
 

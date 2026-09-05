@@ -237,6 +237,12 @@ export interface IPptxHandlerRuntime {
 	 */
 	getTemplateElementsForSlide(slideId: string, layoutPath?: string): Promise<PptxElement[]>;
 	/**
+	 * Adopt the current editable state of inherited template elements as the
+	 * save baseline. Viewer bindings call this after attaching render-only Blob
+	 * URLs so lazy image hydration is not mistaken for a user template edit.
+	 */
+	refreshTemplateElementBaselines(elements: readonly PptxElement[]): void;
+	/**
 	 * Scan the loaded PPTX archive for all theme parts.
 	 */
 	getAvailableThemes(): Promise<Array<{ path: string; name?: string }>>;

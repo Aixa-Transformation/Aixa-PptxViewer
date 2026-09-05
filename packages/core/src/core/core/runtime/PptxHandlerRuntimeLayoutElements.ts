@@ -4,6 +4,7 @@ import { xmlAttr, xmlChild, xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeAuxiliaryMasterElements';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
 import { fingerprintTemplateElement } from './template-element-fingerprint';
+import { shouldRenderLayoutPlaceholderArtwork } from './layout-placeholder-artwork';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	protected async getLayoutElements(
@@ -119,12 +120,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 			for (const entry of childOrder) {
 				if (entry.tag === 'p:sp') {
-					// Skip placeholder shapes — they were already processed above
-					if (placeholderShapeIndices.has(entry.indexInType)) {
-						continue;
-					}
 					const shape = shapes[entry.indexInType];
 					if (!shape) {
+						continue;
+					}
+					const isPlaceholderArtwork = placeholderShapeIndices.has(entry.indexInType);
+					// Plain text placeholders are materialised as slide-owned editable
+					// boxes.  Keep only visual/picture placeholders in this passive
+					// inherited layer so logos and authored backing surfaces survive.
+					if (isPlaceholderArtwork && !shouldRenderLayoutPlaceholderArtwork(shape)) {
 						continue;
 					}
 
@@ -146,7 +150,33 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 					}
 
 					if (element) {
-						element.id = `layout-${element.id}`;
+						if (isPlaceholderArtwork) {
+							const textElement = element as PptxElement & {
+								text?: string;
+								textSegments?: unknown[];
+								promptText?: string;
+								placeholderType?: string;
+							};
+							const ph = xmlPath(shape, 'p:nvSpPr', 'p:nvPr', 'p:ph');
+							const placeholderType = String(xmlAttr(ph, 'type') ?? 'obj').toLowerCase();
+							const authoredPrompt = textElement.text?.trim();
+							if (element.type === 'shape' || element.type === 'text') {
+								textElement.promptText = authoredPrompt || textElement.promptText;
+								textElement.text = '';
+								textElement.textSegments = undefined;
+							}
+							textElement.placeholderType = placeholderType;
+							element.locks = {
+								...element.locks,
+								noSelect: true,
+								noMove: true,
+								noResize: true,
+								noTextEdit: true,
+							};
+							element.id = `layout-placeholder-${element.id}`;
+						} else {
+							element.id = `layout-${element.id}`;
+						}
 						elements.push(element);
 					}
 				} else if (entry.tag === 'p:pic') {

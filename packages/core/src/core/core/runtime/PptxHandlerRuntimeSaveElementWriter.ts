@@ -21,6 +21,10 @@ import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRunti
 import type { SaveSlideContext } from './PptxHandlerRuntimeSaveElementEmbedding';
 import { CHART_CONTENT_TYPE, CHART_RELATIONSHIP_TYPE } from './PptxHandlerRuntimeSaveShapeXml';
 import { fingerprintTemplateElement } from './template-element-fingerprint';
+import {
+	isEmptyGeneratedPlaceholder,
+	shouldPersistGeneratedPlaceholder,
+} from './transient-placeholder';
 
 export type { SaveSlideContext };
 
@@ -309,6 +313,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			}
 		}
 
+		// An explicit layout switch creates empty slide-owned placeholder
+		// bindings.  They must stay minimal: running the normal shape serializer
+		// would add transforms and formatting that override the layout and can
+		// make image-filled placeholders disappear in desktop PowerPoint.
+		if (shape && isEmptyGeneratedPlaceholder(el) && shouldPersistGeneratedPlaceholder(el)) {
+			collectors.shapes.push(shape);
+			return;
+		}
+
 		// Image embedding
 		if ((el.type === 'picture' || el.type === 'image') && typeof el.imageData === 'string') {
 			shape = this.processImageEmbedding(el as PptxImageLikeElement, shape, ctx) ?? shape;
@@ -329,14 +342,16 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				// previously bypassed.  Each save/reopen cycle therefore copied the
 				// same artwork onto the slide again, progressively distorting Strict
 				// decks when users navigated away and back.
-				if (this.isTemplateElementId(el.id) && templateElementChanged) {
-					const templateSpTree = this.getTemplateSpTree(ctx.slide.id, el.id);
-					if (templateSpTree) {
-						el.rawXml = this.ensureTemplateShapeAttached(templateSpTree, el.type, grpXml);
+				if (this.isTemplateElementId(el.id)) {
+					if (templateElementChanged) {
+						const templateSpTree = this.getTemplateSpTree(ctx.slide.id, el.id);
+						if (templateSpTree) {
+							el.rawXml = this.ensureTemplateShapeAttached(templateSpTree, el.type, grpXml);
+						}
 					}
-				} else {
-					collectors.groups.push(grpXml);
+					return;
 				}
+				collectors.groups.push(grpXml);
 			}
 			return;
 		}

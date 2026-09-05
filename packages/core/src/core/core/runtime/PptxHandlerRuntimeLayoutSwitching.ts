@@ -6,7 +6,13 @@ import { createShapeIdAllocator, elementShapeIds } from '../../utils/shape-ids';
 import { xmlPath } from '../../utils/xml-access';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeTextEditing';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
-import { isEmptyGeneratedPlaceholder, markGeneratedPlaceholder } from './transient-placeholder';
+import {
+	isEmptyGeneratedPlaceholder,
+	markGeneratedPlaceholder,
+	persistGeneratedPlaceholder,
+} from './transient-placeholder';
+import { isInheritedTemplateElementId } from './layout-switching-utils';
+import { shouldRenderLayoutPlaceholderArtwork } from './layout-placeholder-artwork';
 
 /**
  * Placeholder types that must not be rebuilt as empty text boxes. Lower-cased
@@ -99,6 +105,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		cxEmu: number;
 		cyEmu: number;
 		shapeXml: XmlObject;
+		isArtwork: boolean;
 	}> {
 		const spTree = xmlPath(layoutXml, 'p:sldLayout', 'p:cSld', 'p:spTree');
 		if (!spTree) {
@@ -112,6 +119,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			cxEmu: number;
 			cyEmu: number;
 			shapeXml: XmlObject;
+			isArtwork: boolean;
 		}> = [];
 
 		// Most layout placeholders are p:sp nodes, but imported and third-party
@@ -158,7 +166,15 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			const cxEmu = ext ? Number(ext['@_cx'] || 0) : 0;
 			const cyEmu = ext ? Number(ext['@_cy'] || 0) : 0;
 
-			result.push({ phInfo, xEmu, yEmu, cxEmu, cyEmu, shapeXml: resolvedShape });
+			result.push({
+				phInfo,
+				xEmu,
+				yEmu,
+				cxEmu,
+				cyEmu,
+				shapeXml: resolvedShape,
+				isArtwork: shouldRenderLayoutPlaceholderArtwork(shape),
+			});
 		}
 
 		return result;
@@ -272,12 +288,24 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			matched: boolean;
 		}> = [];
 		for (const lp of layoutPlaceholders) {
+			if (lp.isArtwork) {
+				continue;
+			}
 			targetPlaceholders.push({ ...lp, matched: false });
 		}
 
 		const resultElements: PptxElement[] = [];
 
 		for (const element of elements) {
+			// A loaded slide can expose inherited master/layout artwork alongside
+			// its own shapes for rendering. Layout switching must not clone or
+			// remap those elements: a clone loses the WeakMap baseline used by the
+			// save path and makes an untouched master appear edited. Re-serializing
+			// that master can also damage interleaved custom geometry.
+			if (isInheritedTemplateElementId(element.id)) {
+				resultElements.push(element);
+				continue;
+			}
 			const metadata = element as PptxElement & {
 				_layoutSwitchOriginal?: PptxElement;
 			};
@@ -367,6 +395,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		// Add empty placeholders from the new layout that were not matched
 		const allocateShapeId = createShapeIdAllocator(elementShapeIds(resultElements));
 		const generatedPlaceholders: PptxElement[] = [];
+		const generatedArtwork: PptxElement[] = [];
 		for (const lp of targetPlaceholders) {
 			if (lp.matched) {
 				continue;
@@ -387,14 +416,62 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				allocateShapeId(),
 			);
 			if (emptyElement) {
-				generatedPlaceholders.push(emptyElement);
+				generatedPlaceholders.push(this.prepareGeneratedLayoutBinding(emptyElement));
 			}
+		}
+		for (const lp of layoutPlaceholders) {
+			if (!lp.isArtwork) {
+				continue;
+			}
+			const element = this.createEmptyPlaceholderElement(
+				lp.phInfo,
+				lp.xEmu,
+				lp.yEmu,
+				lp.cxEmu,
+				lp.cyEmu,
+				newLayoutPath,
+				lp.shapeXml,
+				allocateShapeId(),
+			);
+			if (!element) {
+				continue;
+			}
+			element.id = `slide-layout-artwork-${lp.phInfo.type || 'content'}-${lp.phInfo.idx || '0'}-${Date.now()}`;
+			element.promptText = undefined;
+			element.locks = {
+				...(element.locks ?? {}),
+				noSelect: true,
+				noMove: true,
+				noResize: true,
+				noTextEdit: true,
+			};
+			generatedArtwork.push(this.prepareGeneratedLayoutBinding(element));
 		}
 
 		// Empty prompts sit behind the slide's own content: a layout's body or
 		// picture placeholder often spans the whole slide and would otherwise cover
 		// every real text box and swallow its clicks.
-		return [...generatedPlaceholders, ...resultElements];
+		return [...generatedArtwork, ...generatedPlaceholders, ...resultElements];
+	}
+
+	/**
+	 * Keep the slide-side placeholder as the minimal binding PowerPoint writes
+	 * when a layout is applied.  Explicit transforms and text styling override
+	 * the layout placeholder and can suppress image-filled artwork (the Swisscom
+	 * logo is one such body placeholder), so those properties must remain owned
+	 * by the layout part.
+	 */
+	private prepareGeneratedLayoutBinding(element: PptxElement): PptxElement {
+		const rawXml = element.rawXml;
+		const spPr = rawXml?.['p:spPr'] as XmlObject | undefined;
+		if (spPr) {
+			delete spPr['a:xfrm'];
+		}
+		const phInfo = this.getElementPlaceholderInfo(element);
+		if (phInfo?.type === 'pic' && rawXml) {
+			delete rawXml['p:txBody'];
+		}
+		return persistGeneratedPlaceholder(element);
 	}
 
 	private updateElementRawXmlPlaceholder(rawXml: XmlObject, phInfo: PlaceholderInfo): void {
@@ -668,6 +745,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		const generated: PptxElement[] = [];
 		const allocateShapeId = createShapeIdAllocator(elementShapeIds(slideElements));
 		for (const lp of this.extractLayoutPlaceholders(layoutXml, layoutPath)) {
+			// Visible placeholder artwork is rendered by the passive template
+			// layer. Only an explicit layout switch materializes its placeholder
+			// binding for native PowerPoint round-tripping.
+			if (lp.isArtwork) {
+				continue;
+			}
 			if (!this.shouldMaterializePlaceholder(lp.phInfo.type)) {
 				continue;
 			}

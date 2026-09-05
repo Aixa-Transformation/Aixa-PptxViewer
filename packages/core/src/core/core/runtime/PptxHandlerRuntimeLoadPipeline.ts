@@ -18,6 +18,7 @@ import { PptxLoadDataBuilder } from '../builders';
 import type { PptxHandlerLoadOptions } from '../types';
 import { PptxHandlerRuntime as PptxHandlerRuntimeBase } from './PptxHandlerRuntimeLoadSession';
 import { isEmptyGeneratedPlaceholder } from './transient-placeholder';
+import { fingerprintTemplateElement } from './template-element-fingerprint';
 
 export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 	protected async buildLoadData(
@@ -81,9 +82,13 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 						previewSlidePath,
 						new Map([['rIdLayoutPreview', `/${layout.path}`]]),
 					);
-					// A referenced slide may already have cached this layout without
-					// decoded media. Reparse it so gallery images are self-contained.
+					// A referenced slide may already have cached this layout and its
+					// master while media decoding was lazy. Reparse both so gallery
+					// previews are self-contained. The master is deliberately rebuilt
+					// for every layout because its scheme colours are resolved through
+					// the active layout's clrMapOvr.
 					this.layoutCache.delete(layout.path);
+					this.masterCache.clear();
 					layout.elements = await this.getLayoutElements(previewSlidePath);
 					this.slideRelsMap.delete(previewSlidePath);
 					layout.backgroundColor ??= master.backgroundColor;
@@ -460,6 +465,22 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			return await this.getLayoutElements(slideId, layoutPath);
 		} finally {
 			this.eagerDecodeImages = previousEagerDecodeImages;
+		}
+	}
+
+	refreshTemplateElementBaselines(elements: readonly PptxElement[]): void {
+		const visit = (element: PptxElement): void => {
+			if (element.id.startsWith('layout-') || element.id.startsWith('master-')) {
+				this.templateElementBaselines.set(element, fingerprintTemplateElement(element));
+			}
+			if (element.type === 'group') {
+				for (const child of element.children ?? []) {
+					visit(child);
+				}
+			}
+		};
+		for (const element of elements) {
+			visit(element);
 		}
 	}
 

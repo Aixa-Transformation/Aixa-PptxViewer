@@ -103,7 +103,14 @@ export function serializeTablePropertyFlags(
 		rtl?: boolean;
 	},
 ): void {
-	const tblPr = ((tbl as XmlObject)['a:tblPr'] ?? {}) as XmlObject;
+	// fast-xml-parser represents a self-closing `<a:tblPr/>` as an empty
+	// string. Normalize that valid OOXML form before writing properties; trying
+	// to assign onto the string throws and can leave a partially serialized deck.
+	const existingTblPr = (tbl as XmlObject)['a:tblPr'];
+	const tblPr =
+		existingTblPr && typeof existingTblPr === 'object' && !Array.isArray(existingTblPr)
+			? (existingTblPr as XmlObject)
+			: {};
 	// Match PowerPoint's convention: only emit the attribute when the flag
 	// is true. All of these default to `false` per CT_TableProperties, so
 	// emitting `="0"` is behaviorally identical but adds noise and doesn't

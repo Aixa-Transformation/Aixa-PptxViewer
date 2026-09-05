@@ -55,6 +55,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 		showHoverBorder,
 		opacity,
 		templateEditing,
+		showPlaceholderChrome,
 		zIndex,
 		imageAltText,
 		showResizeHandles,
@@ -186,7 +187,9 @@ export const ElementRenderer: React.FC<ElementRendererProps> = React.memo(
 					? 'cursor-pointer'
 					: '';
 
-		const isPresentationPassive = !effectiveCanInteract;
+		const isLayoutPlaceholderArtwork = el.id.startsWith('layout-placeholder-');
+		const isPresentationPassive =
+			!effectiveCanInteract && !(showPlaceholderChrome && isLayoutPlaceholderArtwork);
 		const isFullscreenMedia =
 			el.type === 'media' && Boolean(el.fullScreen) && isPresentationPassive && isMediaPlaying;
 

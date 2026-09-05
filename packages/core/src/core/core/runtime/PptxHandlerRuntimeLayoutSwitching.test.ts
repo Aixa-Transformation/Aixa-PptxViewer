@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { PptxSlide, PptxLayoutOption, XmlObject, PptxElement } from '../../types';
 import { stripParentDirSegments } from '../../utils/strip-parent-dir-segments';
 import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
+import { isInheritedTemplateElementId } from './layout-switching-utils';
 
 // ── Extracted logic matching PptxHandlerRuntimeLoadPipeline ──────────
 
@@ -366,6 +367,14 @@ describe('layout switching logic (GAP-E4)', () => {
 				'slideLayouts/slideLayout1.xml',
 			);
 		});
+	});
+});
+
+describe('template identity during layout switching', () => {
+	it('recognizes inherited master and layout artwork', () => {
+		expect(isInheritedTemplateElementId('master-master-group-slideMaster1-0')).toBeTruthy();
+		expect(isInheritedTemplateElementId('layout-placeholder-layout-shape-slideLayout4-0')).toBeTruthy();
+		expect(isInheritedTemplateElementId('ppt/slides/slide1.xml-shape-0')).toBeFalsy();
 	});
 });
 

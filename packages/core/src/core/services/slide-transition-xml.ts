@@ -185,6 +185,141 @@ export function applyTransitionAttributes(node: XmlObject, transition: PptxSlide
 	}
 }
 
+/**
+ * Write a transition back to a slide root without breaking PowerPoint's
+ * `mc:AlternateContent` envelope for the Office 2010 `p14:dur` attribute.
+ *
+ * `dur` is not a valid unqualified attribute on `p:transition`. PowerPoint
+ * therefore stores precise durations in a Choice branch as `p14:dur` and a
+ * duration-free transition in the Fallback branch. Replacing that envelope
+ * with a direct `<p:transition dur="…">` leaves well-formed XML that both
+ * PowerPoint and the Open XML SDK reject as schema-invalid.
+ *
+ * Returns true when an existing transition envelope was handled. Callers can
+ * otherwise serialize a direct transition after removing `@_dur`.
+ */
+export function applyTransitionToExistingAlternateContent(
+	slideRoot: XmlObject,
+	transitionNode: XmlObject | undefined,
+): boolean {
+	const alternateContentKey = Object.keys(slideRoot).find(
+		(key) => !key.startsWith('@_') && localName(key) === 'AlternateContent',
+	);
+	if (!alternateContentKey) {
+		return false;
+	}
+
+	const original = slideRoot[alternateContentKey];
+	const envelopes = (Array.isArray(original) ? original : [original]).filter(isXmlObject);
+	const matchingIndexes = envelopes
+		.map((envelope, index) => (alternateContentContainsTransition(envelope) ? index : -1))
+		.filter((index) => index >= 0);
+	if (matchingIndexes.length === 0) {
+		return false;
+	}
+
+	delete slideRoot['p:transition'];
+	if (!transitionNode) {
+		const filtered = envelopes.filter((_, index) => !matchingIndexes.includes(index));
+		if (filtered.length === 0) {
+			delete slideRoot[alternateContentKey];
+		} else {
+			slideRoot[alternateContentKey] = Array.isArray(original) ? filtered : filtered[0];
+		}
+		return true;
+	}
+
+	for (const index of matchingIndexes) {
+		const envelope = envelopes[index];
+		const choices = childObjectsByLocalName(envelope, 'Choice');
+		for (const choice of choices) {
+			if (!objectContainsDirectTransition(choice)) {
+				continue;
+			}
+			const richTransition = cloneXmlObject(transitionNode);
+			const duration = richTransition['@_dur'];
+			delete richTransition['@_dur'];
+			if (duration !== undefined) {
+				richTransition['@_p14:dur'] = duration;
+			}
+			setDirectTransition(choice, richTransition);
+		}
+
+		const fallbacks = childObjectsByLocalName(envelope, 'Fallback');
+		for (const fallback of fallbacks) {
+			if (!objectContainsDirectTransition(fallback)) {
+				continue;
+			}
+			const fallbackTransition = cloneXmlObject(transitionNode);
+			delete fallbackTransition['@_dur'];
+			delete fallbackTransition['@_p14:dur'];
+			setDirectTransition(fallback, fallbackTransition);
+		}
+	}
+
+	slideRoot[alternateContentKey] = Array.isArray(original) ? envelopes : envelopes[0];
+	return true;
+}
+
+/** Remove the schema-invalid unqualified duration from a direct transition. */
+export function sanitizeDirectTransitionDuration(transitionNode: XmlObject): XmlObject {
+	const sanitized = cloneXmlObject(transitionNode);
+	delete sanitized['@_dur'];
+	delete sanitized['@_p14:dur'];
+	return sanitized;
+}
+
+function alternateContentContainsTransition(envelope: XmlObject): boolean {
+	return [...childObjectsByLocalName(envelope, 'Choice'), ...childObjectsByLocalName(envelope, 'Fallback')]
+		.some(objectContainsDirectTransition);
+}
+
+function childObjectsByLocalName(node: XmlObject, expectedName: string): XmlObject[] {
+	const value = Object.entries(node).find(
+		([key]) => !key.startsWith('@_') && localName(key) === expectedName,
+	)?.[1];
+	return (Array.isArray(value) ? value : [value]).filter(isXmlObject);
+}
+
+function objectContainsDirectTransition(node: XmlObject): boolean {
+	return Object.keys(node).some(
+		(key) => !key.startsWith('@_') && localName(key) === 'transition',
+	);
+}
+
+function setDirectTransition(node: XmlObject, transition: XmlObject): void {
+	const key = Object.keys(node).find(
+		(candidate) => !candidate.startsWith('@_') && localName(candidate) === 'transition',
+	);
+	node[key ?? 'p:transition'] = transition;
+}
+
+function cloneXmlObject(value: XmlObject): XmlObject {
+	if (Array.isArray(value)) {
+		return value.map((entry) =>
+			isXmlObject(entry) ? cloneXmlObject(entry) : entry,
+		) as unknown as XmlObject;
+	}
+	const clone: XmlObject = {};
+	for (const [key, entry] of Object.entries(value)) {
+		if (Array.isArray(entry)) {
+			clone[key] = entry.map((item) => (isXmlObject(item) ? cloneXmlObject(item) : item));
+		} else {
+			clone[key] = isXmlObject(entry) ? cloneXmlObject(entry) : entry;
+		}
+	}
+	return clone;
+}
+
+function isXmlObject(value: unknown): value is XmlObject {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function localName(key: string): string {
+	const separator = key.indexOf(':');
+	return separator >= 0 ? key.slice(separator + 1) : key;
+}
+
 export function buildTransitionSound(
 	transition: PptxSlideTransition,
 	localName: (key: string) => string,

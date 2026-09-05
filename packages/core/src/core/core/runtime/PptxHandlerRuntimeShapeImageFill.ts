@@ -83,6 +83,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			const blip = xmlChild(blipFill, 'a:blip');
 			const rEmbed = xmlAttr(blip, 'r:embed');
 			const rLink = xmlAttr(blip, 'r:link');
+			const svgRelId = this.extractSvgBlipRelId(blip);
 			const crop = this.readImageCropFromBlipFill(blipFill);
 
 			// Image tiling properties from a:tile
@@ -125,6 +126,17 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 			let imageData: string | undefined;
 			let imagePath: string | undefined;
+			let svgData: string | undefined;
+			let svgPath: string | undefined;
+			if (svgRelId) {
+				const svgTarget = this.slideRelsMap.get(slidePath)?.get(svgRelId);
+				if (svgTarget) {
+					svgPath = this.resolveImagePath(slidePath, svgTarget);
+					if (this.eagerDecodeImages && svgPath) {
+						svgData = await this.getImageData(svgPath);
+					}
+				}
+			}
 
 			const relId = rEmbed || rLink;
 			if (relId) {
@@ -169,6 +181,8 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				height,
 				imageData,
 				imagePath,
+				svgData,
+				svgPath,
 				...crop,
 				...tileProps,
 				shapeType,

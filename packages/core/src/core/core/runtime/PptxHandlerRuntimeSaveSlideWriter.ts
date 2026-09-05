@@ -6,6 +6,10 @@ import { applyActiveXControlsToSlide, SHAPE_TREE_ELEMENT_TAGS } from '../../util
 import { saveModernSlideComments } from '../../utils/modern-comment-package';
 import { saveSlideSynchronization } from '../../utils/slide-synchronization';
 import { buildClrMapOverrideXml } from '../../utils/theme-override-utils';
+import {
+	applyTransitionToExistingAlternateContent,
+	sanitizeDirectTransitionDuration,
+} from '../../services/slide-transition-xml';
 import { canonicalizePlaceholderTypes } from '../../utils/placeholder-validation';
 import { remapElementShapeIds, remapShapeIdReferences } from '../../utils/shape-ids';
 import { PptxSlideRelationshipRegistry, PptxShapeIdValidator } from '../builders';
@@ -19,7 +23,10 @@ import {
 	ensureMathNamespaceOnSlideRoot,
 	slideContainsMathElement,
 } from './table-structural-ops';
-import { isEmptyGeneratedPlaceholder } from './transient-placeholder';
+import {
+	isEmptyGeneratedPlaceholder,
+	shouldPersistGeneratedPlaceholder,
+} from './transient-placeholder';
 
 const shapeIdValidator = new PptxShapeIdValidator();
 
@@ -106,8 +113,11 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 		if (slide.transition !== undefined) {
 			const transitionNode = this.buildSlideTransitionXml(slide.transition);
-			if (transitionNode) {
-				slideNode['p:transition'] = transitionNode;
+			if (applyTransitionToExistingAlternateContent(slideNode, transitionNode)) {
+				// The transition remains inside its PowerPoint-authored
+				// mc:AlternateContent Choice/Fallback envelope.
+			} else if (transitionNode) {
+				slideNode['p:transition'] = sanitizeDirectTransitionDuration(transitionNode);
 			} else {
 				delete slideNode['p:transition'];
 			}
@@ -288,7 +298,7 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			// Placeholders the loader materialised from the layout are editor
 			// affordances; writing the untouched ones back would add empty shapes
 			// the source deck never had.
-			if (isEmptyGeneratedPlaceholder(el)) {
+			if (isEmptyGeneratedPlaceholder(el) && !shouldPersistGeneratedPlaceholder(el)) {
 				return;
 			}
 			this.processSlideElement(el, collectors, ctx);

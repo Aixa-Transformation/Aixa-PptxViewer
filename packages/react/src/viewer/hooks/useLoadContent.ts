@@ -255,47 +255,21 @@ export function useLoadContent({
 							}
 						}),
 					);
-					// Build a per-element-id patch map (id → { field: url, ... })
-					// outside the transform loop so we don't repeat lookups.
-					const elementPatches = new Map<string, Record<string, string>>();
+					// Hydrate the parsed element objects in place before they enter React
+					// state. Inherited template elements are tracked by object identity in
+					// the core save pipeline; cloning them here loses that baseline and an
+					// untouched save rewrites master/layout pictures with rounded geometry.
+					// These are render-only URL fields, so pre-state mutation is safe.
 					for (const ref of imageRefs) {
 						const url = resolvedMap.get(ref.path);
 						if (!url) {
 							continue;
 						}
-						const id = ref.element.id;
-						const existing = elementPatches.get(id) ?? {};
-						existing[ref.field] = url;
-						elementPatches.set(id, existing);
+						(ref.element as unknown as Record<string, unknown>)[ref.field] = url;
 					}
-
-					if (elementPatches.size > 0) {
-						const patchElements = (elements: PptxElement[]): PptxElement[] => {
-							let mutated = false;
-							const next = elements.map((el) => {
-								let updated = el;
-								const patch = elementPatches.get(el.id);
-								if (patch) {
-									updated = { ...el, ...patch } as PptxElement;
-								}
-								if (updated.type === 'group' && updated.children?.length) {
-									const newChildren = patchElements(updated.children);
-									if (newChildren !== updated.children) {
-										updated = { ...updated, children: newChildren };
-									}
-								}
-								if (updated !== el) {
-									mutated = true;
-								}
-								return updated;
-							});
-							return mutated ? next : elements;
-						};
-						nextSlides = parsed.slides.map((s) => {
-							const newElements = patchElements(s.elements);
-							return newElements === s.elements ? s : { ...s, elements: newElements };
-						});
-					}
+					handler.refreshTemplateElementBaselines(
+						parsed.slides.flatMap((slide) => slide.elements),
+					);
 				}
 
 				handlerRef.current = handler;

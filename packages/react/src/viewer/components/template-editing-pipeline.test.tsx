@@ -182,6 +182,43 @@ describe('the template layer is gated by edit-template mode', () => {
 		expect(containerClass(html)).not.toContain('pointer-events-none');
 		expect(html).toContain(AMBER_AFFORDANCE);
 	});
+
+	it('shows picture-placeholder chrome without allowing it to intercept editing', () => {
+		const placeholder = makeElement({
+			id: 'layout-placeholder-shape-1',
+			text: '',
+			promptText: 'Click icon to add picture',
+			shapeStyle: { fillColor: '#DDE3E7' },
+			locks: { noSelect: true, noMove: true, noResize: true, noTextEdit: true },
+		});
+		const html = renderElement({
+			element: placeholder,
+			canInteract: true,
+			showPlaceholderChrome: true,
+		});
+
+		expect(containerClass(html)).toContain('pointer-events-none');
+		expect(html).toContain('Click icon to add picture');
+		expect(html).toContain('background-color:#DDE3E7');
+	});
+
+	it('hides placeholder prompt chrome on passive surfaces but keeps its painted backing', () => {
+		const placeholder = makeElement({
+			id: 'layout-placeholder-shape-1',
+			text: '',
+			promptText: 'Click icon to add picture',
+			shapeStyle: { fillColor: '#DDE3E7' },
+			locks: { noSelect: true },
+		});
+		const html = renderElement({
+			element: placeholder,
+			canInteract: false,
+			showPlaceholderChrome: false,
+		});
+
+		expect(html).not.toContain('Click icon to add picture');
+		expect(html).toContain('background-color:#DDE3E7');
+	});
 });
 
 // ---------------------------------------------------------------------------

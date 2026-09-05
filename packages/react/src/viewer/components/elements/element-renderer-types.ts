@@ -43,6 +43,11 @@ export interface ElementRendererProps {
 	 * elements while edit-template mode is on; never for normal slide elements.
 	 */
 	templateEditing?: boolean;
+	/**
+	 * Show an inherited picture-placeholder prompt/outline on the editable
+	 * canvas while keeping the element itself pointer-passive.
+	 */
+	showPlaceholderChrome?: boolean;
 	/** Explicit z-index for document-order stacking (painter's algorithm). */
 	zIndex?: number;
 	imageAltText: string;

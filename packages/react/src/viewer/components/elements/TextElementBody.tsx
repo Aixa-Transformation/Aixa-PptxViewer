@@ -144,9 +144,13 @@ export function renderTextElementBody(options: RenderBodyOptions): React.ReactNo
 		isPresentationPassive,
 	);
 
-	// PowerPoint slide show/export omits an empty placeholder completely,
-	// including any placeholder fill or outline inherited from the layout.
-	if (!shouldRenderText) return null;
+	// PowerPoint slide show/export omits placeholder prompt chrome. A layout can
+	// still use that same placeholder shape as visible artwork (for example a
+	// full-slide solid picture backing), so retain its vector fill while hiding
+	// the prompt outside the editable canvas.
+	if (!shouldRenderText) {
+		return el.id.startsWith('layout-placeholder-') ? <>{vecShape}</> : null;
+	}
 
 	// An empty placeholder has nothing but faint prompt text, so mark out its
 	// clickable area. The double outline reads against both dark and light

@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import type { PptxSlideTransition, XmlObject } from '../types';
 import { PptxSlideTransitionService } from './PptxSlideTransitionService';
 import { PptxXmlLookupService } from './PptxXmlLookupService';
+import {
+	applyTransitionToExistingAlternateContent,
+	sanitizeDirectTransitionDuration,
+} from './slide-transition-xml';
 
 function localName(key: string): string {
 	const clean = key.startsWith('@_') ? key.slice(2) : key;
@@ -122,5 +126,70 @@ describe('slide transition conformance', () => {
 		expect((xml?.['p:wheel'] as XmlObject | undefined)?.['@_spokes']).toBeUndefined();
 		expect(xml?.['@_advTm']).toBeUndefined();
 		expect(xml?.['@_dur']).toBeUndefined();
+	});
+
+	it('updates an existing p14 duration envelope without adding an invalid direct transition', () => {
+		const slideRoot: XmlObject = {
+			'p:cSld': {},
+			'mc:AlternateContent': {
+				'@_xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+				'@_xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main',
+				'mc:Choice': {
+					'@_Requires': 'p14',
+					'p:transition': { '@_spd': 'med', '@_p14:dur': '700', 'p:fade': {} },
+				},
+				'mc:Fallback': {
+					'@_xmlns': '',
+					'p:transition': { '@_spd': 'med', 'p:fade': {} },
+				},
+			},
+		};
+		const rebuilt = service().buildSlideTransitionXml({
+			type: 'wipe',
+			speed: 'fast',
+			durationMs: 900,
+			direction: 'r',
+		});
+
+		expect(applyTransitionToExistingAlternateContent(slideRoot, rebuilt)).toBeTruthy();
+		expect(slideRoot['p:transition']).toBeUndefined();
+		const envelope = slideRoot['mc:AlternateContent'] as XmlObject;
+		const choice = envelope['mc:Choice'] as XmlObject;
+		const fallback = envelope['mc:Fallback'] as XmlObject;
+		expect(choice['p:transition']).toMatchObject({
+			'@_spd': 'fast',
+			'@_p14:dur': '900',
+			'p:wipe': { '@_dir': 'r' },
+		});
+		expect((choice['p:transition'] as XmlObject)['@_dur']).toBeUndefined();
+		expect(fallback['p:transition']).toMatchObject({
+			'@_spd': 'fast',
+			'p:wipe': { '@_dir': 'r' },
+		});
+		expect((fallback['p:transition'] as XmlObject)['@_dur']).toBeUndefined();
+		expect((fallback['p:transition'] as XmlObject)['@_p14:dur']).toBeUndefined();
+	});
+
+	it('removes only the transition envelope when transition is cleared', () => {
+		const slideRoot: XmlObject = {
+			'mc:AlternateContent': [
+				{ 'mc:Choice': { 'p:transition': { 'p:fade': {} } } },
+				{ 'mc:Choice': { 'p:graphicFrame': {} } },
+			],
+		};
+		expect(applyTransitionToExistingAlternateContent(slideRoot, undefined)).toBeTruthy();
+		expect(slideRoot['mc:AlternateContent']).toStrictEqual([
+			{ 'mc:Choice': { 'p:graphicFrame': {} } },
+		]);
+	});
+
+	it('removes unqualified duration from a direct transition node', () => {
+		expect(
+			sanitizeDirectTransitionDuration({
+				'@_dur': '700',
+				'@_spd': 'med',
+				'p:fade': {},
+			}),
+		).toStrictEqual({ '@_spd': 'med', 'p:fade': {} });
 	});
 });

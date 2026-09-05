@@ -556,6 +556,17 @@ export class PptxHandlerCore {
 	}
 
 	/**
+	 * Refresh the unchanged-state baseline for inherited master/layout elements.
+	 *
+	 * Browser bindings use this after resolving archive image paths to Blob URLs.
+	 * It prevents render-only hydration from rewriting untouched template parts,
+	 * while later user edits are still detected against the refreshed state.
+	 */
+	public refreshTemplateElementBaselines(elements: readonly PptxElement[]): void {
+		this.runtime.refreshTemplateElementBaselines(elements);
+	}
+
+	/**
 	 * Apply a different layout to an existing slide.
 	 *
 	 * Updates the slide's relationship to point to the new layout and

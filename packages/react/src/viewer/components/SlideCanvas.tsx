@@ -284,6 +284,7 @@ export function SlideCanvas({
 							selectionColorClass='blue-400'
 							showHoverBorder={false}
 							templateEditing={editTemplateMode}
+							showPlaceholderChrome={isEditableCanvas}
 							zIndex={index}
 							imageAltText='Template element'
 							showResizeHandles={

@@ -1,6 +1,6 @@
 {
 	"name": "@aixa-transformation/pptx-viewer",
-	"version": "2.0.78",
+	"version": "2.0.80",
 	"publishConfig": {
 		"access": "public"
 	},

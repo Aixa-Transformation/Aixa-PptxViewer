@@ -7,12 +7,32 @@ import type { PptxElement } from '../../types';
  */
 export interface GeneratedPlaceholderMeta {
 	_layoutSwitchGenerated?: boolean;
+	/**
+	 * PowerPoint creates slide-owned placeholder bindings when a layout is
+	 * explicitly applied.  Those bindings can be visually empty while still
+	 * being required for the layout's picture/fill artwork to render in the
+	 * desktop app, so the save writer must retain them.
+	 */
+	_layoutSwitchPersistOnSave?: boolean;
 }
 
 /** Mark an element as a layout-derived placeholder that carries no content yet. */
 export function markGeneratedPlaceholder(element: PptxElement): PptxElement {
 	(element as PptxElement & GeneratedPlaceholderMeta)._layoutSwitchGenerated = true;
 	return element;
+}
+
+/** Mark an explicitly applied layout placeholder as required in the PPTX. */
+export function persistGeneratedPlaceholder(element: PptxElement): PptxElement {
+	const metadata = element as PptxElement & GeneratedPlaceholderMeta;
+	metadata._layoutSwitchGenerated = true;
+	metadata._layoutSwitchPersistOnSave = true;
+	return element;
+}
+
+/** Whether an otherwise-empty generated placeholder must be written. */
+export function shouldPersistGeneratedPlaceholder(element: PptxElement): boolean {
+	return Boolean((element as PptxElement & GeneratedPlaceholderMeta)._layoutSwitchPersistOnSave);
 }
 
 /**
