@@ -9,6 +9,24 @@ import type { PlaceholderInfo } from './PptxHandlerRuntimeTypes';
 import { isEmptyGeneratedPlaceholder, markGeneratedPlaceholder } from './transient-placeholder';
 
 /**
+ * Placeholder types that must not be rebuilt as empty text boxes. Lower-cased
+ * to match `readPlaceholderInfoFromNvPr`, which normalises `@type`.
+ */
+const NON_TEXT_PLACEHOLDER_TYPES = new Set([
+	'dt',
+	'ftr',
+	'sldnum',
+	'hdr',
+	'pic',
+	'clipart',
+	'chart',
+	'tbl',
+	'dgm',
+	'media',
+	'sldimg',
+]);
+
+/**
  * Layout-switching helpers for the PptxHandlerRuntime mixin chain.
  *
  * Provides methods that map slide elements to a new layout's placeholders
@@ -348,15 +366,12 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 
 		// Add empty placeholders from the new layout that were not matched
 		const allocateShapeId = createShapeIdAllocator(elementShapeIds(resultElements));
+		const generatedPlaceholders: PptxElement[] = [];
 		for (const lp of targetPlaceholders) {
 			if (lp.matched) {
 				continue;
 			}
-			// Skip footers, date-time, and slide number placeholders -- they
-			// are rendered from the layout/master and don't need slide-level
-			// elements.
-			const skipTypes = new Set(['dt', 'ftr', 'sldnum', 'hdr']);
-			if (lp.phInfo.type && skipTypes.has(lp.phInfo.type)) {
+			if (!this.shouldMaterializePlaceholder(lp.phInfo.type)) {
 				continue;
 			}
 
@@ -372,11 +387,14 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				allocateShapeId(),
 			);
 			if (emptyElement) {
-				resultElements.push(emptyElement);
+				generatedPlaceholders.push(emptyElement);
 			}
 		}
 
-		return resultElements;
+		// Empty prompts sit behind the slide's own content: a layout's body or
+		// picture placeholder often spans the whole slide and would otherwise cover
+		// every real text box and swallow its clicks.
+		return [...generatedPlaceholders, ...resultElements];
 	}
 
 	private updateElementRawXmlPlaceholder(rawXml: XmlObject, phInfo: PlaceholderInfo): void {
@@ -477,6 +495,21 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 		return promptText.length > 0 ? promptText : undefined;
 	}
 
+	/**
+	 * Whether an unfilled layout placeholder should become a slide element.
+	 *
+	 * Only text-bearing types are materialised. Header/footer/date/slide-number
+	 * render from the layout itself, and picture/chart/table/diagram/media
+	 * placeholders would otherwise be fabricated as editable text boxes — a
+	 * full-bleed `pic` placeholder then covers the slide and steals every click.
+	 */
+	private shouldMaterializePlaceholder(type: string | undefined): boolean {
+		if (!type) {
+			return true;
+		}
+		return !NON_TEXT_PLACEHOLDER_TYPES.has(type);
+	}
+
 	private defaultPlaceholderPromptText(type: string | undefined): string {
 		switch (type) {
 			case 'title':
@@ -484,12 +517,6 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 				return 'Click to add title';
 			case 'subtitle':
 				return 'Click to add subtitle';
-			case 'pic':
-				return 'Click to add picture';
-			case 'chart':
-				return 'Click to add chart';
-			case 'tbl':
-				return 'Click to add table';
 			default:
 				return 'Click to add text';
 		}
@@ -638,11 +665,10 @@ export class PptxHandlerRuntime extends PptxHandlerRuntimeBase {
 			}
 		}
 
-		const skipTypes = new Set(['dt', 'ftr', 'sldnum', 'hdr']);
 		const generated: PptxElement[] = [];
 		const allocateShapeId = createShapeIdAllocator(elementShapeIds(slideElements));
 		for (const lp of this.extractLayoutPlaceholders(layoutXml, layoutPath)) {
-			if (lp.phInfo.type && skipTypes.has(lp.phInfo.type)) {
+			if (!this.shouldMaterializePlaceholder(lp.phInfo.type)) {
 				continue;
 			}
 			const key = this.buildPlaceholderMatchKey(lp.phInfo);
